@@ -85,6 +85,36 @@ de `security.md` §5. `parseJson` valida y normaliza. Ningún handler los salta.
 - Acciones que no son CRUD van como sub-recurso:
   `POST /api/sitios/comprobar`, `POST /api/enrich/batch`.
 
+### Peticiones salientes: `fetch`, nunca un comando de shell
+
+Toda petición HTTP que haga la aplicación se escribe con **`fetch` dentro del código**.
+Nunca se invoca `curl`, `wget` ni `Invoke-WebRequest` desde un script, un hook o una
+Server Action. Están denegados en `.claude/settings.json` a propósito: un binario de red
+arbitrario es la vía más corta para exfiltrar un secreto, y además no es desplegable —
+en Vercel no existe una shell.
+
+El caso concreto que más se presta a equivocarse es **«Comprobar espejos»** (§8 del
+encargo). No es un comando: es un Route Handler.
+
+```ts
+// POST /api/sitios/comprobar  — comprueba qué espejos siguen vivos
+const res = await fetch(mirror.url, {
+  method: "HEAD",
+  redirect: "manual",
+  signal: AbortSignal.timeout(5_000),
+  headers: { "user-agent": "AnimeVault/1.0 (comprobador de espejos)" },
+});
+// Caído => is_active = false. NUNCA se borra un espejo automáticamente.
+await tx.update(streamingMirror)
+  .set({ isActive: res.ok, lastCheckedAt: new Date() })
+  .where(eq(streamingMirror.id, mirror.id));
+```
+
+Reglas de esa comprobación: concurrencia limitada (los espejos suelen compartir CDN y
+caen a la vez), timeout corto, `redirect: "manual"` (un 302 a un interstitial no es un
+espejo vivo), y **rate limit por usuario** — es un endpoint que dispara peticiones a
+terceros, así que está en la tabla de `security.md` §5.
+
 | Método | Semántica |
 |---|---|
 | `GET` | lee. **Nunca** muta. Cacheable. |

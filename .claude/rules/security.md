@@ -157,6 +157,37 @@ Todo enlace externo que abre pestaña: `target="_blank" rel="noopener noreferrer
 - Rotación: si un secreto aparece en un log, en un commit o en una captura, se rota. No se
   «vigila».
 
+### La cadena de producción no vive en tu disco
+
+**Ésta es la protección real contra destrozar la base de producción, y no es la lista de
+permisos.** Una regla de `settings.json` solo controla lo que se puede *teclear*; no
+controla contra qué base apunta lo que se teclea. Si `DATABASE_URL` de producción está en
+tu `.env.local`, cualquier comando cotidiano —`db:push`, `db:migrate`, un script, un test
+de integración, un `drizzle-studio` abierto en la pestaña equivocada— apunta a producción
+sin avisar. Denegar `db:push` no arregla eso: solo desplaza el accidente al siguiente
+comando de la lista.
+
+Por eso:
+
+| Entorno | Dónde vive `DATABASE_URL` | Apunta a |
+|---|---|---|
+| Local | `.env.local` (en `.gitignore`) | un **branch de desarrollo de Neon**, desechable |
+| Test / CI | secreto del workflow | un **branch de test de Neon**, se recrea en cada ejecución |
+| Preview | variables de Vercel, entorno *Preview* | branch de preview |
+| **Producción** | **solo** variables de Vercel, entorno *Production* | la base real |
+
+**La cadena de producción no se copia jamás a un fichero del disco.** Ni a `.env.local`, ni
+a `.env.production`, ni pegada «un momento para probar algo». Si hace falta operar contra
+producción, se hace desde el panel de Neon o pasando la variable en línea y solo para ese
+comando, nunca exportándola a la sesión.
+
+Neon regala el mecanismo que hace esto cómodo: los **branches** son copias instantáneas de
+producción. Probar una migración de riesgo se hace contra un branch, no contra la base real.
+
+Corolario para `db:push`: está en `ask`, no en `deny`, porque **es la forma normal de iterar
+el esquema en local** durante el desarrollo (FASE 1). Lo que lo hace seguro no es que
+alguien lo bloquee, es que la única cadena que tienes a mano apunta a una base desechable.
+
 ## 8. Validación
 
 - **Todo** input externo pasa por un esquema Zod antes de tocar la lógica: body, query,

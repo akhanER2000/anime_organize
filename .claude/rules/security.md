@@ -240,8 +240,35 @@ permite diagnosticar un ataque mirando la tabla.
 - **Falla cerrado.** Si la base no responde, se deniega. No es una decisión dura: el login
   necesita la base para verificar la contraseña, así que si está caída no hay login que
   permitir.
-- **La IP sale de la PRIMERA entrada de `x-forwarded-for`**, no de la última. La primera es
-  el cliente; las siguientes son proxies. Limitar al proxy es limitar a todo el mundo a la vez.
+### La IP del cliente · una suposición que hay que revisar si se cambia de hosting
+
+**Una cabecera la escribe quien envía la petición.** Si nadie la sanea, cualquiera manda su
+propia `X-Forwarded-For: 1.2.3.4` y se salta el límite por IP entero, cambiando el valor en
+cada intento.
+
+Quedarse con la **primera** entrada de `X-Forwarded-For` es, en el caso general, la opción
+**falsificable**: en una cadena real de proxies el cliente puede anteponer lo que quiera y
+los proxies solo van añadiendo detrás.
+
+Aquí es aceptable **únicamente porque Vercel reescribe la cabecera** y no reenvía valores
+externos, justamente para impedir el spoofing: cuando la petición llega a la función,
+`X-Forwarded-For` trae un solo valor y lo puso la plataforma. Primera y última son la misma.
+
+Orden de preferencia que implementa `src/lib/rate-limit/claves.ts`:
+
+| Orden | Cabecera | Por qué |
+|---|---|---|
+| 1 | `x-vercel-forwarded-for` | La pone Vercel y **no se sobrescribe** aunque el usuario coloque otro proxy por delante. La más fiable. |
+| 2 | `x-real-ip` | También la pone la plataforma. |
+| 3 | `x-forwarded-for` (primera entrada) | **Solo respaldo de desarrollo local.** Falsificable fuera de Vercel. |
+
+> **AVISO PARA EL FUTURO.** Esa suposición es **de Vercel, no nuestra**. Si esto se despliega
+> en otro sitio —un contenedor detrás de nginx, un balanceador propio, Cloudflare delante—
+> **deja de valer y hay que revisar `ipDelCliente`**. En esos entornos la IP de fiar es la que
+> añade el proxy de confianza más cercano (habitualmente la **última** entrada, o la penúltima
+> según cuántos saltos controles), nunca la primera. Cambiar de hosting sin revisar esto deja
+> el límite por IP desactivado de facto, y en silencio.
+
 - **Sin cabecera de IP, la clave por IP no se aplica** (se devuelve `null`). No se inventa un
   cubo «desconocido» compartido: todos los clientes sin cabecera se bloquearían entre sí.
 - `RATE_LIMIT_ENABLED` existe **solo** para los tests de integración y viene **activado por

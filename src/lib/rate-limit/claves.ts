@@ -41,25 +41,61 @@ export function clavePorUsuario(accion: string, userId: string): string {
 }
 
 /**
- * IP del cliente detrás del proxy de Vercel.
+ * IP del cliente.
  *
- * CUIDADO: `x-forwarded-for` lo puede falsificar el cliente si nada lo
- * sobrescribe. Detrás de Vercel, la plataforma reescribe la cabecera y el
- * PRIMER valor es la IP real del cliente; los siguientes son la cadena de
- * proxies. Tomar el último sería tomar el proxy, y limitar al proxy es limitar
- * a todo el mundo a la vez.
+ * ══════════════════════════════════════════════════════════════════════════
+ * LO IMPORTANTE: **una cabecera la escribe quien envía la petición.** Si nadie
+ * la sanea, cualquiera manda su propia `X-Forwarded-For: 1.2.3.4` y se salta el
+ * límite por IP entero, cambiando el valor en cada intento.
  *
- * Si no hay cabecera, se devuelve `null` y quien llama decide. No se inventa un
- * "desconocido" compartido: todos los clientes sin cabecera caerían en el mismo
- * cubo y se bloquearían entre sí.
+ * Quedarse con la PRIMERA entrada de `X-Forwarded-For` es, en el caso general,
+ * la opción **falsificable**: en una cadena real de proxies el cliente puede
+ * anteponer lo que quiera y los proxies solo van añadiendo detrás.
+ *
+ * Aquí es aceptable **únicamente porque Vercel reescribe la cabecera** y no
+ * reenvía valores externos, justamente para impedir el spoofing: cuando la
+ * petición llega a la función, `X-Forwarded-For` tiene un solo valor y ese valor
+ * lo puso la plataforma. Primera y última son la misma.
+ *
+ * ESA SUPOSICIÓN ES DE VERCEL, NO NUESTRA. Si esto se despliega en otro sitio
+ * —un contenedor detrás de nginx, un balanceador propio, Cloudflare delante—
+ * hay que revisar esta función: en esos entornos la IP de fiar es la que añade
+ * el proxy de confianza más cercano (habitualmente la ÚLTIMA entrada, o la
+ * penúltima según cuántos saltos controles), nunca la primera.
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * Orden de preferencia:
+ *
+ *  1. `x-vercel-forwarded-for` — la pone Vercel y **no se sobrescribe** aunque
+ *     el usuario coloque otro proxy por delante. Es la más fiable de las tres.
+ *  2. `x-real-ip` — también la pone la plataforma.
+ *  3. `x-forwarded-for`, primera entrada — **solo como respaldo de desarrollo
+ *     local**. Se documenta como falsificable a propósito.
+ *
+ * Sin ninguna cabecera se devuelve `null` y quien llama decide. No se inventa un
+ * cubo "desconocido" compartido: todos los clientes sin cabecera caerían en el
+ * mismo y se bloquearían entre sí.
  */
 export function ipDelCliente(cabeceras: Headers): string | null {
-  const directa = cabeceras.get("x-real-ip")?.trim();
-  if (directa !== undefined && directa.length > 0) return directa;
+  // 1. La que pone Vercel y nadie puede pisar.
+  const vercel = cabeceras.get("x-vercel-forwarded-for")?.trim();
+  if (vercel !== undefined && vercel.length > 0) {
+    return primeraEntrada(vercel);
+  }
 
+  // 2. También la pone la plataforma.
+  const real = cabeceras.get("x-real-ip")?.trim();
+  if (real !== undefined && real.length > 0) return real;
+
+  // 3. Respaldo para desarrollo local. FALSIFICABLE fuera de Vercel: ver la
+  //    nota de arriba antes de desplegar en otro sitio.
   const reenviada = cabeceras.get("x-forwarded-for");
   if (reenviada === null) return null;
 
-  const primera = reenviada.split(",")[0]?.trim();
+  return primeraEntrada(reenviada);
+}
+
+function primeraEntrada(valor: string): string | null {
+  const primera = valor.split(",")[0]?.trim();
   return primera !== undefined && primera.length > 0 ? primera : null;
 }

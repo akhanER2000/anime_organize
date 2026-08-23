@@ -245,16 +245,40 @@ describe("claves · el email no se guarda en claro", () => {
   });
 });
 
-describe("ipDelCliente", () => {
-  it("prefiere x-real-ip", () => {
+describe("ipDelCliente · orden de preferencia por fiabilidad", () => {
+  it("x-vercel-forwarded-for gana sobre todas", () => {
+    // Es la única que Vercel NO deja sobrescribir aunque el usuario ponga otro
+    // proxy por delante.
+    const h = new Headers({
+      "x-vercel-forwarded-for": "203.0.113.7",
+      "x-real-ip": "10.0.0.1",
+      "x-forwarded-for": "1.2.3.4",
+    });
+
+    expect(ipDelCliente(h)).toBe("203.0.113.7");
+  });
+
+  it("x-real-ip gana sobre x-forwarded-for", () => {
     const h = new Headers({ "x-real-ip": "203.0.113.7", "x-forwarded-for": "1.2.3.4" });
     expect(ipDelCliente(h)).toBe("203.0.113.7");
   });
 
-  it("toma la PRIMERA de x-forwarded-for, no la última", () => {
-    // La primera es el cliente; las siguientes son proxies. Limitar al proxy
-    // sería limitar a todo el mundo a la vez.
+  it("x-forwarded-for es el último recurso", () => {
+    expect(ipDelCliente(new Headers({ "x-forwarded-for": "203.0.113.7" }))).toBe("203.0.113.7");
+  });
+
+  it("de x-forwarded-for toma la primera entrada", () => {
+    // OJO CON EL PORQUÉ: no es que la primera sea "la buena" en general —en una
+    // cadena real de proxies la primera es justo la que el cliente puede
+    // falsificar—. Es aceptable aquí SOLO porque Vercel reescribe la cabecera y
+    // no reenvía valores externos, así que llega con un único valor.
+    // Fuera de Vercel hay que revisar esta función.
     const h = new Headers({ "x-forwarded-for": "203.0.113.7, 70.41.3.18, 150.172.238.178" });
+    expect(ipDelCliente(h)).toBe("203.0.113.7");
+  });
+
+  it("x-vercel-forwarded-for con varias entradas también toma la primera", () => {
+    const h = new Headers({ "x-vercel-forwarded-for": "203.0.113.7, 70.41.3.18" });
     expect(ipDelCliente(h)).toBe("203.0.113.7");
   });
 
@@ -264,7 +288,16 @@ describe("ipDelCliente", () => {
     expect(ipDelCliente(new Headers())).toBeNull();
   });
 
-  it("una cabecera vacía también es null", () => {
-    expect(ipDelCliente(new Headers({ "x-forwarded-for": "   " }))).toBeNull();
+  it.each([
+    ["x-vercel-forwarded-for", "   "],
+    ["x-real-ip", "   "],
+    ["x-forwarded-for", "   "],
+  ])("una %s vacía no cuenta como IP", (cabecera, valor) => {
+    expect(ipDelCliente(new Headers({ [cabecera]: valor }))).toBeNull();
+  });
+
+  it("si la de Vercel viene vacía, se cae a la siguiente", () => {
+    const h = new Headers({ "x-vercel-forwarded-for": "  ", "x-real-ip": "203.0.113.7" });
+    expect(ipDelCliente(h)).toBe("203.0.113.7");
   });
 });

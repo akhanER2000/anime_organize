@@ -119,7 +119,10 @@ describe("enviarEmail · un fallo de correo no tumba el flujo", () => {
     process.env.RESEND_API_KEY = "re_secreto_que_no_debe_salir";
     process.env.EMAIL_FROM = "vault@ejemplo.test";
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401, json: () => Promise.resolve({}) }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 401, json: () => Promise.resolve({}) }),
+    );
 
     const { enviarEmail, reiniciarDriverEmail } = await import("./index");
     reiniciarDriverEmail();

@@ -1,6 +1,11 @@
 import "server-only";
 
-import { clasificarEstadoHttp, type DriverEmail, type MensajeEmail, type ResultadoEnvio } from "./tipos";
+import {
+  clasificarEstadoHttp,
+  type DriverEmail,
+  type MensajeEmail,
+  type ResultadoEnvio,
+} from "./tipos";
 
 /**
  * Driver de Resend, sobre su API HTTP.

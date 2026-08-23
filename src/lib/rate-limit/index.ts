@@ -6,7 +6,14 @@ import { rateLimitActivo } from "@/lib/config/entorno";
 import { db } from "@/lib/db";
 import { rateLimitBucket } from "@/lib/db/schema";
 
-import { LIMITES, evaluar, inicioVentana, ventanaAnterior, type NombreLimite, type Veredicto } from "./politica";
+import {
+  LIMITES,
+  evaluar,
+  inicioVentana,
+  ventanaAnterior,
+  type NombreLimite,
+  type Veredicto,
+} from "./politica";
 
 export { clavePorEmail, clavePorIp, clavePorUsuario, ipDelCliente } from "./claves";
 export { LIMITES, type NombreLimite, type Veredicto } from "./politica";

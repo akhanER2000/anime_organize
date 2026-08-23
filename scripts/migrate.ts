@@ -52,9 +52,9 @@ async function comprobarExtensiones(pool: Pool): Promise<void> {
 }
 
 async function principal(): Promise<void> {
-  const journal = JSON.parse(
-    readFileSync(`${carpeta}/meta/_journal.json`, "utf-8"),
-  ) as { entries: { tag: string }[] };
+  const journal = JSON.parse(readFileSync(`${carpeta}/meta/_journal.json`, "utf-8")) as {
+    entries: { tag: string }[];
+  };
 
   console.log(`\nMigraciones en el repositorio (${journal.entries.length}):`);
   for (const e of journal.entries) console.log(`  · ${e.tag}`);

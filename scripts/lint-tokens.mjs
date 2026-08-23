@@ -126,9 +126,7 @@ if (hallazgos.length === 0) {
   process.exit(0);
 }
 
-console.error(
-  `\nlint:tokens — ${hallazgos.length} color(es) literal(es) fuera de ${PERMITIDO}:\n`,
-);
+console.error(`\nlint:tokens — ${hallazgos.length} color(es) literal(es) fuera de ${PERMITIDO}:\n`);
 
 for (const h of hallazgos) {
   console.error(`  ${h.fichero}:${h.linea}  [${h.tipo}: ${h.valores}]`);

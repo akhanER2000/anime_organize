@@ -13,11 +13,23 @@ describe("normalizarTitulo · limpieza básica", () => {
     ["quita acentos", "Kimi nó Ná wa", "kimi no na wa"],
     ["quita la ñ acentuada sin romper la palabra", "Añoranza", "anoranza"],
     ["colapsa ancho completo japonés", "ＫＩＭＩ　ＮＯ　ＮＡ　ＷＡ", "kimi no na wa"],
-    ["convierte la puntuación en espacio", "Chuunibyou demo Koi ga Shitai!", "chuunibyou demo koi ga shitai"],
-    ["trata los dos puntos como separador", "Chi.: Chikyuu no Undou ni Tsuite", "chi chikyuu no undou ni tsuite"],
+    [
+      "convierte la puntuación en espacio",
+      "Chuunibyou demo Koi ga Shitai!",
+      "chuunibyou demo koi ga shitai",
+    ],
+    [
+      "trata los dos puntos como separador",
+      "Chi.: Chikyuu no Undou ni Tsuite",
+      "chi chikyuu no undou ni tsuite",
+    ],
     ["trata el apóstrofo como separador", "Dante's Inferno", "dante s inferno"],
     ["trata la barra como separador", "Fate/Zero", "fate zero"],
-    ["conserva el punto final sin dejar residuo", "Itsudatte Bokura no Koi wa 10 cm Datta.", "itsudatte bokura no koi wa 10 cm datta"],
+    [
+      "conserva el punto final sin dejar residuo",
+      "Itsudatte Bokura no Koi wa 10 cm Datta.",
+      "itsudatte bokura no koi wa 10 cm datta",
+    ],
     ["conserva la tilde de la ñ del español", "Mañana", "manana"],
   ])("%s", (_caso, entrada, esperado) => {
     expect(normalizarTitulo(entrada)).toBe(esperado);
@@ -63,8 +75,12 @@ describe("normalizarTitulo · lo que NO se debe quitar", () => {
   it("conserva el contenido de los paréntesis", () => {
     // Si se descarta el año, el seed pierde uno de los tres Higurashi.
     expect(normalizarTitulo("Higurashi no Naku Koro Ni")).toBe("higurashi no naku koro ni");
-    expect(normalizarTitulo("Higurashi no Naku Koro ni (2020)")).toBe("higurashi no naku koro ni 2020");
-    expect(normalizarTitulo("Higurashi no Naku Koro ni Sotsu")).toBe("higurashi no naku koro ni sotsu");
+    expect(normalizarTitulo("Higurashi no Naku Koro ni (2020)")).toBe(
+      "higurashi no naku koro ni 2020",
+    );
+    expect(normalizarTitulo("Higurashi no Naku Koro ni Sotsu")).toBe(
+      "higurashi no naku koro ni sotsu",
+    );
 
     const tres = new Set([
       normalizarTitulo("Higurashi no Naku Koro Ni"),
@@ -113,7 +129,11 @@ describe("normalizarTitulo · entradas degeneradas", () => {
   });
 
   it("es idempotente: normalizar lo ya normalizado no cambia nada", () => {
-    for (const t of ["Attack on Titan Season 2", "Higurashi no Naku Koro ni (2020)", "White Album 2"]) {
+    for (const t of [
+      "Attack on Titan Season 2",
+      "Higurashi no Naku Koro ni (2020)",
+      "White Album 2",
+    ]) {
       const una = normalizarTitulo(t);
       expect(normalizarTitulo(una)).toBe(una);
     }

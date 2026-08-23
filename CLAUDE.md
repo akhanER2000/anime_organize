@@ -1,7 +1,7 @@
 # ANIME VAULT — instrucciones del proyecto
 
 Aplicación web **personal y multiusuario** para catalogar anime. Cada usuario tiene su
-*vault*: sus series, sus portadas, su progreso y sus enlaces para continuar viendo.
+_vault_: sus series, sus portadas, su progreso y sus enlaces para continuar viendo.
 Estética «obsidiana y oro»: una losa de laja negra partida y reparada con kintsugi.
 
 Destino: **Vercel**. Base de datos: **Neon**.
@@ -23,20 +23,20 @@ Todo sale de `animes-seed.json` o de AniList.
 
 ## Stack
 
-| Área | Elección | Nota |
-|---|---|---|
-| Framework | **Next.js 15**, App Router, React Server Components | |
-| Lenguaje | **TypeScript estricto** | `any` prohibido, `!` prohibido |
-| Estilos | **Tailwind CSS v4** con tokens en `@theme` | sin CSS-in-JS |
-| Base de datos | **Neon** (Postgres serverless) | **nunca Supabase** |
-| ORM | **Drizzle ORM** + drizzle-kit | driver `@neondatabase/serverless` |
-| Auth | **Auth.js v5** (next-auth beta) | Credentials + Google opcional, sesión JWT |
-| Validación | **Zod** en todo input · **react-hook-form** en cliente | mismo esquema en ambos lados |
-| Imágenes | **sharp** | re-encode a WebP 82 |
-| Excel/CSV | **SheetJS** (`xlsx`) | importación y exportación |
-| IA | **@anthropic-ai/sdk** + **AniList GraphQL** público | `ANTHROPIC_MODEL` = `claude-sonnet-5` |
-| Tests | **Vitest** (unidad) + **Playwright** (e2e) | |
-| Gestor | **npm** | corepack no puede escribir en el dir de Node en esta máquina |
+| Área          | Elección                                               | Nota                                                         |
+| ------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
+| Framework     | **Next.js 15**, App Router, React Server Components    |                                                              |
+| Lenguaje      | **TypeScript estricto**                                | `any` prohibido, `!` prohibido                               |
+| Estilos       | **Tailwind CSS v4** con tokens en `@theme`             | sin CSS-in-JS                                                |
+| Base de datos | **Neon** (Postgres serverless)                         | **nunca Supabase**                                           |
+| ORM           | **Drizzle ORM** + drizzle-kit                          | driver `@neondatabase/serverless`                            |
+| Auth          | **Auth.js v5** (next-auth beta)                        | Credentials + Google opcional, sesión JWT                    |
+| Validación    | **Zod** en todo input · **react-hook-form** en cliente | mismo esquema en ambos lados                                 |
+| Imágenes      | **sharp**                                              | re-encode a WebP 82                                          |
+| Excel/CSV     | **SheetJS** (`xlsx`)                                   | importación y exportación                                    |
+| IA            | **@anthropic-ai/sdk** + **AniList GraphQL** público    | `ANTHROPIC_MODEL` = `claude-sonnet-5`                        |
+| Tests         | **Vitest** (unidad) + **Playwright** (e2e)             |                                                              |
+| Gestor        | **npm**                                                | corepack no puede escribir en el dir de Node en esta máquina |
 
 ---
 
@@ -136,24 +136,24 @@ Y la skill de dominio, que es la primera parada ante cualquier duda funcional:
 
 ## Comandos del proyecto
 
-| Comando | Qué hace |
-|---|---|
-| `/project:review` | revisión completa del cambio actual (corrección, seguridad, diseño) |
-| `/project:fix-issue` | reproducir, corregir y testear un bug |
-| `/project:deploy` | checklist previo + despliegue a Vercel |
-| `/project:seed` | recargar `animes-seed.json` y sus portadas |
-| `/project:enrich` | lanzar el enriquecimiento AniList + Claude |
-| `/project:db-migrate` | generar y aplicar una migración Drizzle de forma segura |
-| `/project:new-screen` | crear una pantalla nueva respetando el diseño y los tokens |
+| Comando               | Qué hace                                                            |
+| --------------------- | ------------------------------------------------------------------- |
+| `/project:review`     | revisión completa del cambio actual (corrección, seguridad, diseño) |
+| `/project:fix-issue`  | reproducir, corregir y testear un bug                               |
+| `/project:deploy`     | checklist previo + despliegue a Vercel                              |
+| `/project:seed`       | recargar `animes-seed.json` y sus portadas                          |
+| `/project:enrich`     | lanzar el enriquecimiento AniList + Claude                          |
+| `/project:db-migrate` | generar y aplicar una migración Drizzle de forma segura             |
+| `/project:new-screen` | crear una pantalla nueva respetando el diseño y los tokens          |
 
 ## Subagentes
 
-| Subagente | Cuándo |
-|---|---|
-| `code-reviewer` | tras implementar; busca bugs y **fugas entre usuarios** |
-| `security-auditor` | **obligatorio** si tocas `src/lib/covers/`, auth o borrado de cuenta |
-| `db-migrator` | antes de aplicar una migración destructiva o que toque `anime`/`users` |
-| `ui-fidelity-checker` | **obligatorio** antes de cerrar cualquier fase con UI |
+| Subagente             | Cuándo                                                                 |
+| --------------------- | ---------------------------------------------------------------------- |
+| `code-reviewer`       | tras implementar; busca bugs y **fugas entre usuarios**                |
+| `security-auditor`    | **obligatorio** si tocas `src/lib/covers/`, auth o borrado de cuenta   |
+| `db-migrator`         | antes de aplicar una migración destructiva o que toque `anime`/`users` |
+| `ui-fidelity-checker` | **obligatorio** antes de cerrar cualquier fase con UI                  |
 
 ---
 
@@ -199,76 +199,76 @@ el cuerpo de la skill.** El original nunca se edita.
 
 ### Propia
 
-| Skill | Para qué |
-|---|---|
+| Skill                  | Para qué                                                                                                                                                   |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **anime-vault-domain** | **Las reglas de dominio: normalización, deduplicación, estados, progreso, portadas, etiquetas IA. Consúltala antes de reimplementar cualquiera de ellas.** |
 
 ### Frontend y Next.js (`05-web-frontend`)
 
-| Skill | Para qué | Adaptación |
-|---|---|---|
-| `nextjs-developer` | App Router, Server Actions, route handlers, middleware, SEO | decisiones del repo fijadas |
-| `react-expert` | componentes, hooks, Server Components, UI optimista | sin librería de estado global |
-| `typescript-pro` | tipos avanzados, guards, tipos derivados | **tRPC descartado** |
-| `frontend-ui-engineering` | UI accesible y responsive de calidad | la apariencia sale de `design/` |
-| `frontend-design` | criterio visual al ejecutar | ⚠ **el diseño ya está aprobado: aquí no se diseña** |
-| `vercel-react-best-practices` | patrones de rendimiento de React/Next | N+1 y binarios en listados |
-| `vercel-optimize` | coste y rendimiento en Vercel | solo **post-despliegue** |
-| `performance-optimization` | perfilado, N+1, Core Web Vitals | medir antes de tocar |
-| `deploy-to-vercel` | despliegue | pasa por `/project:deploy` |
-| `webapp-testing` | probar la app en navegador | **era Python → `@playwright/test`** |
-| `playwright-expert` | e2e, fixtures, CI | contra `build`, no `dev` |
-| `integration-nextjs-app-router` | ⚠ **es la integración de PostHog** | **no aplica**: no usamos analítica |
+| Skill                           | Para qué                                                    | Adaptación                                          |
+| ------------------------------- | ----------------------------------------------------------- | --------------------------------------------------- |
+| `nextjs-developer`              | App Router, Server Actions, route handlers, middleware, SEO | decisiones del repo fijadas                         |
+| `react-expert`                  | componentes, hooks, Server Components, UI optimista         | sin librería de estado global                       |
+| `typescript-pro`                | tipos avanzados, guards, tipos derivados                    | **tRPC descartado**                                 |
+| `frontend-ui-engineering`       | UI accesible y responsive de calidad                        | la apariencia sale de `design/`                     |
+| `frontend-design`               | criterio visual al ejecutar                                 | ⚠ **el diseño ya está aprobado: aquí no se diseña** |
+| `vercel-react-best-practices`   | patrones de rendimiento de React/Next                       | N+1 y binarios en listados                          |
+| `vercel-optimize`               | coste y rendimiento en Vercel                               | solo **post-despliegue**                            |
+| `performance-optimization`      | perfilado, N+1, Core Web Vitals                             | medir antes de tocar                                |
+| `deploy-to-vercel`              | despliegue                                                  | pasa por `/project:deploy`                          |
+| `webapp-testing`                | probar la app en navegador                                  | **era Python → `@playwright/test`**                 |
+| `playwright-expert`             | e2e, fixtures, CI                                           | contra `build`, no `dev`                            |
+| `integration-nextjs-app-router` | ⚠ **es la integración de PostHog**                          | **no aplica**: no usamos analítica                  |
 
 ### Backend y base de datos (`06-backend-databases`)
 
-| Skill | Para qué | Adaptación |
-|---|---|---|
-| `design-postgres-tables` | tipos, restricciones, índices | DDL **generado por Drizzle**, sin RLS |
-| `postgres-pro` | `EXPLAIN`, `pg_trgm`, JSONB, índices | **Neon**: nada de tuning de servidor |
-| `api-designer` | modelado de recursos, errores, paginación | contrato ya cerrado; sin GraphQL ni versionado |
+| Skill                    | Para qué                                  | Adaptación                                     |
+| ------------------------ | ----------------------------------------- | ---------------------------------------------- |
+| `design-postgres-tables` | tipos, restricciones, índices             | DDL **generado por Drizzle**, sin RLS          |
+| `postgres-pro`           | `EXPLAIN`, `pg_trgm`, JSONB, índices      | **Neon**: nada de tuning de servidor           |
+| `api-designer`           | modelado de recursos, errores, paginación | contrato ya cerrado; sin GraphQL ni versionado |
 
-*(Se ignoraron a propósito `supabase` y `supabase-postgres-best-practices`.)*
+_(Se ignoraron a propósito `supabase` y `supabase-postgres-best-practices`.)_
 
 ### Ingeniería de software (`07-software-engineering`)
 
-| Skill | Para qué |
-|---|---|
-| `spec-driven-development` | especificar cada fase antes de codearla |
-| `writing-plans` | plan verificable por fase, con lo que queda fuera |
-| `executing-plans` | ejecutar con puntos de control por fase |
-| `domain-modeling` | extender el modelo — vive en `anime-vault-domain` |
-| `test-driven-development` | TDD en las reglas de dominio (no en la UI) |
-| `testing-strategy` | razonar cobertura — la estrategia está en `rules/testing.md` |
-| `code-review` | revisión — usa `/project:review` o `code-reviewer` |
-| `systematic-debugging` | depurar sin adivinar; trampas típicas del repo anotadas |
-| `verification-before-completion` | evidencia antes de afirmar que algo funciona |
-| `documentation` | README, runbooks, CHANGELOG — en español |
+| Skill                            | Para qué                                                     |
+| -------------------------------- | ------------------------------------------------------------ |
+| `spec-driven-development`        | especificar cada fase antes de codearla                      |
+| `writing-plans`                  | plan verificable por fase, con lo que queda fuera            |
+| `executing-plans`                | ejecutar con puntos de control por fase                      |
+| `domain-modeling`                | extender el modelo — vive en `anime-vault-domain`            |
+| `test-driven-development`        | TDD en las reglas de dominio (no en la UI)                   |
+| `testing-strategy`               | razonar cobertura — la estrategia está en `rules/testing.md` |
+| `code-review`                    | revisión — usa `/project:review` o `code-reviewer`           |
+| `systematic-debugging`           | depurar sin adivinar; trampas típicas del repo anotadas      |
+| `verification-before-completion` | evidencia antes de afirmar que algo funciona                 |
+| `documentation`                  | README, runbooks, CHANGELOG — en español                     |
 
 ### DevOps y seguridad (`08-devops-security`)
 
-| Skill | Para qué |
-|---|---|
-| `secure-code-guardian` | auth, validación, OWASP — concretado en `rules/security.md` |
-| `security-reviewer` | formato de informe de auditoría — usa `security-auditor` |
-| `security-and-hardening` | endurecer entradas no confiables |
-| `ci-cd-and-automation` | GitHub Actions con las puertas de calidad |
+| Skill                    | Para qué                                                    |
+| ------------------------ | ----------------------------------------------------------- |
+| `secure-code-guardian`   | auth, validación, OWASP — concretado en `rules/security.md` |
+| `security-reviewer`      | formato de informe de auditoría — usa `security-auditor`    |
+| `security-and-hardening` | endurecer entradas no confiables                            |
+| `ci-cd-and-automation`   | GitHub Actions con las puertas de calidad                   |
 
 ### Meta (`00-meta-skills`)
 
-| Skill | Para qué |
-|---|---|
-| `claude-api` | SDK, modelos, precios — **`ANTHROPIC_MODEL` = `claude-sonnet-5`** |
-| `prompt-engineering` | el prompt del paso 2 del enriquecimiento |
-| `using-agent-skills` | descubrir qué skill aplica; orden de prioridad del repo |
-| `skill-creator` | crear/afinar skills **dentro de este repo** |
+| Skill                | Para qué                                                          |
+| -------------------- | ----------------------------------------------------------------- |
+| `claude-api`         | SDK, modelos, precios — **`ANTHROPIC_MODEL` = `claude-sonnet-5`** |
+| `prompt-engineering` | el prompt del paso 2 del enriquecimiento                          |
+| `using-agent-skills` | descubrir qué skill aplica; orden de prioridad del repo           |
+| `skill-creator`      | crear/afinar skills **dentro de este repo**                       |
 
 ### Documentos (`11-documents-visualization`)
 
-| Skill | Para qué | Adaptación |
-|---|---|---|
-| `xlsx` | importación y exportación de hojas | **era Python/openpyxl → SheetJS en TS** |
-| `markdown-mermaid-writing` | diagramas del README y de arquitectura | en español, sin adorno |
+| Skill                      | Para qué                               | Adaptación                              |
+| -------------------------- | -------------------------------------- | --------------------------------------- |
+| `xlsx`                     | importación y exportación de hojas     | **era Python/openpyxl → SheetJS en TS** |
+| `markdown-mermaid-writing` | diagramas del README y de arquitectura | en español, sin adorno                  |
 
 ---
 

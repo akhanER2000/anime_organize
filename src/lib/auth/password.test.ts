@@ -134,11 +134,7 @@ describe("ENUMERACIÓN POR TIEMPO · el reloj no puede delatar qué cuentas exis
 
   it("el señuelo NUNCA autentica, pase lo que pase", async () => {
     // Sería catastrófico que la contraseña del señuelo abriera cuentas sin hash.
-    for (const intento of [
-      "contrasena señuelo que nunca autentica a nadie",
-      "",
-      "admin",
-    ]) {
+    for (const intento of ["contrasena señuelo que nunca autentica a nadie", "", "admin"]) {
       expect(await verificarPassword(intento, null)).toBe(false);
     }
   }, 30_000);

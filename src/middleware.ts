@@ -28,5 +28,7 @@ export const config = {
    * su cuenta con `auth()`, en Node, donde sí puede consultar la base. Hacerlo
    * también aquí sería una comprobación más débil dando falsa sensación de red.
    */
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|texturas|.*\.(?:png|jpg|jpeg|webp|avif|svg|ico)$).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|texturas|.*\.(?:png|jpg|jpeg|webp|avif|svg|ico)$).*)",
+  ],
 };

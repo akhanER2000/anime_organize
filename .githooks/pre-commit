@@ -2,32 +2,40 @@
 #
 # Pre-commit de Anime Vault.
 #
-# Ejecuta `npm run verificar` — EL AGREGADO, no sus partes.
+# Ejecuta `npm run verificar:rapido` — EL AGREGADO, no sus partes.
 #
-# POR QUÉ EL AGREGADO: ejecutar los pasos por separado escondió durante toda una
-# fase que `lint:tokens` apuntaba a un fichero inexistente. El comando agregado
-# es el único que prueba que la cadena entera funciona.
+# QUÉ CORRE:  lint:scripts + typecheck + lint + lint:tokens + tests unitarios
+# QUÉ NO:     el build, los tests contra Neon y los e2e. Eso es trabajo de CI.
 #
-# Se instala solo: `npm install` ejecuta `prepare`, que apunta core.hooksPath
-# aquí. Para saltárselo puntualmente:  git commit --no-verify
+# POR QUÉ ESTA DIVISIÓN: un hook de 30 segundos se acaba saltando, y un hook que
+# se salta es PEOR que no tenerlo, porque da falsa tranquilidad. El objetivo es
+# menos de 10 s. Lo que se queda fuera lo cubre .github/workflows/verificar.yml,
+# que corre en cada push y cada PR y no se puede saltar.
+#
+# POR QUÉ EL AGREGADO Y NO LAS PARTES: ejecutar los pasos por separado escondió
+# durante toda una fase que `lint` no tenía configuración y que `lint:tokens`
+# apuntaba a un fichero inexistente.
+#
+# Escapatoria a conciencia:  git commit --no-verify
 #
 set -e
 
-echo "pre-commit · npm run verificar"
-echo "  (lint:scripts → typecheck → lint → lint:tokens → test → build)"
-echo
+inicio=$(date +%s)
 
-if ! npm run verificar; then
+echo "pre-commit · npm run verificar:rapido"
+
+if ! npm run verificar:rapido; then
   echo
   echo "─────────────────────────────────────────────────────────────────"
-  echo "  COMMIT DETENIDO: `npm run verificar` ha fallado."
+  echo "  COMMIT DETENIDO: la verificacion rapida ha fallado."
   echo
-  echo "  Arréglalo antes de commitear. Si de verdad necesitas commitear"
-  echo "  con esto roto (un WIP en una rama tuya), sáltatelo a conciencia:"
+  echo "  Si necesitas commitear un WIP en tu rama con esto roto:"
   echo "      git commit --no-verify"
+  echo "  Pero CI lo va a parar igual antes de llegar a main."
   echo "─────────────────────────────────────────────────────────────────"
   exit 1
 fi
 
 echo
-echo "pre-commit · todo verde"
+echo "pre-commit · verde en $(($(date +%s) - inicio)) s"
+echo "  (el build y los tests contra la base los corre CI)"

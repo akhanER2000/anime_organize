@@ -85,7 +85,13 @@ describe("decisión dentro de una ventana", () => {
     // Un Retry-After de 0 invita a reintentar de inmediato, que es justo lo que
     // no queremos.
     const casiFin = new Date("2026-08-23T12:14:59.900Z");
-    const v = evaluar({ limite: LIMITE, contadorActual: 99, contadorAnterior: 0, ahora: casiFin, inicio });
+    const v = evaluar({
+      limite: LIMITE,
+      contadorActual: 99,
+      contadorAnterior: 0,
+      ahora: casiFin,
+      inicio,
+    });
 
     expect(v.permitido).toBe(false);
     expect(v.reintentarEnSegundos).toBeGreaterThanOrEqual(1);
@@ -116,7 +122,13 @@ describe("EL BORDE DE VENTANA · lo que arregla la ventana deslizante", () => {
     const mitad = new Date("2026-08-23T12:22:30Z");
 
     // 5 anteriores * 0.5 = 2.5, más 2 actuales = 4.5 <= 5
-    const v = evaluar({ limite: LIMITE, contadorActual: 2, contadorAnterior: 5, ahora: mitad, inicio });
+    const v = evaluar({
+      limite: LIMITE,
+      contadorActual: 2,
+      contadorAnterior: 5,
+      ahora: mitad,
+      inicio,
+    });
 
     expect(v.permitido).toBe(true);
   });
@@ -192,7 +204,12 @@ describe("los límites del proyecto", () => {
   });
 
   it("las acciones de auth del encargo están cubiertas", () => {
-    for (const clave of ["login:email", "registro:ip", "recuperar:email", "reenviar-verificacion:email"] as const) {
+    for (const clave of [
+      "login:email",
+      "registro:ip",
+      "recuperar:email",
+      "reenviar-verificacion:email",
+    ] as const) {
       expect(LIMITES[clave]).toBeDefined();
     }
   });

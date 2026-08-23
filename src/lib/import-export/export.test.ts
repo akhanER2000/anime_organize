@@ -53,7 +53,9 @@ function animeGordo(titulo: string, etiquetaProgreso: string): AnimeExportado {
     // Una sinopsis de AniList ronda los 800-1.200 caracteres.
     sinopsis: "Sinopsis larga de ejemplo. ".repeat(45),
     // Notas del usuario: lo irrecuperable, y por eso lo que SÍ va en el export.
-    notas: "Mis notas personales sobre esta serie, que son lo que no se puede recuperar. ".repeat(6),
+    notas: "Mis notas personales sobre esta serie, que son lo que no se puede recuperar. ".repeat(
+      6,
+    ),
     anilistId: 123_456,
     malId: 654_321,
     creadoEn: "2026-01-15T10:30:00.000Z",
@@ -66,14 +68,29 @@ function animeGordo(titulo: string, etiquetaProgreso: string): AnimeExportado {
       etiqueta: etiquetaProgreso,
     },
     enlaces: [
-      { url: "https://ejemplo.test/serie/temporada-2/episodio-7", etiqueta: "AnimeFLV V2 · Ep 7", temporada: 2, episodio: 7 },
-      { url: "https://otro-ejemplo.test/watch/12345", etiqueta: "Crunchyroll", temporada: 2, episodio: 7 },
+      {
+        url: "https://ejemplo.test/serie/temporada-2/episodio-7",
+        etiqueta: "AnimeFLV V2 · Ep 7",
+        temporada: 2,
+        episodio: 7,
+      },
+      {
+        url: "https://otro-ejemplo.test/watch/12345",
+        etiqueta: "Crunchyroll",
+        temporada: 2,
+        episodio: 7,
+      },
     ],
     generos: [
       { slug: "drama-adulto", nombre: "Drama adulto", tipo: "OFICIAL", confianza: null },
       { slug: "psicologico", nombre: "Psicológico", tipo: "IA", confianza: "0.870" },
       { slug: "romance-tragico", nombre: "Romance trágico", tipo: "IA", confianza: "0.640" },
-      { slug: "obra-maestra-visual", nombre: "Obra maestra visual", tipo: "IA", confianza: "0.910" },
+      {
+        slug: "obra-maestra-visual",
+        nombre: "Obra maestra visual",
+        tipo: "IA",
+        confianza: "0.910",
+      },
     ],
     // SOLO la referencia. Los bytes NO viajan aquí.
     portada: {

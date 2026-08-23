@@ -70,7 +70,10 @@ export function normalizarTitulo(titulo: string): string {
   }
 
   // 5–6. Puntuación a espacio y colapso.
-  const limpio = s.replace(/[^0-9a-z]+/g, " ").replace(/\s+/g, " ").trim();
+  const limpio = s
+    .replace(/[^0-9a-z]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   // Un título que era SOLO un sufijo de temporada ("Season 2") se quedaría en
   // vacío, y la cadena vacía en un UNIQUE haría colisionar a todos entre sí.

@@ -5,9 +5,14 @@
  * regla que domina a todas las demás es que **ninguna consulta cruza usuarios**.
  * Una fuga aquí no es un bug: es enseñarle a alguien la biblioteca de otro.
  *
- * Corre contra POSTGRES DE VERDAD (la rama `development` de Neon), no contra un
- * mock del ORM: lo que se está probando es precisamente que las consultas
- * llevan el filtro, y un ORM simulado devolvería lo que le pidamos.
+ * Corre contra POSTGRES DE VERDAD, no contra un mock del ORM: lo que se está
+ * probando es precisamente que las consultas llevan el filtro, y un ORM simulado
+ * devolvería lo que le pidamos.
+ *
+ *   · en LOCAL → la rama `development` de Neon
+ *   · en CI    → un contenedor `postgres:18` efímero
+ *
+ * Ver `cliente-test.ts` para el porqué de las dos vías.
  *
  * Si no hay `DATABASE_URL_UNPOOLED`, el fichero entero se OMITE con un aviso
  * visible. Nunca se pone en verde fingiendo que pasó.
@@ -38,22 +43,17 @@
  */
 import { randomUUID } from "node:crypto";
 
-import { neonConfig, Pool } from "@neondatabase/serverless";
 import { and, eq } from "drizzle-orm";
-import { drizzle, type NeonDatabase } from "drizzle-orm/neon-serverless";
-import ws from "ws";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { normalizarTitulo } from "@/lib/domain/normalizar";
 
+import { crearClientePrueba, urlDePruebas, type ClientePrueba } from "./cliente-test";
 import { ErrorNoEncontrado, esAnimePropio, exigirAnimePropio } from "./ownership";
-import * as schema from "./schema";
 import { anime, animeCover, continueLink, progress, users } from "./schema";
 
-neonConfig.webSocketConstructor = ws;
-
-const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
-const hayBase = url !== undefined && url.trim().length > 0;
+const url = urlDePruebas();
+const hayBase = url !== undefined;
 
 // `describe.skipIf` deja constancia en la salida: no es lo mismo omitir que pasar.
 const describeSiHayBase = describe.skipIf(!hayBase);
@@ -67,8 +67,8 @@ if (!hayBase) {
 }
 
 describeSiHayBase("aislamiento entre usuarios", () => {
-  let pool: Pool;
-  let db: NeonDatabase<typeof schema>;
+  let cliente: ClientePrueba;
+  let db: ClientePrueba["db"];
 
   /** Los dos usuarios del experimento, y sus datos. */
   let idA: string;
@@ -82,8 +82,10 @@ describeSiHayBase("aislamiento entre usuarios", () => {
   const emailB = `aislamiento-b-${marca}@ejemplo.test`;
 
   beforeAll(async () => {
-    pool = new Pool({ connectionString: url });
-    db = drizzle(pool, { schema, casing: "snake_case" });
+    if (url === undefined) throw new Error("inalcanzable: hayBase ya lo comprueba");
+    cliente = crearClientePrueba(url);
+    db = cliente.db;
+    console.info(`[aislamiento] motor: ${cliente.motor}`);
 
     const [a] = await db.insert(users).values({ email: emailA }).returning({ id: users.id });
     const [b] = await db.insert(users).values({ email: emailB }).returning({ id: users.id });
@@ -133,11 +135,11 @@ describeSiHayBase("aislamiento entre usuarios", () => {
   }, 30_000);
 
   afterAll(async () => {
-    if (pool !== undefined) {
+    if (cliente !== undefined) {
       // El borrado en cascada se lleva animes, progreso y enlaces.
       await db.delete(users).where(eq(users.id, idA));
       await db.delete(users).where(eq(users.id, idB));
-      await pool.end();
+      await cliente.cerrar();
     }
   }, 30_000);
 
@@ -261,10 +263,7 @@ describeSiHayBase("aislamiento entre usuarios", () => {
         ErrorNoEncontrado,
       );
 
-      const portadas = await db
-        .select()
-        .from(animeCover)
-        .where(eq(animeCover.animeId, animeDeB));
+      const portadas = await db.select().from(animeCover).where(eq(animeCover.animeId, animeDeB));
       expect(portadas).toEqual([]);
     });
 
@@ -273,7 +272,13 @@ describeSiHayBase("aislamiento entre usuarios", () => {
         .update(progress)
         .set({ label: "PISOTEADO POR A", episode: 99 })
         .from(anime)
-        .where(and(eq(progress.animeId, animeDeB), eq(anime.id, progress.animeId), eq(anime.userId, idA)))
+        .where(
+          and(
+            eq(progress.animeId, animeDeB),
+            eq(anime.id, progress.animeId),
+            eq(anime.userId, idA),
+          ),
+        )
         .returning({ animeId: progress.animeId });
 
       expect(tocadas).toEqual([]);
@@ -313,12 +318,16 @@ describeSiHayBase("aislamiento entre usuarios", () => {
       const titulo = `Duplicado ${marca}`;
       const norm = normalizarTitulo(titulo);
 
-      await db.insert(anime).values({ userId: idA, title: titulo, titleNormalized: norm, status: "VISTO" });
+      await db
+        .insert(anime)
+        .values({ userId: idA, title: titulo, titleNormalized: norm, status: "VISTO" });
 
       // La base es la última línea de defensa: la app comprueba antes, pero si
       // dos peticiones llegan a la vez, esto es lo que garantiza.
       await expect(
-        db.insert(anime).values({ userId: idA, title: titulo, titleNormalized: norm, status: "VISTO" }),
+        db
+          .insert(anime)
+          .values({ userId: idA, title: titulo, titleNormalized: norm, status: "VISTO" }),
       ).rejects.toThrow();
     });
   });
@@ -349,12 +358,16 @@ describeSiHayBase("aislamiento entre usuarios", () => {
       // Nada suyo sobrevive: el borrado tiene que ser real, no lógico.
       expect(await db.select().from(anime).where(eq(anime.id, rc.id))).toEqual([]);
       expect(await db.select().from(progress).where(eq(progress.animeId, rc.id))).toEqual([]);
-      expect(await db.select().from(continueLink).where(eq(continueLink.animeId, rc.id))).toEqual([]);
+      expect(await db.select().from(continueLink).where(eq(continueLink.animeId, rc.id))).toEqual(
+        [],
+      );
 
       // Y los de B siguen enteros.
       const deB = await db.select().from(anime).where(eq(anime.id, animeDeB));
       expect(deB).toHaveLength(1);
-      expect(await db.select().from(progress).where(eq(progress.animeId, animeDeB))).toHaveLength(1);
+      expect(await db.select().from(progress).where(eq(progress.animeId, animeDeB))).toHaveLength(
+        1,
+      );
     }, 30_000);
   });
 });

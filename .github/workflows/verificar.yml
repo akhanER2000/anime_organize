@@ -1,0 +1,122 @@
+name: verificar
+
+# EL HOOK SOLO CORRE EN UNA MÁQUINA Y SOLO SI NO SE SALTA.
+# Esto corre siempre, y es lo que de verdad protege `main`.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Un push nuevo cancela la ejecución anterior de la misma rama: no tiene sentido
+# gastar minutos verificando un commit que ya está superado.
+concurrency:
+  group: verificar-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: lints · tests · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      # POR QUÉ UN CONTENEDOR Y NO UNA RAMA DE NEON:
+      #   · base VACÍA y exclusiva en cada ejecución — dos PR simultáneos no
+      #     comparten estado, que es de donde salen los fallos intermitentes;
+      #   · sin secreto que gestionar, y este repositorio es PÚBLICO;
+      #   · CI no se pone rojo cuando Neon tiene una incidencia.
+      # La versión se fija en 18 para igualar el 18.6 de Neon. Las tres
+      # extensiones (citext, pg_trgm, unaccent) vienen en el contrib de la
+      # imagen oficial.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: anime_vault_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Sin credencial real: el contenedor es local al runner y muere con él.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/anime_vault_ci
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/anime_vault_ci
+      # Un valor cualquiera: no se firma nada real, pero el arranque lo exige.
+      AUTH_SECRET: secreto-solo-para-ci-no-firma-nada-real
+      # Los tests de rate limiting necesitan el limitador ENCENDIDO.
+      RATE_LIMIT_ENABLED: "true"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` respeta el lockfile al pie de la letra: si package.json y el
+      # lock discrepan, falla en vez de "arreglarlo" en silencio.
+      - name: Instalar dependencias
+        run: npm ci
+
+      # ── Lo barato primero: falla pronto y ahorra minutos ──────────────────
+      - name: Scripts declarados (que no haya fantasmas)
+        run: npm run lint:scripts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Tokens de diseño (ningún hex fuera de globals.css)
+        run: npm run lint:tokens
+
+      - name: Formato
+        run: npm run format:check
+
+      # ── Tests unitarios: puros, sin base ──────────────────────────────────
+      - name: Tests unitarios
+        run: npm run test:unit
+
+      # ── Base de datos ─────────────────────────────────────────────────────
+      # 0000_extensiones.sql SE APLICA TAMBIÉN AQUÍ. Una base nueva —rama de
+      # Neon o contenedor— nace sin extensiones, y la migración 0001 falla en
+      # la primera columna `citext` de `users`.
+      - name: Migraciones (incluye las extensiones)
+        run: npm run db:migrate
+
+      - name: Verificar el esquema aplicado
+        run: npx tsx scripts/verificar-esquema.ts
+
+      - name: Tests de integración (aislamiento entre usuarios)
+        run: npm run test:integracion
+
+      # ── Lo caro al final ──────────────────────────────────────────────────
+      - name: Build de producción
+        run: npm run build
+
+  auditoria:
+    name: dependencias
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Falla por vulnerabilidades altas o críticas. Las moderadas se avisan
+      # pero no bloquean: ver los `overrides` de package.json.
+      - name: npm audit
+        run: npm audit --audit-level=high

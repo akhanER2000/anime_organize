@@ -92,10 +92,7 @@ export function textoObligatorio(
 }
 
 /** Lee una variable de texto opcional. Vacío y solo-espacios cuentan como ausente. */
-export function textoOpcional(
-  variable: string,
-  entorno?: NodeJS.ProcessEnv,
-): string | undefined {
+export function textoOpcional(variable: string, entorno?: NodeJS.ProcessEnv): string | undefined {
   const valor = (entorno ?? process.env)[variable]?.trim();
   return valor !== undefined && valor.length > 0 ? valor : undefined;
 }
@@ -156,15 +153,24 @@ export const BANDERAS = [
 ] as const;
 
 export function seExigeVerificacionEmail(entorno?: NodeJS.ProcessEnv): boolean {
-  return booleano("AUTH_REQUIRE_EMAIL_VERIFICATION", { porDefecto: false, ...(entorno !== undefined ? { entorno } : {}) });
+  return booleano("AUTH_REQUIRE_EMAIL_VERIFICATION", {
+    porDefecto: false,
+    ...(entorno !== undefined ? { entorno } : {}),
+  });
 }
 
 export function espejoDriveActivo(entorno?: NodeJS.ProcessEnv): boolean {
-  return booleano("DRIVE_MIRROR_ENABLED", { porDefecto: false, ...(entorno !== undefined ? { entorno } : {}) });
+  return booleano("DRIVE_MIRROR_ENABLED", {
+    porDefecto: false,
+    ...(entorno !== undefined ? { entorno } : {}),
+  });
 }
 
 export function rateLimitActivo(entorno?: NodeJS.ProcessEnv): boolean {
-  return booleano("RATE_LIMIT_ENABLED", { porDefecto: true, ...(entorno !== undefined ? { entorno } : {}) });
+  return booleano("RATE_LIMIT_ENABLED", {
+    porDefecto: true,
+    ...(entorno !== undefined ? { entorno } : {}),
+  });
 }
 
 /**
@@ -182,9 +188,7 @@ export function validarEntorno(entorno?: NodeJS.ProcessEnv): void {
     try {
       booleano(bandera.variable, { porDefecto: bandera.porDefecto, entorno: env });
     } catch (error) {
-      problemas.push(
-        error instanceof ErrorConfiguracion ? error.message : String(error),
-      );
+      problemas.push(error instanceof ErrorConfiguracion ? error.message : String(error));
     }
   }
 

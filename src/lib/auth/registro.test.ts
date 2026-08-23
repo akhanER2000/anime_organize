@@ -12,7 +12,12 @@ import {
 
 const OK: ResultadoEnvio = { ok: true, driver: "resend" };
 const TEMPORAL: ResultadoEnvio = { ok: false, driver: "resend", motivo: "TEMPORAL", estado: 429 };
-const PERMANENTE: ResultadoEnvio = { ok: false, driver: "resend", motivo: "PERMANENTE", estado: 422 };
+const PERMANENTE: ResultadoEnvio = {
+  ok: false,
+  driver: "resend",
+  motivo: "PERMANENTE",
+  estado: 422,
+};
 
 /** Nada de esperas reales: el test no debe tardar segundos. */
 const sinDormir = { dormir: () => Promise.resolve(), aleatorio: () => 1 };
@@ -39,7 +44,8 @@ describe("clasificación de errores del proveedor", () => {
 
 describe("reintentos · 429 y 5xx", () => {
   it("reintenta un 429 y acierta al segundo intento", () => {
-    const enviar = vi.fn<() => Promise<ResultadoEnvio>>()
+    const enviar = vi
+      .fn<() => Promise<ResultadoEnvio>>()
       .mockResolvedValueOnce(TEMPORAL)
       .mockResolvedValueOnce(OK);
 
@@ -114,7 +120,10 @@ describe("retroceso exponencial con jitter", () => {
     // Esto corre dentro de la petición de registro, con el usuario mirando.
     const enviar = vi.fn<() => Promise<ResultadoEnvio>>().mockResolvedValue(TEMPORAL);
 
-    const r = await enviarConReintentos(enviar, { dormir: () => Promise.resolve(), aleatorio: () => 1 });
+    const r = await enviarConReintentos(enviar, {
+      dormir: () => Promise.resolve(),
+      aleatorio: () => 1,
+    });
 
     const total = r.esperas.reduce((a, b) => a + b, 0);
     expect(total).toBeLessThanOrEqual(3_000);

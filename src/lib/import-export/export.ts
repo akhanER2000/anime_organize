@@ -57,10 +57,20 @@ export type AnimeExportado = {
     porcentaje: number | null;
     etiqueta: string;
   } | null;
-  enlaces: { url: string; etiqueta: string | null; temporada: number | null; episodio: number | null }[];
+  enlaces: {
+    url: string;
+    etiqueta: string | null;
+    temporada: number | null;
+    episodio: number | null;
+  }[];
   generos: { slug: string; nombre: string; tipo: string; confianza: string | null }[];
   /** Solo la referencia, NUNCA los bytes. */
-  portada: { checksum: string; urlOrigen: string | null; ancho: number | null; alto: number | null } | null;
+  portada: {
+    checksum: string;
+    urlOrigen: string | null;
+    ancho: number | null;
+    alto: number | null;
+  } | null;
 };
 
 export type ExportVault = {
@@ -68,7 +78,12 @@ export type ExportVault = {
   generadoEn: string;
   usuario: { email: string; nombre: string | null };
   animes: AnimeExportado[];
-  sitiosPropios: { slug: string; nombre: string; tipo: string; espejos: { etiqueta: string; url: string }[] }[];
+  sitiosPropios: {
+    slug: string;
+    nombre: string;
+    tipo: string;
+    espejos: { etiqueta: string; url: string }[];
+  }[];
   /** Qué se ha dejado fuera, para que quien lea el fichero no se lleve sorpresas. */
   excluido: {
     portadas: {
@@ -116,8 +131,7 @@ export function notaDeExclusion(cuantasPortadas: number): ExportVault["excluido"
         "Las portadas son binarios y no caben en este fichero. Aquí va su checksum " +
         "y su URL de origen, que es lo que permite reconstruirlas.",
       cantidad: cuantasPortadas,
-      comoObtenerlas:
-        "Ajustes → Exportar → «Descargar portadas», que entrega un .zip aparte.",
+      comoObtenerlas: "Ajustes → Exportar → «Descargar portadas», que entrega un .zip aparte.",
     },
   };
 }

@@ -23,11 +23,21 @@ if (url === undefined) {
 }
 
 const TABLAS = [
-  "users", "accounts", "sessions", "verification_tokens", "password_reset_tokens",
-  "anime", "anime_cover", "progress", "continue_link",
-  "genre", "anime_genre",
-  "streaming_site", "streaming_mirror",
-  "import_job", "ai_job",
+  "users",
+  "accounts",
+  "sessions",
+  "verification_tokens",
+  "password_reset_tokens",
+  "anime",
+  "anime_cover",
+  "progress",
+  "continue_link",
+  "genre",
+  "anime_genre",
+  "streaming_site",
+  "streaming_mirror",
+  "import_job",
+  "ai_job",
   "rate_limit_bucket",
 ] as const;
 
@@ -81,7 +91,11 @@ async function principal(): Promise<void> {
          JOIN pg_am am ON am.oid = c.relam
         WHERE c.relname = 'idx_anime_title_norm_trgm'`,
     );
-    comprobar("idx_anime_title_norm_trgm usa GIN", gin.rows[0]?.amname === "gin", gin.rows[0]?.amname ?? "no existe");
+    comprobar(
+      "idx_anime_title_norm_trgm usa GIN",
+      gin.rows[0]?.amname === "gin",
+      gin.rows[0]?.amname ?? "no existe",
+    );
 
     console.log("\n=== CHECKS DE DOMINIO ===");
     const chk = await pool.query<{ n: string }>(

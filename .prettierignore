@@ -1,7 +1,20 @@
 node_modules
 .next
 coverage
-design
-drizzle
 package-lock.json
 *.min.*
+
+# El paquete de diseño es material de referencia, no código del proyecto.
+design
+
+# SQL generado por drizzle-kit: se revisa a mano, no se reformatea.
+drizzle
+
+# Las skills copiadas son de TERCEROS. Reformatearlas ensuciaría el diff de
+# cualquier futura actualización desde la biblioteca de origen.
+# Las reglas y comandos propios son markdown con tablas alineadas a mano:
+# dejar que Prettier las reflote no mejora nada y ensucia el historial.
+.claude
+
+# Especificaciones por fase: markdown con tablas a mano, mismo motivo.
+tasks

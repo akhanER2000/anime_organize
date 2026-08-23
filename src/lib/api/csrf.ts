@@ -32,8 +32,7 @@
  */
 
 export type VeredictoCsrf =
-  | { permitido: true }
-  | { permitido: false; motivo: "SIN_ORIGEN" | "ORIGEN_NO_PERMITIDO" };
+  { permitido: true } | { permitido: false; motivo: "SIN_ORIGEN" | "ORIGEN_NO_PERMITIDO" };
 
 /** Métodos que mutan. `GET`/`HEAD`/`OPTIONS` no necesitan esta comprobación. */
 const METODOS_QUE_MUTAN = new Set(["POST", "PUT", "PATCH", "DELETE"]);

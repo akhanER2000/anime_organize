@@ -36,8 +36,12 @@ describe("booleano · ausente usa el valor por defecto", () => {
     ["solo espacios", { X: "   " }],
   ])("%s no es un error", (_caso, valores) => {
     // Ausente es distinto de mal escrita: no configurar algo opcional es legítimo.
-    expect(booleano("X", { porDefecto: true, entorno: env(valores as Record<string, string>) })).toBe(true);
-    expect(booleano("X", { porDefecto: false, entorno: env(valores as Record<string, string>) })).toBe(false);
+    expect(
+      booleano("X", { porDefecto: true, entorno: env(valores as Record<string, string>) }),
+    ).toBe(true);
+    expect(
+      booleano("X", { porDefecto: false, entorno: env(valores as Record<string, string>) }),
+    ).toBe(false);
   });
 });
 
@@ -56,7 +60,10 @@ describe("booleano · FALLA EN VOZ ALTA ante un valor inválido", () => {
   it("el mensaje dice qué variable, qué valor y qué se admite", () => {
     let capturado: unknown;
     try {
-      booleano("AUTH_REQUIRE_EMAIL_VERIFICATION", { porDefecto: false, entorno: env({ AUTH_REQUIRE_EMAIL_VERIFICATION: "si" }) });
+      booleano("AUTH_REQUIRE_EMAIL_VERIFICATION", {
+        porDefecto: false,
+        entorno: env({ AUTH_REQUIRE_EMAIL_VERIFICATION: "si" }),
+      });
     } catch (error) {
       capturado = error;
     }
@@ -159,14 +166,17 @@ describe("textoObligatorio", () => {
     ["vacía", { X: "" }],
     ["solo espacios", { X: "   " }],
   ])("%s lanza", (_caso, valores) => {
-    expect(() => textoObligatorio("X", { entorno: env(valores as Record<string, string>) })).toThrow(
-      ErrorConfiguracion,
-    );
+    expect(() =>
+      textoObligatorio("X", { entorno: env(valores as Record<string, string>) }),
+    ).toThrow(ErrorConfiguracion);
   });
 
   it("incluye la pista en el mensaje si se da", () => {
     try {
-      textoObligatorio("DATABASE_URL", { entorno: env({}), pista: "Sale de Neon → Connection Details." });
+      textoObligatorio("DATABASE_URL", {
+        entorno: env({}),
+        pista: "Sale de Neon → Connection Details.",
+      });
       throw new Error("debería haber lanzado");
     } catch (error) {
       expect((error as Error).message).toContain("Neon");

@@ -11,10 +11,7 @@
 
 /** Motivos por los que se rechaza una vinculación. */
 export type MotivoRechazo =
-  | "EMAIL_YA_REGISTRADO"
-  | "CUENTA_YA_VINCULADA_A_OTRO"
-  | "SIN_SESION"
-  | "ULTIMO_METODO_DE_ACCESO";
+  "EMAIL_YA_REGISTRADO" | "CUENTA_YA_VINCULADA_A_OTRO" | "SIN_SESION" | "ULTIMO_METODO_DE_ACCESO";
 
 export type Decision =
   | { permitido: true }

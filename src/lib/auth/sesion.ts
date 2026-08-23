@@ -37,14 +37,9 @@ export type EstadoCuenta = {
 } | null;
 
 export type MotivoSesionInvalida =
-  | "USUARIO_NO_EXISTE"
-  | "CUENTA_DESACTIVADA"
-  | "SESION_REVOCADA"
-  | "TOKEN_SIN_IAT";
+  "USUARIO_NO_EXISTE" | "CUENTA_DESACTIVADA" | "SESION_REVOCADA" | "TOKEN_SIN_IAT";
 
-export type VeredictoSesion =
-  | { valida: true }
-  | { valida: false; motivo: MotivoSesionInvalida };
+export type VeredictoSesion = { valida: true } | { valida: false; motivo: MotivoSesionInvalida };
 
 /**
  * ¿Sigue siendo válida esta sesión?
@@ -52,7 +47,10 @@ export type VeredictoSesion =
  * @param cuenta  estado en la base, o `null` si el usuario ya no existe
  * @param iatSegundos  `iat` del JWT, en SEGUNDOS (es lo que marca el estándar)
  */
-export function evaluarSesion(cuenta: EstadoCuenta, iatSegundos: number | undefined): VeredictoSesion {
+export function evaluarSesion(
+  cuenta: EstadoCuenta,
+  iatSegundos: number | undefined,
+): VeredictoSesion {
   // El usuario borró su cuenta: el `user_id` del token no apunta a nada. Este es
   // el caso que hace que borrar la cuenta eche a la sesión de verdad.
   if (cuenta === null) {

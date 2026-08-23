@@ -69,6 +69,36 @@ Dominios cerrados del proyecto:
 | `streaming_site.kind` | `GRATIS` `PAGO` `MIXTO` |
 | `ai_job.status` | `PENDIENTE` `OK` `ERROR` `OMITIDO` |
 
+## Tablas que están vacías A PROPÓSITO
+
+> **Ninguna de estas está rota. No escribas una migración para «arreglarlas».**
+
+### `sessions` — vacía para siempre mientras la sesión sea JWT
+
+El proveedor **Credentials de Auth.js v5 no funciona con sesiones de base de datos**:
+fuerza la estrategia JWT. Como el proyecto ya va con JWT por decisión del encargo, no
+cambia nada… salvo que **`sessions` no va a tener nunca una fila**.
+
+Se crea igualmente porque el adaptador de Drizzle la espera en su contrato, y porque
+retrofitearla el día que se active Google sería una migración innecesaria.
+
+| Tabla | Cuándo se llenará |
+|---|---|
+| `sessions` | nunca, mientras la estrategia sea JWT |
+| `accounts` | el día que se active Google (hoy, vacía) |
+| `verification_tokens` | cuando se active `AUTH_REQUIRE_EMAIL_VERIFICATION` |
+
+### `neon_auth.*` — no es nuestra
+
+Neon provisiona el esquema **`neon_auth`** con 9 tablas (`user`, `account`, `session`,
+`organization`, `member`, `invitation`, `jwks`, `project_config`, `verification`) en cada
+rama. Es **Neon Auth**, su propio producto, y **no lo usamos**: nuestra autenticación es
+Auth.js sobre `public`.
+
+Cuidado con `neon_auth.user` frente a `public.users`: se parecen lo suficiente como para
+que alguien consulte la equivocada. `scripts/verificar-esquema.ts` lista los esquemas
+ajenos en cada ejecución precisamente para que estén a la vista.
+
 ## Integridad
 
 - **`ON DELETE CASCADE`** desde `users` hacia abajo y desde `anime` hacia sus hijas.

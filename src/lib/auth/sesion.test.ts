@@ -54,7 +54,10 @@ describe("BORRADO DE CUENTA · la sesión muere de inmediato", () => {
 
   it("una cuenta desactivada tampoco autentica", () => {
     const v = evaluarSesion(
-      { deletedAt: new Date("2026-08-23T11:30:00.000Z"), sessionsValidFrom: CUENTA_SANA.sessionsValidFrom },
+      {
+        deletedAt: new Date("2026-08-23T11:30:00.000Z"),
+        sessionsValidFrom: CUENTA_SANA.sessionsValidFrom,
+      },
       iat(T0),
     );
 
@@ -86,9 +89,9 @@ describe("CAMBIO DE CONTRASEÑA · las sesiones anteriores se revocan", () => {
     const corte = new Date("2026-08-23T12:00:00.000Z");
     const unSegundoAntes = iat(new Date(corte.getTime() - 1000));
 
-    expect(evaluarSesion({ deletedAt: null, sessionsValidFrom: corte }, unSegundoAntes).valida).toBe(
-      false,
-    );
+    expect(
+      evaluarSesion({ deletedAt: null, sessionsValidFrom: corte }, unSegundoAntes).valida,
+    ).toBe(false);
   });
 
   it("el token nuevo emitido tras el cambio SÍ vale", () => {
@@ -114,7 +117,10 @@ describe("marcaDeRevocacion · absorbe el redondeo del iat", () => {
     const emitido = new Date("2026-08-23T12:00:00.700Z");
     const revocadoEn = new Date("2026-08-23T12:00:00.400Z");
 
-    const cuenta: EstadoCuenta = { deletedAt: null, sessionsValidFrom: marcaDeRevocacion(revocadoEn) };
+    const cuenta: EstadoCuenta = {
+      deletedAt: null,
+      sessionsValidFrom: marcaDeRevocacion(revocadoEn),
+    };
 
     expect(evaluarSesion(cuenta, iat(emitido)).valida).toBe(true);
   });

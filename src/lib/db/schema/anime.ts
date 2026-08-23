@@ -78,7 +78,10 @@ export const anime = pgTable(
     uniqueIndex("uq_anime_user_title_norm").on(t.userId, t.titleNormalized),
 
     check("ck_anime_status", sql`${t.status} IN (${sql.raw(listaSql(ESTADOS))})`),
-    check("ck_anime_format", sql`${t.format} IS NULL OR ${t.format} IN (${sql.raw(listaSql(FORMATOS))})`),
+    check(
+      "ck_anime_format",
+      sql`${t.format} IS NULL OR ${t.format} IN (${sql.raw(listaSql(FORMATOS))})`,
+    ),
     check("ck_anime_score", sql`${t.score} IS NULL OR (${t.score} >= 0 AND ${t.score} <= 10)`),
     check("ck_anime_year", sql`${t.year} IS NULL OR (${t.year} >= 1900 AND ${t.year} <= 2200)`),
 

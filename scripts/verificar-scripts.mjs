@@ -81,7 +81,13 @@ const HERRAMIENTAS_CON_CONFIG = [
   },
   {
     binario: /\bprettier\b/,
-    candidatos: [".prettierrc", ".prettierrc.json", ".prettierrc.mjs", "prettier.config.mjs", "prettier.config.js"],
+    candidatos: [
+      ".prettierrc",
+      ".prettierrc.json",
+      ".prettierrc.mjs",
+      "prettier.config.mjs",
+      "prettier.config.js",
+    ],
     que: "configuración de Prettier",
   },
 ];

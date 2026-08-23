@@ -20,9 +20,7 @@ export default defineConfig({
        * alias, CUALQUIER test que toque un módulo de servidor falla al
        * importarlo, que es justo lo que hay que poder testear.
        */
-      "server-only": fileURLToPath(
-        new URL("./node_modules/server-only/empty.js", import.meta.url),
-      ),
+      "server-only": fileURLToPath(new URL("./node_modules/server-only/empty.js", import.meta.url)),
     },
   },
   test: {

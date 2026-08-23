@@ -63,10 +63,7 @@ export const users = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },
-  (t) => [
-    uniqueIndex("uq_users_email").on(t.email),
-    index("idx_users_deleted_at").on(t.deletedAt),
-  ],
+  (t) => [uniqueIndex("uq_users_email").on(t.email), index("idx_users_deleted_at").on(t.deletedAt)],
 );
 
 /**

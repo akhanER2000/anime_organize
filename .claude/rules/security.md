@@ -62,6 +62,62 @@ const target = await requireOwnedAnime(tx, { animeId, userId: session.user.id })
   mensaje y en un tiempo comparable exista o no la cuenta.
 - Al cambiar contraseña o email: **re-autenticación obligatoria** (pedir la contraseña actual).
 
+### Enumeración de usuarios POR TIEMPO — el reloj también habla
+
+Cuidar el mensaje no basta. Si la cuenta no existe y se responde **sin ejecutar Argon2id**,
+la respuesta vuelve en milisegundos; si existe, tarda decenas de ms. Un atacante distingue
+cuentas reales **cronometrando**, sin leer un solo mensaje.
+
+**La defensa:** cuando el usuario no existe se verifica contra un **hash señuelo**
+precomputado con los MISMOS parámetros y se descarta el resultado. Los dos caminos pagan
+lo mismo. Implementado en `src/lib/auth/password.ts`.
+
+Medido: sin el señuelo, el camino «usuario inexistente» responde en **0,0006 ms** frente a
+los ~30 ms del real — **60.000 veces más rápido**. Con él, ambos caminos quedan dentro del
+mismo orden de magnitud.
+
+Aplica a **los tres flujos que revelan existencia**: login, «olvidé mi contraseña» y
+reenvío de verificación. Para los dos últimos, donde el trabajo caro no es el hash sino la
+consulta y el correo, existe `consumirTiempoEquivalente()`.
+
+### El orden del login NO es negociable: parsear → RATE LIMIT → hash
+
+Argon2id está diseñado para ser **caro** (19 MiB y decenas de ms por verificación). Si el
+límite se comprobara después de verificar la contraseña, el login sería un **amplificador
+de denegación de servicio**: peticiones baratísimas para el atacante, carísimas para la
+función serverless, que además cobra por milisegundo de CPU.
+
+Una petición bloqueada **no llega al hash y ni siquiera consulta al usuario**. Está fijado
+con un test que afirma que `verificarPassword` recibe **cero** llamadas, verificado por
+mutación.
+
+## 2 ter. CSRF
+
+**La elección: Server Actions para todo lo que muta estado de cuenta.**
+
+| | |
+|---|---|
+| **Server Actions** | cambiar nombre/email/contraseña, borrar cuenta, vincular y desvincular proveedor, y toda mutación nacida de un formulario |
+| **Route Handlers** | solo lo que necesita semántica HTTP: binarios (`/api/covers`), subidas y descargas, procesos largos (`/api/enrich`) |
+
+**Por qué:** Next **comprueba el origen de las Server Actions por su cuenta** (compara
+`Origin` con `Host` y rechaza si no casan). Es protección por defecto, sin código propio
+que se pueda olvidar en la ruta número doce. Un Route Handler no tiene nada de eso:
+`POST /api/cuenta` con una cookie de sesión se ejecuta venga de donde venga.
+
+Los Route Handlers que muten llevan la guarda explícita de `src/lib/api/csrf.ts`:
+`Origin` contra `AUTH_URL`, con `Referer` como respaldo, y **falla cerrado** si no hay
+ninguna de las dos. `Origin: null` —el que manda un iframe con `sandbox`— cuenta como
+ausente.
+
+Detalle de implementación: el borrado de cuenta debe entregar el `.json` de export **antes**
+de borrar. Se resuelve con la Server Action devolviendo los datos y el cliente provocando la
+descarga, **no** con un `GET` que exponga el export a cualquiera con la URL.
+
+Defensa en profundidad, no única capa: las cookies de Auth.js son `SameSite=Lax`, que ya
+bloquea el POST entre sitios en navegadores actuales. `Lax` no cubre navegadores viejos ni
+algunos flujos de subdominio, así que la comprobación de origen se mantiene igualmente.
+
 ## 2 bis. Vinculación de cuentas OAuth
 
 > **Decidido y cerrado antes de que exista el proveedor de Google**, porque

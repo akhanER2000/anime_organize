@@ -124,6 +124,62 @@ Reglas del e2e:
 - Cada spec crea su propio usuario y limpia al final. No comparten vault.
 - Corre contra `npm run build && npm run start`, no contra `dev`.
 
+## Verificación por mutación · OBLIGATORIA en los tests de seguridad
+
+**Un test verde no distingue entre «esto protege» y «esto no comprueba nada».**
+Un test de aislamiento que pasa porque la consulta devuelve vacío *siempre* se ve
+exactamente igual que uno que pasa porque el filtro funciona.
+
+Por eso, **todo test que proteja un límite de seguridad se verifica rompiendo la
+protección a propósito**:
+
+1. **Romper** — se elimina la protección en el código (el filtro `user_id`, la
+   comprobación de rate limit, el corte de `sessions_valid_from`…).
+2. **Confirmar el rojo** — se ejecuta y se comprueba que el test falla, **y por
+   el motivo correcto**. Si sigue verde, el test no vale y hay que reescribirlo.
+3. **Restaurar** — se devuelve el código a su estado y se confirma el verde.
+4. **Anotar** — en el propio test se deja escrito **qué mutación lo hace fallar**.
+
+El paso 4 es el que hace que esto sirva de algo dentro de seis meses: quien lea
+el test sabe qué está protegiendo de verdad, y quien lo modifique sabe cómo
+volver a comprobarlo.
+
+### Qué está sujeto a esta regla
+
+| Límite | Mutación con la que se verifica |
+|---|---|
+| **Aislamiento por `user_id`** | quitar `eq(anime.userId, …)` del `WHERE` |
+| **Propiedad antes de mutar** | quitar la llamada a `exigirAnimePropio` |
+| **Rate limiting** | devolver siempre `permitido: true` |
+| **Revocación de sesión** | devolver siempre `{ valida: true }` en `evaluarSesion` |
+| **Validación SSRF** | permitir cualquier IP en el validador |
+| **Deduplicación** | quitar el `UNIQUE (user_id, title_normalized)` |
+| **Vinculación OAuth** | poner `allowDangerousEmailAccountLinking: true` |
+| **Hash de contraseña** | comparar en claro |
+
+### Forma de la anotación
+
+```ts
+/**
+ * VERIFICADO POR MUTACIÓN (2026-08-23):
+ *   Se quitó `eq(anime.userId, parametros.userId)` de `exigirAnimePropio`
+ *   → 3 tests en rojo. Restaurado.
+ */
+```
+
+Con la fecha, porque una verificación de hace dos años sobre un código que ha
+cambiado veinte veces no dice gran cosa. Si tocas la protección, la vuelves a
+hacer y actualizas la fecha.
+
+### Lo que NO cuenta como verificación
+
+- Que el test «parezca» correcto al leerlo.
+- Que falle por un typo en el nombre de una variable: eso prueba que el fichero
+  se ejecuta, no que la aserción compruebe el límite.
+- Un test que solo cubre el caso negativo. **Se comprueba también el positivo**
+  —que el dueño legítimo SÍ ve lo suyo—, o una función que devuelve vacío
+  siempre pasaría el test entero.
+
 ## El exit code es el resultado. No se enmascara.
 
 **Ningún comando de verificación se encadena con `echo`, ni con nada que pueda producir

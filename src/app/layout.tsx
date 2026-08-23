@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, IBM_Plex_Mono, Inter } from "next/font/google";
 
+import { COLOR_CROMO_NAVEGADOR } from "@/lib/design/cromo-navegador";
+
 import "./globals.css";
 
 /**
@@ -41,7 +43,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07080a",
+  themeColor: COLOR_CROMO_NAVEGADOR,
   colorScheme: "dark",
 };
 

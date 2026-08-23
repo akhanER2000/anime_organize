@@ -11,6 +11,30 @@
  *
  * Si no hay `DATABASE_URL_UNPOOLED`, el fichero entero se OMITE con un aviso
  * visible. Nunca se pone en verde fingiendo que pasó.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * VERIFICADO POR MUTACIÓN (2026-08-23) — `.claude/rules/testing.md`
+ *
+ * Mutación aplicada: en `src/lib/db/ownership.ts`, dentro de
+ * `exigirAnimePropio`, se sustituyó
+ *
+ *     and(eq(anime.id, parametros.animeId), eq(anime.userId, parametros.userId))
+ *
+ * por
+ *
+ *     eq(anime.id, parametros.animeId)          // sin filtro de usuario
+ *
+ * Resultado: **3 tests en rojo**
+ *   · «pedir el anime de B con el uuid exacto devuelve NO ENCONTRADO»
+ *   · «el error es 404, NUNCA 403»
+ *   · «A no puede colgarle una portada al anime de B»
+ *
+ * Restaurado y verde de nuevo (14/14).
+ *
+ * Si tocas `ownership.ts`, repite la mutación y actualiza esta nota. Un test
+ * verde que nunca se ha visto fallar no distingue entre proteger y no comprobar
+ * nada.
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 import { randomUUID } from "node:crypto";
 

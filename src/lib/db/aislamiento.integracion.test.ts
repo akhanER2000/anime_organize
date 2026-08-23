@@ -20,7 +20,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * VERIFICADO POR MUTACIÓN (2026-08-23) — `.claude/rules/testing.md`
  *
- MUTACIÓN A: en `src/lib/db/vault.ts`, quitar el filtro de `mio()`
+ * MUTACIÓN A: en `src/lib/db/vault.ts`, quitar el filtro de `mio()`
  *
  *     and(eq(anime.id, animeId), mias())   →   eq(anime.id, animeId)
  *

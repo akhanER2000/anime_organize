@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Pre-commit de Anime Vault.
+#
+# Ejecuta `npm run verificar` — EL AGREGADO, no sus partes.
+#
+# POR QUÉ EL AGREGADO: ejecutar los pasos por separado escondió durante toda una
+# fase que `lint:tokens` apuntaba a un fichero inexistente. El comando agregado
+# es el único que prueba que la cadena entera funciona.
+#
+# Se instala solo: `npm install` ejecuta `prepare`, que apunta core.hooksPath
+# aquí. Para saltárselo puntualmente:  git commit --no-verify
+#
+set -e
+
+echo "pre-commit · npm run verificar"
+echo "  (lint:scripts → typecheck → lint → lint:tokens → test → build)"
+echo
+
+if ! npm run verificar; then
+  echo
+  echo "─────────────────────────────────────────────────────────────────"
+  echo "  COMMIT DETENIDO: `npm run verificar` ha fallado."
+  echo
+  echo "  Arréglalo antes de commitear. Si de verdad necesitas commitear"
+  echo "  con esto roto (un WIP en una rama tuya), sáltatelo a conciencia:"
+  echo "      git commit --no-verify"
+  echo "─────────────────────────────────────────────────────────────────"
+  exit 1
+fi
+
+echo
+echo "pre-commit · todo verde"

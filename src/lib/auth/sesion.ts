@@ -17,11 +17,17 @@
  * Módulo PURO: la decisión se separa de la consulta para poder testear las tres
  * condiciones sin base de datos.
  *
- * COSTE ACEPTADO: una consulta por petición autenticada, por clave primaria e
- * indexada. Renuncia a parte de la gracia del JWT (no tocar la base), y es
- * deliberado: una sesión que no se puede revocar no es aceptable en una app con
- * borrado de cuenta. Cachearlo reintroduciría exactamente la ventana que esto
- * cierra.
+ * COSTE: la comprobación está ACOTADA. Hacerla en cada petición autenticada
+ * —incluida cada navegación RSC— sería una consulta por render para detectar un
+ * evento que ocurre casi nunca. Ver `hayQueComprobarContraLaBase` al final:
+ *
+ *   · LECTURA  → como mucho una consulta cada 60 s. Ventana máxima de 60 s para
+ *                que una lectura se entere de una revocación.
+ *   · MUTACIÓN → SIEMPRE consulta. Ventana CERO. Es donde una sesión revocada
+ *                haría daño de verdad.
+ *
+ * Medido en `coste-sesion.test.ts`: 10 consultas donde antes había 65, en una
+ * sesión de 5 minutos.
  */
 
 /** Lo que la base dice del usuario del token. `null` = no existe. */
@@ -108,3 +114,58 @@ export const OPERACIONES_QUE_REVOCAN = [
 ] as const;
 
 export type OperacionRevocadora = (typeof OPERACIONES_QUE_REVOCAN)[number];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACOTAR EL COSTE
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Cada cuánto se re-verifica contra la base en una LECTURA.
+ *
+ * Sin acotar, el callback de sesión consulta la base en cada petición
+ * autenticada —incluida cada navegación RSC— para detectar un evento que ocurre
+ * casi nunca. En Neon eso son CU-horas y una consulta de latencia en cada render.
+ *
+ * Con el corte en 60 s: **una lectura puede sobrevivir como mucho 60 segundos**
+ * a una revocación. Para una escritura la ventana es **cero**.
+ */
+export const SEGUNDOS_ENTRE_COMPROBACIONES = 60;
+
+/**
+ * Sensibilidad de la operación. Determina si se puede confiar en el token o hay
+ * que ir a la base sí o sí.
+ */
+export type Sensibilidad =
+  /** Lecturas: listar la biblioteca, ver una ficha, navegar. Se puede acotar. */
+  | "LECTURA"
+  /**
+   * Cualquier escritura, y todo lo que toque la cuenta: ajustes, cambio de
+   * contraseña, borrado, vinculación de proveedores. **NUNCA se acota.**
+   */
+  | "MUTACION";
+
+/**
+ * ¿Hay que consultar la base, o basta con el token?
+ *
+ * @param ultimaComprobacion  marca guardada en el JWT, en segundos epoch.
+ *                            `undefined` = nunca se ha comprobado.
+ */
+export function hayQueComprobarContraLaBase(parametros: {
+  sensibilidad: Sensibilidad;
+  ultimaComprobacion: number | undefined;
+  ahoraSegundos: number;
+  ventanaSegundos?: number;
+}): boolean {
+  // Una mutación SIEMPRE va a la base. Es el caso en el que una sesión revocada
+  // haría daño de verdad, y es una fracción minúscula del tráfico.
+  if (parametros.sensibilidad === "MUTACION") return true;
+
+  // Sin marca previa no hay nada en lo que confiar.
+  if (parametros.ultimaComprobacion === undefined) return true;
+
+  // Un reloj que va hacia atrás (marca en el futuro) es sospechoso: se comprueba.
+  if (parametros.ultimaComprobacion > parametros.ahoraSegundos) return true;
+
+  const ventana = parametros.ventanaSegundos ?? SEGUNDOS_ENTRE_COMPROBACIONES;
+  return parametros.ahoraSegundos - parametros.ultimaComprobacion >= ventana;
+}

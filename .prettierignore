@@ -1,0 +1,7 @@
+node_modules
+.next
+coverage
+design
+drizzle
+package-lock.json
+*.min.*

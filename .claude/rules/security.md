@@ -45,6 +45,66 @@ const target = await requireOwnedAnime(tx, { animeId, userId: session.user.id })
 - Prohibido `SELECT *` sobre `users` en cualquier respuesta: `password_hash` no sale nunca
   del servidor. Usa las proyecciones de `src/lib/db/projections.ts`.
 
+## 1 bis. El middleware NO es el límite de seguridad
+
+> **La tentación futura será confiar en el middleware. No lo hagas.**
+
+Auth.js v5 ejecuta el middleware en el runtime **Edge**, donde no existen los
+módulos nativos (Argon2id), ni el driver TCP/WebSocket de Neon, ni buena parte de las
+APIs de Node. **El middleware no puede consultar Postgres.**
+
+Consecuencia directa, y hay que asumirla explícitamente:
+
+| | El middleware (Edge) | `auth()` en Node |
+|---|---|---|
+| ¿El JWT tiene firma válida? | **sí** | sí |
+| ¿El usuario sigue existiendo? | **no puede saberlo** | sí |
+| ¿La cuenta está desactivada? | **no puede saberlo** | sí |
+| ¿Las sesiones fueron revocadas? | **no puede saberlo** | sí |
+
+**Un token de una cuenta borrada pasa el middleware sin despeinarse.** Lo que lo para es
+`evaluarSesion` aguas abajo, en cada Server Action y en cada lectura de datos.
+
+### La separación de ficheros
+
+```
+src/auth.config.ts   APTO PARA EDGE. Sin adaptador, sin base, sin proveedores.
+                     Solo el callback `authorized` que decide el enrutado.
+src/middleware.ts    Consume auth.config. Protege /app/* del enrutado.
+src/auth.ts          COMPLETO, en Node. Adaptador Drizzle, Credentials con
+                     Argon2id, y el callback de sesión con evaluarSesion.
+```
+
+Si alguien importa `@/lib/db` o `@/lib/auth/password` desde `auth.config.ts`, el build del
+middleware revienta —o peor, falla en runtime en producción—. Ese fichero se mantiene
+limpio a propósito.
+
+`/api/*` queda **fuera** del matcher del middleware: cada Route Handler comprueba la sesión
+por su cuenta con `auth()`, en Node. Hacerlo también en Edge sería una comprobación más
+débil dando falsa sensación de red.
+
+### El coste de comprobar, y cómo está acotado
+
+Comprobar contra la base en **cada** petición autenticada —incluida cada navegación RSC—
+sería una consulta por render para detectar un evento que ocurre casi nunca.
+
+| Operación | Comprobación | Ventana tras revocar |
+|---|---|---|
+| **Lectura** (listar, ver ficha, navegar) | como mucho **cada 60 s** | máximo 60 s |
+| **Mutación** (cualquier escritura, ajustes de cuenta, cambio de contraseña, borrado, vinculación) | **siempre, sin caché** | **cero** |
+
+La marca del último chequeo viaja en el propio JWT. Una marca **en el futuro** —reloj
+descolocado o token manipulado para posponer el chequeo— se trata como sospechosa y fuerza
+la consulta.
+
+**Medido** en `src/lib/auth/coste-sesion.test.ts`, no estimado:
+
+- sesión de 5 minutos (60 navegaciones + 5 mutaciones): **65 consultas → 10**, un 85 % menos;
+- una hora de lectura continua (2.400 peticiones): **2.400 consultas → 60**, una por minuto.
+
+El equilibrio elegido: leer un listado obsoleto durante 60 s es tolerable; **modificar** el
+vault de alguien que acaba de revocar sus sesiones, no.
+
 ## 2. Autenticación
 
 - Hash de contraseña: **Argon2id** (`@node-rs/argon2`), parámetros `m=19456, t=2, p=1`.

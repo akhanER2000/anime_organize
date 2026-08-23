@@ -51,7 +51,7 @@ export function MuestraToasts() {
   const ocultar = (t: string) => setVisibles((v) => v.filter((x) => x !== t));
 
   return (
-    <div className="flex flex-col gap-[var(--e-1_5,12px)]">
+    <div className="flex flex-col gap-[var(--e-1-5)]">
       {visibles.includes("exito") && (
         <Toast
           tipo="exito"

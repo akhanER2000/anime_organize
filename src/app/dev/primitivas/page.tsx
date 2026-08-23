@@ -157,7 +157,7 @@ export default function GaleriaPrimitivas() {
           </p>
           <p className="font-mono text-mono text-[var(--ash-400)]">
             Contrastado con design/screens/01-hoja-de-estilo.png · esta ruta devuelve 404 en
-            producción
+            producción · las medidas rotuladas se leen del token, no de una utilidad numérica
           </p>
         </header>
 
@@ -335,13 +335,13 @@ export default function GaleriaPrimitivas() {
             <div className="flex flex-col gap-[var(--e-2)]">
               <Etiqueta>Tamaños</Etiqueta>
               <div className="flex flex-wrap items-end gap-[var(--e-3)]">
-                <Muestra nombre="s · 32 px">
+                <Muestra nombre="s · var(--e-4) = 32 px">
                   <Boton tamano="s">Pequeño</Boton>
                 </Muestra>
-                <Muestra nombre="m · 44 px (táctil)">
+                <Muestra nombre="m · var(--tactil-min) = 44 px">
                   <Boton tamano="m">Normal</Boton>
                 </Muestra>
-                <Muestra nombre="l · 48 px">
+                <Muestra nombre="l · var(--e-6) = 48 px">
                   <Boton tamano="l">Grande</Boton>
                 </Muestra>
                 <Muestra nombre="ancho completo">

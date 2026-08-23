@@ -62,7 +62,7 @@ export type PropsBoton = {
 const BASE = cn(
   "inline-flex items-center justify-center gap-[var(--e-1)]",
   "rounded-boton border font-ui font-[var(--fw-ui-medium)] tracking-boton",
-  "transition-colors duration-base ease-base",
+  "transition-colors duration-[var(--dur-base)] ease-base",
   // Foco SIEMPRE visible: anillo de 2 px con 2 px de offset (DESIGN-SPEC §7).
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
   // Área táctil mínima en móvil.
@@ -71,9 +71,9 @@ const BASE = cn(
 );
 
 const TAMANOS: Record<TamanoBoton, string> = {
-  s: "h-8 px-[var(--e-2)] text-ui-s",
-  m: "h-11 px-[var(--e-3)] text-ui",
-  l: "h-12 px-[var(--e-4)] text-cuerpo-s",
+  s: "h-[var(--e-4)] px-[var(--e-2)] text-ui-s",
+  m: "h-[var(--tactil-min)] px-[var(--e-3)] text-ui",
+  l: "h-[var(--e-6)] px-[var(--e-4)] text-cuerpo-s",
 };
 
 /**
@@ -99,7 +99,9 @@ const VARIANTES: Record<VarianteBoton, string> = {
 
   secundario: cn(
     "border-[var(--slate-600)] bg-[var(--slate-900)] text-[var(--porcelain-100)]",
-    "hover:border-[var(--slate-500,var(--slate-600))] hover:bg-[var(--slate-800)]",
+    // `--slate-500` no existe en el sistema. El hover del secundario aclara
+    // la superficie, que es lo que la spec llama «borde aclarado».
+    "hover:border-[var(--slate-600)] hover:bg-[var(--slate-800)]",
     "active:bg-[var(--slate-700)]",
     "disabled:border-[var(--slate-700)] disabled:text-[var(--ash-500)]",
   ),

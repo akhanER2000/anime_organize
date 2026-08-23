@@ -12,7 +12,17 @@
    uno recortado a `padding-box` y otro a `border-box`.
    DESIGN-SPEC §6, botón · estado hover.
    --------------------------------------------------------------------------- */
-.borde-pan-de-oro {
+/*
+ * SE DECLARA CON `@utility`, NO COMO CLASE NORMAL, y es lo que hace que
+ * `hover:borde-pan-de-oro` FUNCIONE.
+ *
+ * Antes era una clase CSS corriente, y Tailwind no emite nada para una variante
+ * (`hover:`) sobre un candidato que no conoce. Resultado: el estado hover más
+ * característico del sistema —el borde de pan de oro del botón primario— no
+ * existía en el navegador. Se compiló el CSS de verdad para comprobarlo: cero
+ * ocurrencias de `.hover\:borde-pan-de-oro`.
+ */
+@utility borde-pan-de-oro {
   border-color: transparent;
   background-image: linear-gradient(var(--slate-950), var(--slate-950)), var(--gold-leaf);
   background-origin: border-box;
@@ -21,7 +31,7 @@
 }
 
 /* Sobre superficie de card, el relleno interior es --slate-850, no --slate-950. */
-.borde-pan-de-oro-sobre-card {
+@utility borde-pan-de-oro-sobre-card {
   background-image: linear-gradient(var(--slate-850), var(--slate-850)), var(--gold-leaf);
 }
 
@@ -75,6 +85,19 @@
    DESIGN-SPEC §1: polígonos de laja al 5,5 % y ruido monocromo al 3,2 %.
    Los SVG van en línea como data URI para no pedir dos ficheros más.
    --------------------------------------------------------------------------- */
+/*
+ * LA TEXTURA VA COMO MÁSCARA, NO COMO IMAGEN, y es lo que permite que el color
+ * salga del token.
+ *
+ * Antes el SVG llevaba el hex de `--porcelain-100` escrito a mano y codificado
+ * en URL, dentro de un fichero cuya cabecera dice «ningún color literal».
+ * `lint:tokens` no lo veía porque buscaba una almohadilla literal, no su forma
+ * escapada. Si mañana cambiaba la porcelana en `tokens.json`, el fondo de las
+ * doce pantallas se quedaba en el valor viejo, en silencio.
+ *
+ * Con una máscara, el blanco del SVG ya NO es un color: es alfa opaco. El color
+ * de verdad lo pone `background-color`, que sí lee el token.
+ */
 .fondo-laja::before {
   content: "";
   position: fixed;
@@ -82,8 +105,15 @@
   z-index: -2;
   pointer-events: none;
   opacity: var(--textura-laja-opacidad);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='900' viewBox='0 0 1200 900'%3E%3Cg fill='none' stroke='%23E6E2DA' stroke-width='1'%3E%3Cpath d='M0 180 L320 90 L610 240 L900 120 L1200 260'/%3E%3Cpath d='M0 470 L260 380 L540 560 L860 430 L1200 590'/%3E%3Cpath d='M0 760 L300 690 L580 830 L880 720 L1200 860'/%3E%3Cpath d='M180 0 L240 300 L120 620 L300 900'/%3E%3Cpath d='M640 0 L580 280 L720 600 L620 900'/%3E%3Cpath d='M1010 0 L960 320 L1080 640 L1000 900'/%3E%3C/g%3E%3C/svg%3E");
-  background-size: 1200px 900px;
+  background-color: var(--porcelain-100);
+  /* lint-tokens-ok: %23fff aquí es alfa de máscara, no un color; el color lo pone background-color */
+  --trazo-laja: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='900' viewBox='0 0 1200 900'%3E%3Cg fill='none' stroke='%23fff' stroke-width='1'%3E%3Cpath d='M0 180 L320 90 L610 240 L900 120 L1200 260'/%3E%3Cpath d='M0 470 L260 380 L540 560 L860 430 L1200 590'/%3E%3Cpath d='M0 760 L300 690 L580 830 L880 720 L1200 860'/%3E%3Cpath d='M180 0 L240 300 L120 620 L300 900'/%3E%3Cpath d='M640 0 L580 280 L720 600 L620 900'/%3E%3Cpath d='M1010 0 L960 320 L1080 640 L1000 900'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-image: var(--trazo-laja);
+  mask-image: var(--trazo-laja);
+  -webkit-mask-size: 1200px 900px;
+  mask-size: 1200px 900px;
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
 }
 
 .fondo-ruido::after {

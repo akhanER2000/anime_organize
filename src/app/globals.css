@@ -134,22 +134,30 @@
   --leading-cuerpo-l: 1.8;
   --leading-ui: 1.4;
 
-  /* Espaciado · rejilla de 8 px */
-  --spacing-05: 4px;
-  --spacing-1: 8px;
-  --spacing-1_5: 12px;
-  --spacing-2: 16px;
-  --spacing-2_5: 20px;
-  --spacing-3: 24px;
-  --spacing-4: 32px;
-  --spacing-5: 40px;
-  --spacing-6: 48px;
-  --spacing-7: 56px;
-  --spacing-8: 64px;
-  --spacing-9: 72px;
-  --spacing-10: 80px;
-  --spacing-12: 96px;
-  --spacing-13: 104px;
+  /* ═══════════════════════════════════════════════════════════════════════
+     ESPACIADO · rejilla de 8 px
+     ─────────────────────────────────────────────────────────────────────────
+     LOS TOKENS NUMÉRICOS **NO** SE DECLARAN AQUÍ, y es deliberado.
+
+     `design/tokens.json` los nombra `--spacing-1`, `--spacing-2`… siguiendo la
+     convención de Tailwind v4. Pero declararlos en `@theme` SECUESTRA las
+     utilidades numéricas: `h-8` deja de ser `calc(var(--spacing) * 8)` = 32 px
+     y pasa a ser `var(--spacing-8)` = 64 px. **El doble.**
+
+     Lo encontró un ataque adversarial compilando el CSS de verdad: el Chip
+     salía a 64 px donde la spec dice 32, el botón «s» a 64 donde la galería lo
+     rotulaba «32 px», y `h-11` era el único correcto POR ACCIDENTE —porque
+     `--spacing-11` no estaba declarado y caía al cálculo por defecto—. Dos
+     escalas conviviendo dentro del mismo componente.
+
+     Los valores del diseño viven en `:root` como `--e-*` y se usan SIEMPRE de
+     forma explícita: `h-[var(--e-4)]`, `px-[var(--e-2)]`, `gap-[var(--e-3)]`.
+     Así una medida del diseño se lee como tal, y ninguna utilidad numérica
+     miente.
+
+     Los NOMBRADOS sí se declaran: `p-gutter-l` y `min-h-tactil` no chocan con
+     ninguna utilidad numérica.
+     ═══════════════════════════════════════════════════════════════════════ */
 
   --container-vault: 1440px;
   --spacing-gutter-s: 24px;
@@ -294,23 +302,31 @@
   --lh-ui: var(--leading-ui);
   --lh-solido: 1;
 
-  /* Espaciado */
+  /* ---------------------------------------------------------------------
+     Espaciado · LA ESCALA DEL DISEÑO.
+     Valores directos, no `var(--spacing-N)`: esos tokens ya no existen en
+     `@theme` porque secuestraban las utilidades numéricas de Tailwind.
+
+     OJO CON EL NOMBRE: es `--e-1-5`, con GUION. Seis componentes escribían
+     `var(--e-1_5, 12px)` con guion BAJO —un token que no existe— y vivían del
+     valor de respaldo. Lo encontró la misma revisión.
+     --------------------------------------------------------------------- */
   --e-0: 0px;
-  --e-05: var(--spacing-05);
-  --e-1: var(--spacing-1);
-  --e-1-5: var(--spacing-1_5);
-  --e-2: var(--spacing-2);
-  --e-2-5: var(--spacing-2_5);
-  --e-3: var(--spacing-3);
-  --e-4: var(--spacing-4);
-  --e-5: var(--spacing-5);
-  --e-6: var(--spacing-6);
-  --e-7: var(--spacing-7);
-  --e-8: var(--spacing-8);
-  --e-9: var(--spacing-9);
-  --e-10: var(--spacing-10);
-  --e-12: var(--spacing-12);
-  --e-13: var(--spacing-13);
+  --e-05: 4px;
+  --e-1: 8px;
+  --e-1-5: 12px;
+  --e-2: 16px;
+  --e-2-5: 20px;
+  --e-3: 24px;
+  --e-4: 32px;
+  --e-5: 40px;
+  --e-6: 48px;
+  --e-7: 56px;
+  --e-8: 64px;
+  --e-9: 72px;
+  --e-10: 80px;
+  --e-12: 96px;
+  --e-13: 104px;
 
   --contenedor-max: var(--container-vault);
   --gutter-s: var(--spacing-gutter-s);

@@ -41,6 +41,18 @@ const PATRONES = [
     consejo: "Usa una utilidad de token (bg-slate-850) o var(--gold-400).",
   },
   {
+    // HALLAZGO DE LA REVISION ADVERSARIAL: `stroke='%23E6E2DA'` dentro de un
+    // data-URI de SVG es un hex escrito a mano (%23 es `#` codificado) y pasaba
+    // sin que nadie lo viera, en un fichero cuya cabecera dice «NINGUN COLOR
+    // LITERAL». Si manana cambia la porcelana en tokens.json, la textura de las
+    // doce pantallas se queda en el valor viejo, en silencio.
+    nombre: "hex codificado en URL (%23)",
+    regex: /%23(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-fA-F])/g,
+    consejo:
+      "Es un hex dentro de un data-URI. Si de verdad no admite var(), anotalo " +
+      "con // lint-tokens-ok: <por que>",
+  },
+  {
     nombre: "rgb()/rgba()",
     regex: /\brgba?\s*\(/g,
     consejo: "Los derivados permitidos ya existen como token: var(--gold-wash), etc.",

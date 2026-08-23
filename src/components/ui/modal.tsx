@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -54,6 +54,12 @@ export function Modal({
   children,
 }: PropsModal) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  // `useId` en vez de ids fijos: dos modales en la misma página producían
+  // `modal-titulo` duplicado, y entonces `aria-labelledby` apunta al primero —
+  // el segundo diálogo se anuncia con el nombre del otro.
+  const id = useId();
+  const idTitulo = `${id}-titulo`;
+  const idDescripcion = `${id}-descripcion`;
 
   useEffect(() => {
     const el = dialogo.current;
@@ -68,13 +74,14 @@ export function Modal({
   return (
     <dialog
       ref={dialogo}
-      aria-labelledby="modal-titulo"
-      aria-describedby={descripcion !== undefined ? "modal-descripcion" : undefined}
-      // `cancel` cubre Escape; `close` cubre todo lo demás.
-      onCancel={(e) => {
-        e.preventDefault();
-        alCerrar();
-      }}
+      aria-labelledby={idTitulo}
+      aria-describedby={descripcion !== undefined ? idDescripcion : undefined}
+      /**
+       * SOLO `onClose`. Antes había también un `onCancel` que llamaba a
+       * `alCerrar()`, y Escape dispara LOS DOS: `cancel` y después `close`. El
+       * resultado era `alCerrar()` ejecutado dos veces por cierre — inofensivo
+       * con un `setState`, pero no con un «deshacer» o un `router.back()`.
+       */
       onClose={alCerrar}
       // El `::backdrop` no emite eventos: se detecta el clic FUERA del contenido
       // comparando con el rectángulo del propio diálogo.
@@ -92,13 +99,13 @@ export function Modal({
       <div className="flex flex-col gap-[var(--e-3)] p-[var(--e-4)]">
         <div className="flex flex-col gap-[var(--e-1)]">
           <h2
-            id="modal-titulo"
+            id={idTitulo}
             className="font-display text-titulo-m font-[var(--fw-display-light)] tracking-display text-[var(--porcelain-050)]"
           >
             {titulo}
           </h2>
           {descripcion !== undefined && (
-            <p id="modal-descripcion" className="font-ui text-ui-s text-[var(--ash-400)]">
+            <p id={idDescripcion} className="font-ui text-ui-s text-[var(--ash-400)]">
               {descripcion}
             </p>
           )}
@@ -107,7 +114,7 @@ export function Modal({
         <div>{children}</div>
 
         {pie !== undefined && (
-          <div className="flex items-center justify-end gap-[var(--e-1_5,12px)]">{pie}</div>
+          <div className="flex items-center justify-end gap-[var(--e-1-5)]">{pie}</div>
         )}
       </div>
     </dialog>

@@ -36,9 +36,9 @@ export function Chip({
       aria-pressed={activo}
       disabled={disabled}
       className={cn(
-        "inline-flex h-8 items-center gap-[var(--e-1)] rounded-chip border",
-        "px-[var(--e-1_5,12px)] font-ui text-ui-s",
-        "transition-colors duration-base ease-base",
+        "inline-flex h-[var(--e-4)] items-center gap-[var(--e-1)] rounded-chip border",
+        "px-[var(--e-1-5)] font-ui text-ui-s",
+        "transition-colors duration-[var(--dur-base)] ease-base",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         activo
@@ -97,8 +97,8 @@ export function ChipEspejo({ etiqueta, url, activo = false, roto = false }: Prop
       rel="noopener noreferrer"
       aria-current={activo ? "true" : undefined}
       className={cn(
-        "inline-flex h-7 items-center rounded-chip border px-[var(--e-1)]",
-        "font-mono text-mono-s transition-colors duration-base ease-base",
+        "inline-flex h-[28px] items-center rounded-chip border px-[var(--e-1)]",
+        "font-mono text-mono-s transition-colors duration-[var(--dur-base)] ease-base",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
         roto
           ? "border-[var(--estado-abandonado-borde)] text-[var(--estado-abandonado-texto)] line-through"

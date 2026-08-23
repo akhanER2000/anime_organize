@@ -38,7 +38,7 @@ const CONTROL = cn(
   "w-full rounded-input border bg-[var(--slate-800)]",
   "px-[var(--e-2)] font-ui text-ui text-[var(--porcelain-100)]",
   "placeholder:text-[var(--ash-500)]",
-  "transition-colors duration-base ease-base",
+  "transition-colors duration-[var(--dur-base)] ease-base",
   // Foco: borde dorado + anillo suave con 2 px de offset.
   "focus-visible:border-[var(--gold-400)] focus-visible:outline-2",
   "focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-foco)]",
@@ -111,7 +111,7 @@ export function Campo({
           aria-describedby={hayError ? idError : ayuda !== undefined ? idAyuda : undefined}
           className={cn(
             CONTROL,
-            "h-11",
+            "h-[var(--tactil-min)]",
             adorno !== undefined && "pr-[var(--e-6)]",
             hayError
               ? "border-[var(--estado-abandonado)]"
@@ -120,9 +120,7 @@ export function Campo({
           {...resto}
         />
         {adorno !== undefined && (
-          <span className="absolute right-[var(--e-1_5,12px)] top-1/2 -translate-y-1/2">
-            {adorno}
-          </span>
+          <span className="absolute right-[var(--e-1-5)] top-1/2 -translate-y-1/2">{adorno}</span>
         )}
       </div>
 
@@ -157,7 +155,7 @@ export function AreaTexto({
         aria-describedby={hayError ? idError : ayuda !== undefined ? idAyuda : undefined}
         className={cn(
           CONTROL,
-          "resize-y py-[var(--e-1_5,12px)] leading-cuerpo",
+          "resize-y py-[var(--e-1-5)] leading-cuerpo",
           hayError
             ? "border-[var(--estado-abandonado)]"
             : "border-[var(--slate-600)] hover:border-[var(--slate-700)]",

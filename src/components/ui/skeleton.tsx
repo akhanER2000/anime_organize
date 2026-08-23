@@ -52,11 +52,15 @@ export function Skeleton({
 export function SkeletonRejilla({ cuantos = 5 }: { cuantos?: number }) {
   return (
     <div
+      // `role="status"` es lo que hace que un lector ANUNCIE «Cargando…».
+      // `aria-busy` solo describe el estado del contenedor: sin `role` ni
+      // contenido de texto, la carga es silencio absoluto.
+      role="status"
       aria-busy="true"
       aria-live="polite"
-      aria-label="Cargando tu biblioteca"
       className="grid grid-cols-2 gap-x-[var(--gutter-s)] gap-y-[28px] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
     >
+      <span className="sr-only">Cargando tu biblioteca…</span>
       {Array.from({ length: cuantos }, (_, i) => (
         <div key={i} className="flex flex-col gap-[var(--e-1)]">
           <Skeleton portada redondeo="card" columna={(i % 3) as 0 | 1 | 2} />

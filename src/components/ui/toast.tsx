@@ -60,9 +60,9 @@ export function Toast({ tipo, mensaje, accion, duracionMs = 6000, alCerrar, icon
       role={esError ? "alert" : "status"}
       aria-live={esError ? "assertive" : "polite"}
       className={cn(
-        "flex w-full max-w-[460px] items-center gap-[var(--e-1_5,12px)]",
+        "flex w-full max-w-[460px] items-center gap-[var(--e-1-5)]",
         "rounded-card border border-[var(--slate-700)] border-l-2",
-        "bg-[var(--slate-850)] px-[var(--e-2)] py-[var(--e-1_5,12px)]",
+        "bg-[var(--slate-850)] px-[var(--e-2)] py-[var(--e-1-5)]",
         "shadow-[var(--sombra-losa)]",
         BORDES[tipo],
       )}
@@ -85,7 +85,7 @@ export function Toast({ tipo, mensaje, accion, duracionMs = 6000, alCerrar, icon
           onClick={accion.alPulsar}
           className={cn(
             "shrink-0 font-mono text-mono underline underline-offset-2",
-            "text-[var(--gold-300)] transition-colors duration-base ease-base",
+            "text-[var(--gold-300)] transition-colors duration-[var(--dur-base)] ease-base",
             "hover:text-[var(--gold-200)]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
           )}

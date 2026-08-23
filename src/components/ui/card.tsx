@@ -46,7 +46,7 @@ export function Card({
         acento && "border-t-[var(--gold-400)]",
         vetaEnHover &&
           cn(
-            "border-l border-l-transparent transition-colors duration-base ease-base",
+            "border-l border-l-transparent transition-colors duration-[var(--dur-base)] ease-base",
             "hover:border-l-[var(--gold-400)]",
           ),
         className,
@@ -110,7 +110,7 @@ export function BarraProgreso({
       {acotado !== null && (
         <div
           className={cn(
-            "h-full rounded-barra transition-[width] duration-lenta ease-base",
+            "h-full rounded-barra transition-[width] duration-[var(--dur-lenta)] ease-base",
             abandonado
               ? "bg-[var(--estado-abandonado)]"
               : "bg-[var(--gold-400)] shadow-[var(--halo-punto)]",

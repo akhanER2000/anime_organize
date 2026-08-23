@@ -4,7 +4,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 import { normalizarTitulo } from "@/lib/domain/normalizar";
 
-import { type ContextoUsuario } from "./contexto";
+import { ContextoUsuario, ErrorContextoFalsificado } from "./contexto";
 import { conTransaccion, dbInterna, type ClienteInterno } from "./interno";
 import { anime, animeCover, continueLink, progress } from "./schema";
 
@@ -100,6 +100,14 @@ export interface Vault {
  *        suyo. Por defecto, el de la aplicación.
  */
 export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbInterna()): Vault {
+  // LA GARANTÍA DE VERDAD, y está en runtime. Los tipos bloquean el literal y
+  // el `new`, pero un `any` —de `JSON.parse` o `Object.create`— se cuela sin
+  // `as`. Aquí no: un contexto sin la marca privada no abre nada.
+  // Ver `ContextoUsuario.esAutentico`.
+  if (!ContextoUsuario.esAutentico(ctx)) {
+    throw new ErrorContextoFalsificado();
+  }
+
   /**
    * Condición de propiedad. **Todo `WHERE` de este fichero empieza por aquí.**
    */
@@ -282,6 +290,11 @@ export async function enTransaccion<T>(
   ctx: ContextoUsuario,
   trabajo: (vault: Vault) => Promise<T>,
 ): Promise<T> {
+  // Misma comprobación que en `vaultDe`: esta es la otra puerta.
+  if (!ContextoUsuario.esAutentico(ctx)) {
+    throw new ErrorContextoFalsificado();
+  }
+
   return conTransaccion(async (cliente) =>
     cliente.transaction(async (tx) => trabajo(vaultDe(ctx, tx))),
   );

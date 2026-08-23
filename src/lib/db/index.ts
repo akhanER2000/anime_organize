@@ -22,7 +22,7 @@ import "server-only";
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-export { ContextoUsuario, ErrorNoEncontrado } from "./contexto";
+export { ContextoUsuario, ErrorNoEncontrado, ErrorContextoFalsificado } from "./contexto";
 export type { ModoAcceso } from "./contexto";
 
 export { vaultDe, enTransaccion } from "./vault";

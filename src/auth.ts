@@ -20,12 +20,24 @@ import { users } from "./lib/db/schema";
  *
  * Ver `.claude/rules/security.md` §1 bis: el middleware protege el enrutado, no
  * es el límite de seguridad. Lo que de verdad para a un token revocado es el
- * callback `session` de este fichero.
+ * callback `jwt` de este fichero — **`jwt`, no `session`**: es el único cuyo
+ * valor de retorno se persiste, y el único que puede invalidar devolviendo
+ * `null`.
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
 /** Marca del último chequeo contra la base, en segundos epoch. */
 const CLAVE_ULTIMO_CHEQUEO = "cs";
+
+/**
+ * Marca PROPIA de emisión, en segundos epoch.
+ *
+ * NO se usa `iat`: el middleware re-firma el JWT en cada navegación y
+ * `jwt.encode()` lo pone a «ahora», así que `iat` nunca envejece y la
+ * revocación no se dispararía jamás. Esta marca se pone SOLO al autenticar y
+ * el callback `jwt` la copia intacta en cada refresco.
+ */
+const CLAVE_EMITIDO = "em";
 
 declare module "next-auth" {
   interface Session {
@@ -34,6 +46,14 @@ declare module "next-auth" {
       email: string;
       name?: string | null;
       image?: string | null;
+      /**
+       * Marca de emisión del token, en segundos epoch.
+       *
+       * Viaja hasta aquí para que `exigirSesionParaMutar` pueda comprobar la
+       * revocación SIN volver a decodificar el JWT. No es sensible: es una
+       * fecha, y quien tiene la sesión ya la tiene.
+       */
+      emitido?: number | undefined;
     };
   }
 }
@@ -145,73 +165,107 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     ...authConfig.callbacks,
 
-    jwt({ token, user, trigger }) {
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * AQUÍ ESTÁ EL LÍMITE DE SEGURIDAD REAL. **En `jwt`, no en `session`.**
+     *
+     * DOS FALLOS QUE ENCONTRÓ UNA REVISIÓN ADVERSARIAL, y los dos anulaban por
+     * completo la revocación de sesiones:
+     *
+     * 1. **`iat` NO SIRVE COMO FECHA DE EMISIÓN.** El middleware de Auth.js
+     *    llama a `getSession()` en cada navegación, y eso **vuelve a firmar el
+     *    JWT** y lo reenvía en un `Set-Cookie`. `jwt.encode()` llama a
+     *    `setIssuedAt()`, así que `iat` es SIEMPRE «ahora».
+     *
+     *    Secuencia real: 10:00 te roban la cookie. 10:05 cambias la contraseña
+     *    → `sessions_valid_from = 10:04:59`. 10:06 el atacante carga cualquier
+     *    página → el middleware le devuelve el token re-firmado con `iat=10:06`
+     *    → `evaluarSesion` compara 10:06 > 10:04:59 y **lo deja pasar para
+     *    siempre**.
+     *
+     *    Solución: una marca PROPIA (`emitido`) que se pone SOLO al autenticar.
+     *    Sobrevive a los re-firmados porque este callback la copia tal cual.
+     *
+     * 2. **Escribir en `token` desde el callback `session` NO PERSISTE.** El
+     *    orden es `jwt` → codificar → `session`. Lo que toca `session` se pierde
+     *    en la siguiente petición, así que el acotado de 60 s no acotaba nada:
+     *    consultaba la base en CADA petición.
+     *
+     * Por eso todo vive aquí: `jwt` es lo único cuyo valor de retorno se
+     * persiste, y devolver `null` invalida la sesión de verdad.
+     * ═══════════════════════════════════════════════════════════════════════
+     */
+    async jwt({ token, user, trigger }) {
+      const ahoraSegundos = Math.floor(Date.now() / 1000);
+
+      // ── Autenticación: se acaba de comprobar todo. ──────────────────────
       if (user?.id !== undefined) {
         token.sub = user.id;
-        // Recién emitido: se acaba de comprobar todo al autenticar.
-        token[CLAVE_ULTIMO_CHEQUEO] = Math.floor(Date.now() / 1000);
+        token[CLAVE_EMITIDO] = ahoraSegundos;
+        token[CLAVE_ULTIMO_CHEQUEO] = ahoraSegundos;
+        return token;
       }
 
-      // Un `update()` explícito desde el cliente fuerza el próximo chequeo.
-      if (trigger === "update") {
-        delete token[CLAVE_ULTIMO_CHEQUEO];
-      }
-
-      return token;
-    },
-
-    /**
-     * AQUÍ ESTÁ EL LÍMITE DE SEGURIDAD REAL.
-     *
-     * Comprueba contra la base que el usuario existe, que no está desactivado y
-     * que el token se emitió después de `sessions_valid_from`. Acotado a una
-     * consulta cada 60 s en lecturas; las mutaciones usan
-     * `exigirSesionParaMutar()`, que nunca se acota.
-     */
-    async session({ session, token }) {
       const userId = token.sub;
-      if (userId === undefined) {
-        // Sin `sub` no hay a quién comprobar. Se devuelve una sesión sin usuario,
-        // que el resto del código trata como «no autenticado».
-        return { ...session, user: undefined } as unknown as typeof session;
-      }
+      if (userId === undefined) return null;
 
-      const ahoraSegundos = Math.floor(Date.now() / 1000);
-      const hayQue = hayQueComprobarContraLaBase({
-        sensibilidad: "LECTURA",
-        ultimaComprobacion: numeroDelToken(token, CLAVE_ULTIMO_CHEQUEO),
-        ahoraSegundos,
-      });
+      // Un `update()` explícito desde el cliente fuerza el chequeo.
+      const forzar = trigger === "update";
 
-      if (!hayQue) {
-        return { ...session, user: { ...session.user, id: userId } };
-      }
+      const hayQue =
+        forzar ||
+        hayQueComprobarContraLaBase({
+          sensibilidad: "LECTURA",
+          ultimaComprobacion: numeroDelToken(token, CLAVE_ULTIMO_CHEQUEO),
+          ahoraSegundos,
+        });
+
+      if (!hayQue) return token;
 
       const cuenta = await estadoDeCuenta(userId);
       const veredicto = evaluarSesion(
         cuenta === undefined
           ? null
           : { deletedAt: cuenta.deletedAt, sessionsValidFrom: cuenta.sessionsValidFrom },
-        numeroDelToken(token, "iat"),
+        // La marca PROPIA, no `iat`. Sin ella —un token de antes de este
+        // cambio—, se fuerza el rechazo: ante la duda, fuera.
+        numeroDelToken(token, CLAVE_EMITIDO),
       );
 
-      if (!veredicto.valida) {
-        // La sesión se devuelve SIN usuario. `auth()` lo interpretará como no
-        // autenticado y el middleware redirigirá al login en la siguiente
-        // navegación.
-        return { ...session, user: undefined } as unknown as typeof session;
-      }
+      // `null` invalida la sesión de verdad: Auth.js borra la cookie.
+      if (!veredicto.valida) return null;
 
       token[CLAVE_ULTIMO_CHEQUEO] = ahoraSegundos;
+      // El perfil se refresca aprovechando la consulta: si el usuario cambia su
+      // nombre en Ajustes, la barra superior se entera en el próximo chequeo sin
+      // una consulta extra.
+      if (cuenta?.email !== undefined) token.email = cuenta.email;
+      token.name = cuenta?.displayName ?? null;
+      token.picture = cuenta?.avatarUrl ?? null;
+
+      return token;
+    },
+
+    /**
+     * Solo proyecta el token a la sesión. **No consulta la base** y **no escribe
+     * en el token**: lo que se escriba aquí se pierde (ver el comentario de
+     * `jwt`). Si el token llegó hasta aquí, `jwt` ya lo validó.
+     */
+    session({ session, token }) {
+      const userId = token.sub;
+      if (userId === undefined) {
+        return { ...session, user: undefined } as unknown as typeof session;
+      }
 
       return {
         ...session,
         user: {
           ...session.user,
           id: userId,
-          email: cuenta?.email ?? session.user.email,
-          name: cuenta?.displayName ?? null,
-          image: cuenta?.avatarUrl ?? null,
+          email: typeof token.email === "string" ? token.email : session.user.email,
+          name: typeof token.name === "string" ? token.name : null,
+          image: typeof token.picture === "string" ? token.picture : null,
+          emitido: numeroDelToken(token, CLAVE_EMITIDO),
         },
       };
     },
@@ -266,6 +320,23 @@ async function exigirSesion(
     if (cuenta.deletedAt !== null) {
       throw new ErrorSesionInvalida("CUENTA_DESACTIVADA");
     }
+
+    // Y TAMBIÉN el corte de revocación. Antes solo se miraba `deleted_at`, así
+    // que una sesión revocada por cambio de contraseña podía SEGUIR ESCRIBIENDO
+    // durante la ventana de 60 s — justo lo contrario de «ventana CERO para
+    // escrituras», que es lo que promete `security.md` §1 bis.
+    //
+    // Se compara con la marca de emisión REAL, que viaja en la sesión. Usar
+    // `Date.now()` aquí sería el mismo error que usar `iat`: siempre pasaría.
+    const veredicto = evaluarSesion(
+      { deletedAt: cuenta.deletedAt, sessionsValidFrom: cuenta.sessionsValidFrom },
+      sesion?.user?.emitido,
+    );
+
+    if (!veredicto.valida) {
+      throw new ErrorSesionInvalida(veredicto.motivo);
+    }
+
     return { userId, email: cuenta.email };
   }
 

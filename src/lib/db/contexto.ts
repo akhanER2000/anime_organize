@@ -83,6 +83,37 @@ export class ContextoUsuario {
     return new ContextoUsuario(userId);
   }
 
+  /**
+   * ¿Este valor es un contexto AUTÉNTICO, o algo que se le parece?
+   *
+   * ══════════════════════════════════════════════════════════════════════════
+   * ESTO EXISTE PORQUE LOS TIPOS NO BASTAN, y lo encontró un ataque adversarial.
+   *
+   * La marca nominal `#deSesionVerificada` bloquea el literal y el `new`, pero
+   * **cualquier valor de tipo `any` se cuela sin `as`, sin `new` y sin literal**:
+   *
+   *     const ctx: ContextoUsuario = JSON.parse(JSON.stringify({ userId: ajeno }));
+   *     const ctx: ContextoUsuario = Object.create(ContextoUsuario.prototype, {
+   *       userId: { value: ajeno },
+   *     });
+   *
+   * Las dos COMPILAN y PASAN EL LINT: `JSON.parse` y `Object.create` devuelven
+   * `any`, y `no-explicit-any` solo prohíbe el `any` ESCRITO, no el inferido.
+   * Y la segunda es peor que un `as`: parece código de hidratación normal.
+   *
+   * `#campo in valor` es la comprobación de marca REAL de TypeScript: los campos
+   * privados los instala el CONSTRUCTOR, nunca están en el prototipo. Así que
+   * `Object.create(ContextoUsuario.prototype)` da `false`, y `JSON.parse`
+   * también.
+   *
+   * El `typeof`/`!== null` no es paranoia: `#campo in v` LANZA TypeError con
+   * `null`, `undefined` y primitivos en vez de devolver `false`.
+   * ══════════════════════════════════════════════════════════════════════════
+   */
+  static esAutentico(valor: unknown): valor is ContextoUsuario {
+    return typeof valor === "object" && valor !== null && #deSesionVerificada in valor;
+  }
+
   /** Para logs y mensajes de error. Nunca expone más que el id. */
   toString(): string {
     return `ContextoUsuario(${this.userId})`;
@@ -105,6 +136,25 @@ export class ContextoUsuario {
  * Action de escritura no pueda usar por descuido un contexto de solo lectura.
  */
 export type ModoAcceso = "LECTURA" | "MUTACION";
+
+/**
+ * Se lanza cuando llega algo que dice ser un contexto y no lo es.
+ *
+ * NO es un error de negocio: es un intento de saltarse el contrato, o un bug de
+ * hidratación que habría acabado consultando con el uuid de otro. Se trata como
+ * lo que es.
+ */
+export class ErrorContextoFalsificado extends Error {
+  override readonly name = "ErrorContextoFalsificado";
+
+  constructor() {
+    super(
+      "El contexto de usuario no es auténtico. Un ContextoUsuario solo sale de " +
+        "exigirSesionParaLeer() o exigirSesionParaMutar(): no se deserializa, " +
+        "no se reconstruye y no se castea.",
+    );
+  }
+}
 
 /**
  * Recurso no encontrado.

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { MENSAJES, MENSAJES_QUE_NO_PUEDEN_DIVERGIR } from "./mensajes";
+import {
+  MENSAJES,
+  MENSAJES_QUE_NO_PUEDEN_DIVERGIR,
+  accionesLogin,
+  mensajeLoginFallido,
+} from "./mensajes";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -14,7 +19,24 @@ import { MENSAJES, MENSAJES_QUE_NO_PUEDEN_DIVERGIR } from "./mensajes";
  *   · «ningún texto contiene una frase delatora»
  *   · «el mensaje de login orienta sin decir qué ha fallado»
  *   · «el mensaje de login menciona la trampa de copiar y pegar»
- * Restaurado y verde (17/17).
+ *
+ * MUTACIÓN B (2026-08-23): restaurar «Tu cuenta está creada, pero no hemos
+ * podido enviarte el correo» en `correoNoEnviado` — el texto que DELATABA un
+ * registro nuevo, y que un atacante puede provocar a voluntad saturando el rate
+ * limit del proveedor de correo.
+ * Resultado MEDIDO: **3 tests en rojo**
+ *   · «el fallo de correo ofrece la salida del atasco SIN afirmar nada»
+ *   · «no afirma que la cuenta se haya creado»
+ *   · «sigue ofreciendo qué hacer»
+ *
+ * MUTACIÓN C (2026-08-23): ignorar la bandera y enseñar siempre la pista de
+ * verificación y el enlace de reenvío.
+ * Resultado MEDIDO: **3 tests en rojo**
+ *   · «con la verificación APAGADA, el mensaje NO la menciona»
+ *   · «Reenviar verificación solo se ofrece si la verificación existe»
+ *   · «las acciones conservan el orden: recuperar, [reenviar], registrarse»
+ *
+ * Las tres restauradas y verde (28/28).
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -68,7 +90,7 @@ describe("NINGÚN MENSAJE CONFIRMA NI NIEGA QUE UNA CUENTA EXISTA", () => {
   });
 
   it("el mensaje de login orienta sin decir qué ha fallado", () => {
-    const m = MENSAJES.loginFallido;
+    const m = mensajeLoginFallido(true);
 
     // Lo que SÍ tiene: cosas concretas que revisar.
     expect(m).toMatch(/revisa/i);
@@ -85,7 +107,8 @@ describe("NINGÚN MENSAJE CONFIRMA NI NIEGA QUE UNA CUENTA EXISTA", () => {
   it("el mensaje de login menciona la trampa de copiar y pegar", () => {
     // Es la causa real más común de un login fallido con credenciales buenas:
     // un espacio al final del email copiado del gestor de contraseñas.
-    expect(MENSAJES.loginFallido).toMatch(/espacio|may[úu]scula/i);
+    expect(mensajeLoginFallido(true)).toMatch(/espacio|may[úu]scula/i);
+    expect(mensajeLoginFallido(false)).toMatch(/espacio|may[úu]scula/i);
   });
 });
 
@@ -128,9 +151,10 @@ describe("USABILIDAD · el mensaje seguro tiene que servir de algo", () => {
     expect(MENSAJES.loginDemasiadosIntentos).toMatch(/espera/i);
   });
 
-  it("el registro sin correo ofrece la salida del atasco", () => {
-    expect(MENSAJES.registroSinCorreo).toMatch(/reenv/i);
-    expect(MENSAJES.registroSinCorreo).toMatch(/creada/i);
+  it("el fallo de correo ofrece la salida del atasco SIN afirmar nada", () => {
+    // Ofrece qué hacer (reintentar, reenviar) pero no dice si hay cuenta.
+    expect(MENSAJES.correoNoEnviado).toMatch(/reenv/i);
+    expect(MENSAJES.correoNoEnviado).toMatch(/int[ée]ntalo|minutos/i);
   });
 
   it("el borrado avisa de que se descarga una copia antes", () => {
@@ -171,5 +195,100 @@ describe("TONO · segunda persona, sin regañar", () => {
     for (const etiqueta of Object.values(MENSAJES.loginAcciones)) {
       expect(etiqueta.endsWith(".")).toBe(false);
     }
+  });
+});
+
+describe("LA PISTA DE VERIFICACIÓN SE CONDICIONA A LA BANDERA", () => {
+  it("con la verificación ENCENDIDA, el mensaje la menciona", () => {
+    const m = mensajeLoginFallido(true);
+
+    expect(m).toContain(MENSAJES.loginFallidoBase);
+    expect(m).toMatch(/correo de verificaci[óo]n/i);
+  });
+
+  it("con la verificación APAGADA, el mensaje NO la menciona", () => {
+    // Es como está el proyecto ahora. Mandar a alguien a buscar un correo que
+    // nunca se envió es una pista falsa que le hace perder el tiempo.
+    const m = mensajeLoginFallido(false);
+
+    expect(m).toBe(MENSAJES.loginFallidoBase);
+    expect(m).not.toMatch(/verificaci[óo]n/i);
+    expect(m).not.toMatch(/acabas de registrarte/i);
+  });
+
+  it("la parte útil está en LOS DOS estados", () => {
+    // Lo que se condiciona es la pista extra, no la orientación básica.
+    for (const activa of [true, false]) {
+      const m = mensajeLoginFallido(activa);
+      expect(m, `bandera=${activa}`).toMatch(/revisa/i);
+      expect(m, `bandera=${activa}`).toMatch(/espacio|may[úu]scula/i);
+    }
+  });
+
+  it("«Reenviar verificación» solo se ofrece si la verificación existe", () => {
+    // Un enlace que no lleva a ninguna parte es peor que no tener enlace.
+    const conBandera = accionesLogin(true).map((a) => a.clave);
+    const sinBandera = accionesLogin(false).map((a) => a.clave);
+
+    expect(conBandera).toContain("reenviar");
+    expect(sinBandera).not.toContain("reenviar");
+  });
+
+  it("recuperar y registrarse se ofrecen SIEMPRE", () => {
+    for (const activa of [true, false]) {
+      const claves = accionesLogin(activa).map((a) => a.clave);
+      expect(claves, `bandera=${activa}`).toContain("recuperar");
+      expect(claves, `bandera=${activa}`).toContain("registrarse");
+    }
+  });
+
+  it("las acciones conservan el orden: recuperar, [reenviar], registrarse", () => {
+    expect(accionesLogin(true).map((a) => a.clave)).toEqual([
+      "recuperar",
+      "reenviar",
+      "registrarse",
+    ]);
+    expect(accionesLogin(false).map((a) => a.clave)).toEqual(["recuperar", "registrarse"]);
+  });
+
+  it("condicionar por la bandera NO es una fuga", () => {
+    // La bandera es GLOBAL, no por cuenta: su estado se deduce en dos segundos
+    // mirando el registro. Lo que no puede variar es el texto ANTE LA MISMA
+    // configuración según qué cuenta se pruebe, y eso sigue garantizado.
+    const dosIntentosDistintos = [mensajeLoginFallido(false), mensajeLoginFallido(false)];
+    expect(dosIntentosDistintos[0]).toBe(dosIntentosDistintos[1]);
+  });
+});
+
+describe("EL FALLO DE CORREO NO PUEDE DELATAR UN REGISTRO NUEVO", () => {
+  it("no afirma que la cuenta se haya creado", () => {
+    // La versión anterior decía «Tu cuenta está creada, pero…», y ese texto solo
+    // puede salir en un registro nuevo: quien lo viera sabría que la cuenta NO
+    // existía antes.
+    const m = MENSAJES.correoNoEnviado;
+
+    expect(m).not.toMatch(/tu cuenta est[áa] creada/i);
+    expect(m).not.toMatch(/\bcuenta creada\b/i);
+    expect(m).not.toMatch(/\bhemos creado\b/i);
+    expect(m).not.toMatch(/\bya ten[íi]as\b/i);
+  });
+
+  it("es el MISMO texto tras crear, al reenviar y al recuperar", () => {
+    const grupo = MENSAJES_QUE_NO_PUEDEN_DIVERGIR.find((g) =>
+      g.motivo.startsWith("fallo de correo"),
+    );
+
+    expect(grupo).toBeDefined();
+    expect(grupo?.mensaje).toBe(MENSAJES.correoNoEnviado);
+    // Los tres caminos que un atacante puede provocar saturando el proveedor.
+    expect(grupo?.casos).toContain("FALLO_TRAS_CREAR");
+    expect(grupo?.casos).toContain("FALLO_AL_REENVIAR");
+    expect(grupo?.casos).toContain("FALLO_EN_RECUPERACION");
+  });
+
+  it("sigue ofreciendo qué hacer", () => {
+    // No afirmar nada no puede significar no ayudar.
+    expect(MENSAJES.correoNoEnviado).toMatch(/int[ée]ntalo de nuevo/i);
+    expect(MENSAJES.correoNoEnviado).toMatch(/reenv/i);
   });
 });

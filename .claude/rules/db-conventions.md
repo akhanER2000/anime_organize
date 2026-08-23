@@ -79,8 +79,18 @@ El proveedor **Credentials de Auth.js v5 no funciona con sesiones de base de dat
 fuerza la estrategia JWT. Como el proyecto ya va con JWT por decisión del encargo, no
 cambia nada… salvo que **`sessions` no va a tener nunca una fila**.
 
-Se crea igualmente porque el adaptador de Drizzle la espera en su contrato, y porque
-retrofitearla el día que se active Google sería una migración innecesaria.
+Se crea igualmente porque retrofitearla el día que se active Google sería una migración
+innecesaria.
+
+**Y el adaptador de Drizzle NO está cableado.** `DrizzleAdapter` exige un esquema con SUS
+nombres de columna (`name`, `image`, `refresh_token`, `access_token`…), mientras que el
+nuestro usa `display_name`, `avatar_url` y camelCase por las convenciones de este
+documento. Cablearlo hoy obligaría a **deformar el esquema para un adaptador que no se
+usa**: con Credentials forzando JWT, ni `sessions` ni `accounts` reciben una fila.
+
+Se añadirá el día que se active Google, y **ese** día se decide si se renombran las
+columnas o se le pasa un mapeo. Hasta entonces, `@auth/drizzle-adapter` ni siquiera está
+instalado.
 
 | Tabla | Cuándo se llenará |
 |---|---|

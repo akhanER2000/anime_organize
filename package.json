@@ -48,7 +48,6 @@
     "esbuild": "^0.28.2"
   },
   "dependencies": {
-    "@auth/drizzle-adapter": "^1.11.3",
     "@hookform/resolvers": "^5.2.2",
     "@neondatabase/serverless": "^1.1.0",
     "@node-rs/argon2": "^2.1.0",

@@ -81,6 +81,11 @@ jobs:
       - name: Tokens de diseño (ningún hex fuera de globals.css)
         run: npm run lint:tokens
 
+      # Intenta saltarse el contrato de datos de siete formas y exige que las
+      # siete sean rechazadas. Ver src/lib/db/contexto.ts.
+      - name: Contrato de datos (7 intentos de salto)
+        run: npm run lint:contrato
+
       - name: Formato
         run: npm run format:check
 

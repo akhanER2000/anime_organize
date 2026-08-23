@@ -184,6 +184,83 @@ Se crea índice cuando hay un `WHERE`, un `ORDER BY` o un `JOIN` que lo usa. Ni 
 - Nada de `DROP TABLE`/`DROP COLUMN` en una migración que además añade features.
   Las destructivas van solas y anunciadas.
 
+## EL CONTRATO DE DATOS · no se puede consultar sin contexto de usuario
+
+> **Disciplina convertida en imposibilidad.** No hay que *acordarse* de filtrar por
+> `user_id`: no se puede construir una consulta sin un contexto de usuario, y olvidarlo es
+> un error de compilación, no un fallo en producción.
+
+### Cómo se usa. No hay otra forma.
+
+```ts
+const { ctx } = await exigirSesionParaLeer();   // o exigirSesionParaMutar()
+const vault = vaultDe(ctx);
+
+const mios = await vault.listar();
+const uno  = await vault.obtener(id);   // null si no existe O no es suyo
+```
+
+Para varias operaciones atómicas:
+
+```ts
+await enTransaccion(ctx, async (vault) => {
+  const creado = await vault.crear({ titulo, estado: "PENDIENTE" });
+  // …portada y progreso: todo o nada
+});
+```
+
+### Las cuatro capas, y qué hace cumplir cada una
+
+| Capa | Lo hace cumplir | Cómo se saltaría |
+|---|---|---|
+| No se puede **forjar** un `ContextoUsuario` | **el compilador** | no se puede: clase con campo `#` privado, tipada nominalmente |
+| No se puede construirlo con `new` | **el compilador** | no se puede: constructor `private` |
+| No hay vault **sin** contexto | **el compilador** | no se puede: parámetro obligatorio |
+| No se **castea** a `ContextoUsuario` | ESLint | con un `eslint-disable`, que se ve en el diff |
+| No se alcanza la **tabla cruda** ni el cliente sin filtro | ESLint | ídem |
+| La consulta **lleva el filtro** | tests por mutación | rompiendo un test que se pone rojo |
+
+**Dónde está el hueco, dicho sin adornos:** TypeScript no puede comprobar que un `WHERE`
+concreto contenga `user_id` — eso es una propiedad del *valor*, no del tipo. Lo que sí
+garantiza es que nadie llegue a escribir ese `WHERE` por su cuenta. Las consultas se
+escriben **una vez**, en `src/lib/db/vault.ts`, donde el filtro viene dado por `mias()` y
+`mio(id)`, y cada una tiene su test de mutación.
+
+Las dos aserciones que el compilador **no** puede bloquear —`{...} as ContextoUsuario`— las
+para ESLint con `no-restricted-syntax`. Un `eslint-disable` para saltárselo aparece en el
+diff y no pasa la revisión.
+
+### Verificado en cada ejecución de CI
+
+`npm run lint:contrato` escribe **siete** ficheros que intentan saltarse el contrato,
+comprueba que los siete son rechazados, y los borra. Incluye un **control positivo** —el uso
+correcto, que SÍ debe compilar— para que un `tsconfig` roto no dé verde por el motivo
+equivocado.
+
+Está verificado a su vez por mutación: al quitar la regla del casteo, el script se pone en
+rojo señalando exactamente ese hueco.
+
+### Dos drivers, y no es capricho
+
+`neon-http` **no soporta transacciones interactivas**: cada consulta es una petición
+independiente. Es lo correcto para una consulta suelta en una función serverless, y es lo
+que usa la aplicación por defecto.
+
+Por eso `enTransaccion()` es una **función aparte** y no un método del vault: abre su propio
+cliente por WebSocket. Si fuera un método, se podría llamar sobre un vault con cliente HTTP
+y fallar en runtime. Otra vez lo mismo — la forma de la API impide el error en vez de
+advertir de él.
+
+### Quién puede tocar la capa cruda
+
+| Sitio | Por qué |
+|---|---|
+| `src/lib/db/**` | es la capa de datos: para eso existe |
+| `src/auth.ts` | autentica por `users.id` **antes** de que exista un contexto — es lo que está creando |
+| `src/lib/rate-limit/**` | `rate_limit_bucket` no pertenece a ningún usuario: no tiene `user_id` |
+
+Cualquier otro sitio es un error de lint con un mensaje que explica qué hacer en su lugar.
+
 ## Consultas
 
 - Consultas siempre por el filtro de propiedad primero (ver `security.md` §1).

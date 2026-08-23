@@ -1,40 +1,29 @@
 import "server-only";
 
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
-
-import { textoObligatorio } from "@/lib/config/entorno";
-
-import * as schema from "./schema";
-
 /**
- * Cliente de base de datos para la APLICACIÓN.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * LA PUERTA A LOS DATOS.
  *
- * Driver HTTP (`neon-http`): no mantiene socket abierto, que es lo correcto en
- * funciones serverless donde cada invocación puede vivir milisegundos. La
- * contrapartida es que NO soporta transacciones interactivas de varias idas y
- * vueltas; para eso están los scripts (ver `scripts/migrate.ts`), que usan `Pool`.
+ * Esto es lo ÚNICO que el código de aplicación importa de la capa de datos.
+ * Fíjate en lo que NO se exporta: ni las tablas, ni el cliente crudo. No es un
+ * olvido — es el mecanismo.
  *
- * Una sola instancia por proceso. Nada de crear clientes sueltos por ahí.
+ * Para consultar:
+ *
+ *     const { ctx } = await exigirSesionParaLeer();   // src/auth.ts
+ *     const vault = vaultDe(ctx);
+ *     const mios = await vault.listar();
+ *
+ * No hay atajo, y no hay «solo esta vez». Si necesitas una consulta que el vault
+ * no tiene, se añade AL VAULT, donde el filtro por usuario viene dado por la
+ * forma de la API en vez de por acordarse.
+ *
+ * Ver `contexto.ts` para las cuatro capas de garantía y dónde está el hueco.
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 
-function crear() {
-  const url = textoObligatorio("DATABASE_URL", {
-    pista:
-      "Es la cadena POOLED de Neon (lleva '-pooler' en el host).\n" +
-      "console.neon.tech → tu proyecto → Connection Details.",
-  });
+export { ContextoUsuario, ErrorNoEncontrado } from "./contexto";
+export type { ModoAcceso } from "./contexto";
 
-  return drizzle(neon(url), { schema, casing: "snake_case" });
-}
-
-// Lazy: si se creara al importar, cualquier test o script que toque este módulo
-// exigiría DATABASE_URL aunque no llegue a consultar nada.
-let instancia: ReturnType<typeof crear> | null = null;
-
-export function db(): ReturnType<typeof crear> {
-  instancia ??= crear();
-  return instancia;
-}
-
-export { schema };
+export { vaultDe, enTransaccion } from "./vault";
+export type { Vault, AnimeEnListado, DatosCrearAnime, DatosEditarAnime } from "./vault";

@@ -3,7 +3,7 @@ import "server-only";
 import { and, lt, sql } from "drizzle-orm";
 
 import { rateLimitActivo } from "@/lib/config/entorno";
-import { db } from "@/lib/db";
+import { dbInterna } from "@/lib/db/interno";
 import { rateLimitBucket } from "@/lib/db/schema";
 
 import {
@@ -64,7 +64,7 @@ export async function registrarIntento(
   const anterior = ventanaAnterior(inicio, limite.ventanaMs);
   const expiraEn = new Date(inicio.getTime() + limite.ventanaMs * 2);
 
-  const cliente = db();
+  const cliente = dbInterna();
 
   const [fila] = await cliente
     .insert(rateLimitBucket)
@@ -135,7 +135,7 @@ export async function registrarIntentos(
  */
 export async function limpiarCaducados(ahora: Date = new Date()): Promise<void> {
   try {
-    await db().delete(rateLimitBucket).where(lt(rateLimitBucket.expiraEn, ahora));
+    await dbInterna().delete(rateLimitBucket).where(lt(rateLimitBucket.expiraEn, ahora));
   } catch {
     // Silencio deliberado: ver el comentario de arriba.
   }

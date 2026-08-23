@@ -20,23 +20,26 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * VERIFICADO POR MUTACIÓN (2026-08-23) — `.claude/rules/testing.md`
  *
- * Mutación aplicada: en `src/lib/db/ownership.ts`, dentro de
- * `exigirAnimePropio`, se sustituyó
+ MUTACIÓN A: en `src/lib/db/vault.ts`, quitar el filtro de `mio()`
  *
- *     and(eq(anime.id, parametros.animeId), eq(anime.userId, parametros.userId))
+ *     and(eq(anime.id, animeId), mias())   →   eq(anime.id, animeId)
  *
- * por
- *
- *     eq(anime.id, parametros.animeId)          // sin filtro de usuario
- *
- * Resultado: **3 tests en rojo**
+ * Resultado MEDIDO: **3 tests en rojo**
  *   · «pedir el anime de B con el uuid exacto devuelve NO ENCONTRADO»
- *   · «el error es 404, NUNCA 403»
+ *   · «"no es tuyo" y "no existe" son indistinguibles»
  *   · «A no puede colgarle una portada al anime de B»
  *
- * Restaurado y verde de nuevo (14/14).
+ * MUTACIÓN B: quitar además el filtro de `mias()`
  *
- * Si tocas `ownership.ts`, repite la mutación y actualiza esta nota. Un test
+ *     eq(anime.userId, ctx.userId)   →   sql`true`
+ *
+ * Resultado MEDIDO: **5 tests en rojo** (los 3 anteriores más)
+ *   · «el listado del vault de A no contiene NADA de B»
+ *   · «contar() solo cuenta lo propio»
+ *
+ * Las dos restauradas y verde (16/16).
+ *
+ * Si tocas `vault.ts`, repite las mutaciones y actualiza esta nota. Un test
  * verde que nunca se ha visto fallar no distingue entre proteger y no comprobar
  * nada.
  * ═══════════════════════════════════════════════════════════════════════════
@@ -49,8 +52,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { normalizarTitulo } from "@/lib/domain/normalizar";
 
 import { crearClientePrueba, urlDePruebas, type ClientePrueba } from "./cliente-test";
-import { ErrorNoEncontrado, esAnimePropio, exigirAnimePropio } from "./ownership";
+import { contextoDePrueba } from "./contexto-pruebas";
 import { anime, animeCover, continueLink, progress, users } from "./schema";
+import { vaultDe, type Vault } from "./vault";
 
 const url = urlDePruebas();
 const hayBase = url !== undefined;
@@ -73,6 +77,9 @@ describeSiHayBase("aislamiento entre usuarios", () => {
   /** Los dos usuarios del experimento, y sus datos. */
   let idA: string;
   let idB: string;
+  /** Los vaults reales: es lo que usa producción, y es lo que hay que probar. */
+  let vaultA: Vault;
+  let vaultB: Vault;
   let animeDeA: string;
   let animeDeB: string;
 
@@ -119,6 +126,9 @@ describeSiHayBase("aislamiento entre usuarios", () => {
     animeDeA = ra.id;
     animeDeB = rb.id;
 
+    vaultA = vaultDe(contextoDePrueba(idA), db);
+    vaultB = vaultDe(contextoDePrueba(idB), db);
+
     // Datos colgando del anime de B, para probar las tablas hijas.
     await db.insert(progress).values({
       animeId: animeDeB,
@@ -151,38 +161,46 @@ describeSiHayBase("aislamiento entre usuarios", () => {
     it("pedir el anime de B con el uuid exacto devuelve NO ENCONTRADO", async () => {
       // El caso que pediste: el uuid ajeno pasado directamente a la ruta de
       // detalle. Aunque el atacante conozca el id, no lo obtiene.
-      await expect(exigirAnimePropio(db, { animeId: animeDeB, userId: idA })).rejects.toThrow(
-        ErrorNoEncontrado,
-      );
+      // El vault de A devuelve `null`, INDISTINGUIBLE de «no existe».
+      expect(await vaultA.obtener(animeDeB)).toBeNull();
     });
 
-    it("el error es 404, NUNCA 403", async () => {
-      // Un 403 confirmaría que el recurso existe y permitiría enumerar ids
-      // ajenos probando uuids. «No es tuyo» y «no existe» deben ser
-      // indistinguibles para quien pregunta.
-      try {
-        await exigirAnimePropio(db, { animeId: animeDeB, userId: idA });
-        throw new Error("debería haber lanzado");
-      } catch (error) {
-        expect(error).toBeInstanceOf(ErrorNoEncontrado);
-        const e = error as ErrorNoEncontrado;
-        expect(e.estadoHttp).toBe(404);
-        expect(e.codigo).toBe("NO_ENCONTRADO");
-        // Y el mensaje no puede filtrar que existe.
-        expect(e.message).not.toMatch(/permiso|prohibido|ajeno|de otro/i);
-      }
+    it("«no es tuyo» y «no existe» son indistinguibles", async () => {
+      // Si difirieran, un atacante enumeraría ids ajenos probando uuids: el que
+      // diera «no es tuyo» existiría. Los dos devuelven exactamente `null`.
+      const ajeno = await vaultA.obtener(animeDeB);
+      const inventado = await vaultA.obtener("00000000-0000-4000-8000-000000000000");
+
+      expect(ajeno).toBeNull();
+      expect(inventado).toBeNull();
+      expect(ajeno).toEqual(inventado);
     });
 
-    it("esAnimePropio devuelve false para el anime de B", async () => {
-      expect(await esAnimePropio(db, { animeId: animeDeB, userId: idA })).toBe(false);
-      expect(await esAnimePropio(db, { animeId: animeDeA, userId: idA })).toBe(true);
+    it("A sí obtiene lo suyo", async () => {
+      const suyo = await vaultA.obtener(animeDeA);
+      expect(suyo?.notes).toBe("SECRETO DE A");
     });
 
-    it("el listado de A no contiene NADA de B", async () => {
-      const filas = await db.select().from(anime).where(eq(anime.userId, idA));
+    it("el listado del vault de A no contiene NADA de B", async () => {
+      const filas = await vaultA.listar();
 
       expect(filas.map((f) => f.id)).toEqual([animeDeA]);
-      expect(filas.some((f) => f.notes === "SECRETO DE B")).toBe(false);
+      expect(filas.some((f) => f.titulo.includes("de B"))).toBe(false);
+    });
+
+    it("el listado NO trae los bytes de la portada", async () => {
+      // Son megabytes por fila. Solo debe viajar el checksum.
+      const filas = await vaultA.listar();
+      const claves = Object.keys(filas[0] ?? {});
+
+      expect(claves).not.toContain("bytes");
+      expect(claves).not.toContain("thumbBytes");
+      expect(claves).toContain("checksumPortada");
+    });
+
+    it("contar() solo cuenta lo propio", async () => {
+      expect(await vaultA.contar()).toBe(1);
+      expect(await vaultB.contar()).toBe(1);
     });
 
     it("A no ve el progreso de B ni pidiéndolo por anime_id", async () => {
@@ -210,8 +228,8 @@ describeSiHayBase("aislamiento entre usuarios", () => {
     it("B sí ve lo suyo: el aislamiento no rompe el caso legítimo", async () => {
       // Un test de aislamiento que solo comprueba negativas pasaría con una
       // función que devuelve vacío siempre.
-      const suyo = await exigirAnimePropio(db, { animeId: animeDeB, userId: idB });
-      expect(suyo.notes).toBe("SECRETO DE B");
+      const suyo = await vaultB.obtener(animeDeB);
+      expect(suyo?.notes).toBe("SECRETO DE B");
 
       const prog = await db
         .select()
@@ -258,10 +276,8 @@ describeSiHayBase("aislamiento entre usuarios", () => {
     });
 
     it("A no puede colgarle una portada al anime de B", async () => {
-      // La comprobación de propiedad va ANTES de insertar en la tabla hija.
-      await expect(exigirAnimePropio(db, { animeId: animeDeB, userId: idA })).rejects.toThrow(
-        ErrorNoEncontrado,
-      );
+      // El vault de A no alcanza ese anime, así que tampoco puede colgarle nada.
+      expect(await vaultA.obtener(animeDeB)).toBeNull();
 
       const portadas = await db.select().from(animeCover).where(eq(animeCover.animeId, animeDeB));
       expect(portadas).toEqual([]);

@@ -29,10 +29,11 @@
     "verificar": "npm run lint:todo && npm run test:unit && npm run build && npm run test:integracion",
     "lint:scripts": "node scripts/verificar-scripts.mjs",
     "test:unit": "vitest run --exclude '**/*.integracion.test.ts'",
-    "test:integracion": "vitest run **/*.integracion.test.ts",
+    "test:integracion": "vitest run integracion.test",
     "test:todo": "vitest run",
-    "lint:todo": "npm run lint:scripts && npm run typecheck && npm run lint && npm run lint:tokens",
-    "verificar:rapido": "npm run lint:todo && npm run test:unit"
+    "lint:todo": "npm run lint:scripts && npm run typecheck && npm run lint && npm run lint:tokens && npm run lint:contrato",
+    "verificar:rapido": "npm run lint:todo && npm run test:unit",
+    "lint:contrato": "node scripts/verificar-contrato.mjs"
   },
   "comentarioOverrides": [
     "Parches de seguridad sobre dependencias TRANSITIVAS, para no saltar a Next 16",

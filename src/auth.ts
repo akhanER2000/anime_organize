@@ -8,7 +8,7 @@ import { authConfig } from "./auth.config";
 import { evaluarSesion, hayQueComprobarContraLaBase, type Sensibilidad } from "./lib/auth/sesion";
 import { verificarPassword } from "./lib/auth/password";
 import { seExigeVerificacionEmail } from "./lib/config/entorno";
-import { db } from "./lib/db";
+import { dbInterna } from "./lib/db/interno";
 import { users } from "./lib/db/schema";
 
 /**
@@ -53,7 +53,7 @@ function numeroDelToken(token: Record<string, unknown>, clave: string): number |
 
 /** Estado de la cuenta, por clave primaria. La consulta más barata posible. */
 async function estadoDeCuenta(userId: string) {
-  const [fila] = await db()
+  const [fila] = await dbInterna()
     .select({
       deletedAt: users.deletedAt,
       sessionsValidFrom: users.sessionsValidFrom,
@@ -109,7 +109,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (email.length === 0 || password.length === 0) return null;
 
-        const [usuario] = await db()
+        const [usuario] = await dbInterna()
           .select({
             id: users.id,
             email: users.email,

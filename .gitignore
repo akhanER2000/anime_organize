@@ -73,3 +73,6 @@ lerna-debug.log*
 # Ver design/README.md, seccion "Donde estan los PNG originales".
 design/assets/*.png
 !design/assets/web/
+
+# Fixtures temporales de scripts/verificar-contrato.mjs (se borran solos)
+src/__contrato-tmp__/

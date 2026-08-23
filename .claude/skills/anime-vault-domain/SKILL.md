@@ -258,6 +258,24 @@ Pasos, en orden y sin saltarse ninguno:
 - Sin portada → **404** con un **placeholder SVG de laja negra** generado al vuelo
   (fondo `--slate-850`, polígonos de fractura, inicial del título en Cormorant `--ash-500`).
 
+### Trampas de sharp verificadas (no las redescubras)
+
+Comprobadas con sharp `0.35.3` / libvips `8.18.3` en `src/lib/covers/sharp-pipeline.test.ts`:
+
+| Trampa | Realidad |
+|---|---|
+| **AVIF no es un formato propio de sharp** | `sharp.format.avif` es `undefined`. AVIF es un contenedor de la familia HEIF: la capacidad se consulta en `sharp.format.heif`. |
+| **Un AVIF reporta `metadata().format === "heif"`** | Un validador que compruebe `=== "avif"` **rechaza todas las portadas AVIF** que el contrato dice aceptar. |
+| Magic bytes de AVIF | caja `ftyp` en el offset 4 y marca `avif` en el 8. Eso es lo que hay que comprobar: el `Content-Type` lo controla quien sube el fichero. |
+| Magic bytes de WebP | `RIFF` en el offset 0 y `WEBP` en el 8. |
+| `withMetadata` por defecto | Re-encodear **no** propaga el EXIF del original (`meta.exif` queda `undefined`). Eso destruye el GPS incrustado, y es una medida de seguridad además de de formato. |
+| Entrada que no es imagen | `sharp(buf).metadata()` **rechaza la promesa**. Hay que capturarlo y traducirlo a `TIPO_NO_SOPORTADO`, no dejar que suba como 500. |
+
+Nota de dependencias: `package.json` fuerza `sharp@^0.35.3` con `overrides`, por encima
+del `^0.34.3` que Next 15 declara como `optionalDependency`, para eliminar las CVEs de
+libvips. Está verificado de extremo a extremo: `npm run build` compila y el optimizador de
+imágenes de Next devuelve `image/webp` correcto en runtime.
+
 ### Invariantes que se testean
 
 - El `<img>` de la app apunta **siempre** a `/api/covers/...`, nunca al dominio original.

@@ -38,7 +38,9 @@ drizzle-kit no adivina intenciones. Busca específicamente:
 - **`NOT NULL` sobre una columna con filas existentes** → falla en producción.
   Se parte en tres pasos: añadir nullable → backfill → `SET NOT NULL`.
 - **`UNIQUE` nuevo** → ¿hay duplicados ya en la tabla? Compruébalo antes con un `SELECT`.
-- Extensiones (`citext`, `pg_trgm`, `unaccent`, `pgcrypto`) creadas antes de usarse.
+- Extensiones (`citext`, `pg_trgm`, `unaccent`) creadas antes de usarse, en
+  `drizzle/0000_extensiones.sql`. **Son por rama de Neon**: una rama nueva nace sin ellas.
+  drizzle-kit no las modela, así que si regeneras desde cero esa migración se conserva a mano.
 - Índices creados con `CONCURRENTLY` si la tabla ya tiene volumen.
 
 Añade en la cabecera del `.sql` el **SQL de reversión**:

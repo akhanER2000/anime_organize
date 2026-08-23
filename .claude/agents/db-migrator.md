@@ -55,7 +55,13 @@ alternativo (restaurar de backup / branch de Neon). No se firma como reversible 
 
 ## Específico de este esquema
 
-- Extensiones antes que nada: `citext`, `pg_trgm`, `unaccent`, `pgcrypto`.
+- Extensiones antes que nada: `citext`, `pg_trgm`, `unaccent` — **tres, no cuatro**.
+  `pgcrypto` no se instala: `gen_random_uuid()` es nativo desde Postgres 13 y no se usa
+  ninguna otra función suya. Están en `drizzle/0000_extensiones.sql`, escrita a mano porque
+  **drizzle-kit no modela extensiones**.
+- **Las extensiones son por RAMA de Neon.** Una rama nueva nace sin ellas y la migración
+  0001 falla en la primera columna `citext`. Si `neondb_owner` no pudiera crear alguna,
+  **avisa y para**: no la rodees con `lower()` ni con un índice funcional improvisado.
 - `uq_anime_user_title_norm` es la **última línea de defensa** de la deduplicación.
   Si se toca `title_normalized`, hay que **recalcular todas las filas existentes** en la
   misma migración: cambiar la función de normalización sin backfill deja duplicados

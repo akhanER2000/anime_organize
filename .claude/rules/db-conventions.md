@@ -87,10 +87,25 @@ Dominios cerrados del proyecto:
 CREATE EXTENSION IF NOT EXISTS citext;      -- email case-insensitive
 CREATE EXTENSION IF NOT EXISTS pg_trgm;     -- similitud difusa de títulos
 CREATE EXTENSION IF NOT EXISTS unaccent;    -- búsqueda sin acentos
-CREATE EXTENSION IF NOT EXISTS pgcrypto;    -- gen_random_uuid()
 ```
 
-Van en la **primera migración**, antes de cualquier tabla. Neon las permite todas.
+Tres, no cuatro. **`pgcrypto` no se usa:** `gen_random_uuid()` es nativo en Postgres desde
+la 13, y no se emplea `crypt()`, `digest()`, `hmac()` ni `pgp_*` — las contraseñas se
+hashean con Argon2id **en Node** y los tokens con sha256 **en Node**. Si algún día hiciera
+falta una función criptográfica *dentro* de la base, se añade entonces y se justifica.
+
+Van en la **primera migración** (`drizzle/0000_extensiones.sql`), antes de cualquier tabla.
+drizzle-kit **no modela extensiones**: genera SQL que usa `citext` y `gin_trgm_ops` sin
+crearlos. Si se regenera el esquema desde cero, esa migración hay que conservarla a mano o
+el SQL falla en la primera columna `citext` de `users`.
+
+### Las extensiones son por RAMA de Neon, no por proyecto
+
+Una rama nueva (`development`, `preview/*`, `production`) **nace sin ellas**. Aplicar
+`0000_extensiones.sql` es el primer paso en cada rama, y está en el checklist de
+`/project:deploy`. Si `neondb_owner` no pudiera crear alguna, **se avisa y se para**: no se
+rodea con `lower()` a mano ni con un índice funcional improvisado, porque eso desactiva
+silenciosamente la deduplicación insensible a mayúsculas.
 
 ## Índices
 

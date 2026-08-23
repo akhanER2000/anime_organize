@@ -64,13 +64,42 @@ Si falta alguna obligatoria, para y dilo. Nunca inventes un valor.
 
 ## 4. Migraciones — antes del despliegue, no después
 
+### 4a. Extensiones · SE COMPRUEBA EN CADA RAMA DE NEON
+
+**Las extensiones de Postgres son por rama, no por proyecto.** Una rama nueva
+(`development`, `preview/*`, `production`) **nace sin ellas**, y la migración `0001` falla
+en la primera columna `citext` de `users`. Esto no es hipotético: es el modo de fallo del
+primer despliegue a producción.
+
+Contra la base del entorno destino:
+
+```sql
+SELECT extname FROM pg_extension WHERE extname IN ('citext','pg_trgm','unaccent');
+```
+
+Deben salir **las tres**. Si falta alguna, se aplica `drizzle/0000_extensiones.sql` antes
+de nada. (`pgcrypto` **no** se usa: `gen_random_uuid()` es nativo desde Postgres 13.)
+
+**Si el rol `neondb_owner` no puede crear alguna extensión, PARA y avisa al usuario.**
+No la rodees: sustituir `citext` por `lower()` a mano desactiva silenciosamente la
+deduplicación insensible a mayúsculas, y quitar `pg_trgm` deja el buscador haciendo
+*seq scan* sobre toda la tabla.
+
+### 4b. Aplicar
+
 ```
 !npm run db:migrate
 ```
 
-Contra la base del entorno destino, usando `DATABASE_URL_UNPOOLED`.
-**Nunca `db:push` contra producción.** Si la migración es destructiva, ver
+Contra la base del entorno destino, usando `DATABASE_URL_UNPOOLED` (la *pooled* no sirve
+para DDL largo). **Nunca `db:push` contra producción.** Si la migración es destructiva, ver
 `@.claude/rules/db-conventions.md` §Migraciones: se hace en dos pasos y se anuncia.
+
+Comprueba después que se aplicaron las dos:
+
+```sql
+SELECT * FROM __drizzle_migrations ORDER BY created_at;
+```
 
 ## 5. Desplegar
 

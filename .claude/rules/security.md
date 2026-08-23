@@ -62,6 +62,54 @@ const target = await requireOwnedAnime(tx, { animeId, userId: session.user.id })
   mensaje y en un tiempo comparable exista o no la cuenta.
 - Al cambiar contraseña o email: **re-autenticación obligatoria** (pedir la contraseña actual).
 
+## 2 bis. Vinculación de cuentas OAuth
+
+> **Decidido y cerrado antes de que exista el proveedor de Google**, porque
+> retrofitear esta política es caro y equivocarse aquí es un secuestro de cuenta.
+> El esquema ya está preparado: `accounts` completa con `UNIQUE (provider, provider_account_id)`.
+
+### La regla
+
+**La vinculación de una cuenta OAuth a un usuario existente solo se permite desde
+Ajustes, con sesión ya iniciada. Nunca automáticamente por coincidencia de email.**
+
+### Por qué
+
+Auth.js v5, si el proveedor no está marcado como `allowDangerousEmailAccountLinking`,
+corta el login con el error **`OAuthAccountNotLinked`** cuando llega un perfil de OAuth
+cuyo email ya pertenece a un usuario que no tiene ese `account` vinculado. Ese
+comportamiento es **correcto y se conserva**.
+
+El ataque que evita: cualquiera que consiga crear una cuenta en el proveedor con
+`castrolorenzosegundo@gmail.com` —o un proveedor que no verifique el email que emite—
+entraría directamente en el vault existente sin conocer la contraseña. La coincidencia de
+email **no es una prueba de identidad**: solo lo es si confías en que el proveedor verificó
+ese email, y esa confianza no se delega por defecto.
+
+### Qué significa en la práctica
+
+| Situación | Comportamiento |
+|---|---|
+| Email nuevo entra con Google | Se crea un usuario nuevo con su fila en `accounts`. |
+| Email **ya registrado con contraseña** entra con Google | **Se bloquea** con `OAuthAccountNotLinked`. Se le explica en español que inicie sesión con su contraseña y vincule Google desde Ajustes. |
+| Usuario con sesión pulsa «Vincular Google» en Ajustes | Se permite: hay prueba de posesión de la cuenta (la sesión) **y** del proveedor (el flujo OAuth). |
+| Usuario intenta desvincular su **único** método de acceso | **Se bloquea.** Nunca se deja una cuenta sin forma de entrar: o queda `password_hash`, o queda al menos otro `account`. |
+
+### Prohibido
+
+- **`allowDangerousEmailAccountLinking: true`.** El nombre lo dice. No se activa «solo para
+  desarrollo»: acaba en producción.
+- Vincular buscando por email en un callback de `signIn`. Es el mismo agujero escrito a mano.
+- Mostrar «ese email ya existe» en la pantalla de login OAuth: enumera usuarios. El mensaje
+  es genérico y la explicación concreta llega por email al titular.
+
+### Se testea aunque el proveedor esté apagado
+
+`src/lib/auth/vinculacion.test.ts` fija esta política con el proveedor de Google
+**desactivado**, para que el día que se encienda no haya que recordar la decisión: si
+alguien añade `allowDangerousEmailAccountLinking` o una vinculación por email, el test se
+pone en rojo.
+
 ## 3. Borrado de cuenta
 
 Flujo no negociable, en este orden:

@@ -124,6 +124,44 @@ Reglas del e2e:
 - Cada spec crea su propio usuario y limpia al final. No comparten vault.
 - Corre contra `npm run build && npm run start`, no contra `dev`.
 
+## El exit code es el resultado. No se enmascara.
+
+**Ningún comando de verificación se encadena con `echo`, ni con nada que pueda producir
+un éxito prestado.** El código de salida es la única prueba; el texto que lo acompaña es
+decoración, y la decoración miente.
+
+```bash
+# MAL — el echo se imprime aunque tsc haya fallado: `tail` devolvió 0,
+#       y en una tubería el estado es el del ÚLTIMO comando.
+npm run typecheck 2>&1 | tail -5 && echo "typecheck OK"
+
+# MAL — `|| true` convierte cualquier fallo en éxito.
+npm run test || true
+
+# MAL — el && encadena, pero el mensaje final afirma más de lo comprobado.
+npm run lint && echo "todo verde"
+
+# BIEN — se ejecuta solo y se mira el exit code.
+npm run typecheck
+echo "exit: $?"
+
+# BIEN — si hace falta recortar la salida, se preserva el estado.
+set -o pipefail
+npm run typecheck 2>&1 | tail -5
+```
+
+Corolarios:
+
+- **Se lee la salida, no se asume.** Un comando que «suele pasar» no está verificado.
+- Nada de `2>/dev/null` sobre un comando de verificación: esconder el error no lo arregla.
+- En un informe al usuario no se escribe «OK» junto a un comando cuyo exit code no se ha
+  visto. Si se ha enmascarado por accidente, **se vuelve a ejecutar aislado y se dice**.
+- `npm run verificar` encadena con `&&` a propósito: ahí el `&&` corta en el primer fallo,
+  que es justo lo que se quiere. El problema no es `&&`, es afirmar el éxito por encima de él.
+
+Este apartado existe porque pasó: un `| tail -5 && echo "typecheck OK"` imprimió «OK»
+mientras `tsc` reportaba un error real.
+
 ## Antes de decir «terminado»
 
 Se ejecuta y se **mira la salida** (regla de `verification-before-completion`):

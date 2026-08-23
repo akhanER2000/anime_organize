@@ -15,6 +15,13 @@
       "when": 1787457323819,
       "tag": "0001_esquema_inicial",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787511478933,
+      "tag": "0002_sesiones_y_rate_limit",
+      "breakpoints": true
     }
   ]
 }

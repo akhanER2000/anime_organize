@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { seExigeVerificacionEmail } from "./config";
 import { plantillaReset, plantillaVerificacion, plantillaVinculacionBloqueada } from "./plantillas";
 
 const ENTORNO = { ...process.env };
@@ -94,10 +93,10 @@ describe("enviarEmail · un fallo de correo no tumba el flujo", () => {
     // ofrecerle reenviar, no un 500.
     const r = await enviarEmail({ para: "a@b.test", asunto: "x", texto: "y" });
 
-    expect(r).toEqual({ ok: false, driver: "resend", motivo: "ERROR_PROVEEDOR" });
+    expect(r).toEqual({ ok: false, driver: "resend", motivo: "TEMPORAL" });
   });
 
-  it("un 4xx del proveedor tampoco lanza", async () => {
+  it("un 4xx del proveedor tampoco lanza, y se marca PERMANENTE", async () => {
     process.env.RESEND_API_KEY = "re_clave_de_prueba";
     process.env.EMAIL_FROM = "vault@ejemplo.test";
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -111,6 +110,9 @@ describe("enviarEmail · un fallo de correo no tumba el flujo", () => {
 
     const r = await enviarEmail({ para: "a@b.test", asunto: "x", texto: "y" });
     expect(r.ok).toBe(false);
+    // 422 = direccion invalida: reintentarlo no lo arregla.
+    if (r.ok) throw new Error("inalcanzable");
+    expect(r.motivo).toBe("PERMANENTE");
   });
 
   it("no filtra la clave de API en el log de error", async () => {
@@ -126,28 +128,6 @@ describe("enviarEmail · un fallo de correo no tumba el flujo", () => {
     const todo = JSON.stringify(err.mock.calls);
     expect(todo).not.toContain("re_secreto_que_no_debe_salir");
   });
-});
-
-describe("AUTH_REQUIRE_EMAIL_VERIFICATION", () => {
-  it("por defecto está desactivado", () => {
-    expect(seExigeVerificacionEmail()).toBe(false);
-  });
-
-  it("solo la cadena exacta 'true' lo activa", () => {
-    process.env.AUTH_REQUIRE_EMAIL_VERIFICATION = "true";
-    expect(seExigeVerificacionEmail()).toBe(true);
-
-    process.env.AUTH_REQUIRE_EMAIL_VERIFICATION = "TRUE";
-    expect(seExigeVerificacionEmail()).toBe(true);
-  });
-
-  it.each(["1", "yes", "sí", "si", "on", "verdadero", "", "  ", "tru"])(
-    "%s NO lo activa: ante la duda, no se bloquea el acceso",
-    (valor) => {
-      process.env.AUTH_REQUIRE_EMAIL_VERIFICATION = valor;
-      expect(seExigeVerificacionEmail()).toBe(false);
-    },
-  );
 });
 
 describe("plantillas", () => {

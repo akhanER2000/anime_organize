@@ -45,6 +45,21 @@ export const users = pgTable(
      */
     deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
 
+    /**
+     * Corte de validez de las sesiones. **Un JWT emitido ANTES de esta marca se
+     * rechaza.**
+     *
+     * Existe porque un JWT es válido hasta que expira, exista o no la cuenta: sin
+     * esta columna, borrar la cuenta o cambiar la contraseña tras un robo de
+     * sesión no echa a nadie — el token robado sigue autenticando durante días.
+     *
+     * Se actualiza a `now()` al cambiar la contraseña, al cerrar todas las
+     * sesiones y al borrar la cuenta. Ver `src/lib/auth/sesion.ts`.
+     */
+    sessionsValidFrom: timestamp("sessions_valid_from", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   },

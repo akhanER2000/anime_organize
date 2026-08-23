@@ -10,3 +10,4 @@ export * from "./anime";
 export * from "./genre";
 export * from "./streaming";
 export * from "./jobs";
+export * from "./rate-limit";

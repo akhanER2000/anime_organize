@@ -178,6 +178,75 @@ Upstash en producción — configurable, nunca solo memoria en serverless).
 
 Respuesta al superarlo: **429** con `Retry-After` y el código `LIMITE_EXCEDIDO`.
 
+### Por qué Postgres y no memoria
+
+**En serverless un contador en memoria no limita nada.** Cada invocación puede caer en una
+instancia distinta —y en otra región—, así que «5 intentos» se convierte en «5 intentos por
+instancia», y las instancias se crean bajo demanda. El almacén es `rate_limit_bucket` en la
+misma base de Neon.
+
+Se descartó un servicio aparte (Upstash, Vercel KV): otro proveedor que registrar, otro
+secreto que rotar y otra superficie que auditar, para algo que la base que ya tenemos
+resuelve con una tabla. La latencia extra frente a Redis es irrelevante en un login, que ya
+va a consultar la base para verificar la contraseña.
+
+### Forma de la tabla
+
+**Una fila por (clave, ventana), no una por intento.** El contador se incrementa con un
+`INSERT … ON CONFLICT DO UPDATE … RETURNING` atómico: una sola ida y vuelta, sin
+leer-modificar-escribir y por tanto sin carrera entre invocaciones concurrentes. Una tabla
+de intentos individuales crecería una fila por cada petición de login del mundo, que es
+justo lo que un atacante quiere provocar.
+
+Limpieza **oportunista** (un `DELETE` ocasional aprovechando otra llamada), no un cron: si
+un día no se ejecuta, lo único que pasa es que sobran filas muertas, no que el límite deje
+de funcionar.
+
+### Ventana deslizante, no fija
+
+Una ventana fija deja pasar **el doble en el borde**: 5 intentos a las 14:59 y 5 más a las
+15:01 son 10 en dos minutos. Se cuenta también la ventana anterior, ponderada por lo que le
+queda:
+
+```
+usado = contadorAnterior * solapamiento + contadorActual
+```
+
+Cuesta lo mismo (una fila por ventana) y cierra el borde.
+
+### Dos claves independientes, no una
+
+Login, recuperación y reenvío se limitan por **email Y por IP por separado**:
+
+- por **email** → frena la fuerza bruta contra UNA cuenta aunque el atacante rote IPs, que
+  es barato;
+- por **IP** → frena el barrido de MUCHAS cuentas desde un mismo origen, y el registro
+  masivo de cuentas basura.
+
+Solo email deja pasar el barrido; solo IP deja pasar la fuerza bruta distribuida.
+Se registran **ambas** aunque una ya haya bloqueado: cortocircuitar dejaría el contador de
+la otra clave sin avanzar y un atacante podría mantenerlo a cero.
+
+**El email va hasheado (sha256) en la clave.** Esta tabla no puede convertirse en un censo
+de direcciones registradas: quien la lea vería en claro todas las que han intentado entrar,
+incluidas las que no tienen cuenta. Se normaliza antes de hashear (minúsculas, sin espacios)
+porque `users.email` es `citext`: si no, el límite se salta escribiendo `A@B.com`.
+
+La IP **no** se hashea: no identifica a una persona por sí sola y verla en claro es lo que
+permite diagnosticar un ataque mirando la tabla.
+
+### Detalles que se han decidido
+
+- **Falla cerrado.** Si la base no responde, se deniega. No es una decisión dura: el login
+  necesita la base para verificar la contraseña, así que si está caída no hay login que
+  permitir.
+- **La IP sale de la PRIMERA entrada de `x-forwarded-for`**, no de la última. La primera es
+  el cliente; las siguientes son proxies. Limitar al proxy es limitar a todo el mundo a la vez.
+- **Sin cabecera de IP, la clave por IP no se aplica** (se devuelve `null`). No se inventa un
+  cubo «desconocido» compartido: todos los clientes sin cabecera se bloquearían entre sí.
+- `RATE_LIMIT_ENABLED` existe **solo** para los tests de integración y viene **activado por
+  defecto**. Un límite que hay que acordarse de encender no es un límite.
+
 ## 6. Cabeceras y transporte
 
 En `next.config.ts` (o middleware), para todas las rutas:

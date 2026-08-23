@@ -45,6 +45,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@neondatabase/serverless": "^1.1.0",
     "@node-rs/argon2": "^2.1.0",
+    "@types/ws": "^8.18.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "next": "15.5.23",
@@ -54,6 +55,7 @@
     "react-hook-form": "^7.86.0",
     "sharp": "^0.35.3",
     "tailwind-merge": "^3.4.0",
+    "ws": "^8.21.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {

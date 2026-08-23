@@ -71,6 +71,9 @@ export async function enviarEmail(mensaje: MensajeEmail): Promise<ResultadoEnvio
       asunto: mensaje.asunto,
       error: error instanceof Error ? error.message : "desconocido",
     });
-    return { ok: false, driver: driver.nombre, motivo: "ERROR_PROVEEDOR" };
+    // Una excepcion que se escapa del driver es, por definicion, algo que no
+    // sabemos clasificar: se trata como temporal para que el reintento tenga
+    // ocasion de salvarlo.
+    return { ok: false, driver: driver.nombre, motivo: "TEMPORAL" };
   }
 }

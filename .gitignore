@@ -1,0 +1,75 @@
+# --- Dependencias ---
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+
+# --- Build de Next.js ---
+.next/
+out/
+build/
+dist/
+next-env.d.ts
+*.tsbuildinfo
+
+# --- Entorno: NUNCA se commitea un secreto ---
+# DENEGACIÓN TOTAL y luego una única excepción explícita.
+# Enumerar variantes una a una deja huecos: la lista anterior ignoraba
+# .env.production.local pero NO .env.production, que es justo donde vive la
+# cadena de conexión de producción. Este repositorio es PÚBLICO.
+.env
+.env.*
+*.env
+# Única excepción: la plantilla documentada, que va SIN valores.
+!.env.example
+
+# --- Notas y permisos personales (ver CLAUDE.md) ---
+CLAUDE.local.md
+.claude/settings.local.json
+
+# --- Tests ---
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+playwright/.cache/
+playwright/.auth/
+
+# --- Vercel ---
+.vercel
+
+# --- Sistema operativo / editor ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Salidas locales del proyecto ---
+/tmp/
+/exports/
+*.local.json
+seed-report-*.json
+enrich-report-*.json
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+npm-debug.log*
+lerna-debug.log*
+
+# --- Paquete de diseño: originales pesados ---
+# Los PNG a resolución completa de design/assets/ pesan ~85 MB (9 ficheros de ~9 MB).
+# NO se sirven nunca desde la app: lo que la app usa son las versiones optimizadas
+# de design/assets/web/ (1,6 MB), que SÍ se commitean.
+# El original completo vive fuera del repo, en:
+#   J:\Code\Anime_Organize\anime-vault-design\
+# Ver design/README.md, seccion "Donde estan los PNG originales".
+design/assets/*.png
+!design/assets/web/

@@ -1,0 +1,40 @@
+# Normalización de finales de línea.
+# El repo guarda LF siempre; en Windows se trabaja con LF también.
+# Sin esto, un repo creado en Windows llega con CRLF y cualquier clon en Linux
+# o Mac ve el fichero entero como modificado en el primer diff.
+* text=auto eol=lf
+
+# Scripts de shell: LF obligatorio o no arrancan.
+*.sh text eol=lf
+
+# Scripts de Windows: CRLF obligatorio.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binarios: git no debe tocarlos nunca.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.xlsx binary
+*.zip binary
+
+# Ficheros generados: se marcan para que GitHub no los cuente como código propio
+# y para que los diffs no ensucien las revisiones.
+package-lock.json  -diff linguist-generated
+drizzle/**         linguist-generated
+
+# El paquete de diseño no es código del proyecto: es material de referencia.
+design/**          linguist-vendored
+
+# Las skills copiadas son de terceros: no son código propio de este repo.
+.claude/skills/**  linguist-vendored

@@ -1,0 +1,212 @@
+/* ANIME VAULT — tokens del sistema visual
+   Obsidiana y oro. Fuente única de verdad para el código.
+   Ningún color literal debe escribirse fuera de este archivo. */
+
+:root {
+
+  /* ---------------------------------------------------------------
+     SUPERFICIES · obsidiana / laja
+     --------------------------------------------------------------- */
+  --void:            #07080A;  /* fondo del viewport */
+  --slate-950:       #0C0E10;  /* fondo de página */
+  --slate-900:       #121417;  /* sección · cebra de tabla */
+  --slate-850:       #171A1E;  /* card base */
+  --slate-800:       #1E2226;  /* card elevada · input */
+  --slate-700:       #282D33;  /* hover · superficie activa · borde sutil */
+  --slate-600:       #363C44;  /* borde neutro */
+
+  /* ---------------------------------------------------------------
+     TEXTO · porcelana / ceniza
+     --------------------------------------------------------------- */
+  --ash-500:         #565E68;  /* deshabilitado */
+  --ash-400:         #7A838E;  /* secundario */
+  --porcelain-200:   #C9C6BF;  /* terciario claro */
+  --porcelain-100:   #E6E2DA;  /* principal */
+  --porcelain-050:   #F4F1EA;  /* titulares */
+
+  /* ---------------------------------------------------------------
+     ORO · kintsugi
+     --------------------------------------------------------------- */
+  --gold-700:        #6E5417;  /* marco de sección · hairline apagado */
+  --gold-600:        #8C6B1F;
+  --gold-500:        #A8842A;  /* etiquetas IA · iconografía tenue */
+  --gold-400:        #C9A227;  /* ACENTO PRIMARIO */
+  --gold-300:        #DDBB5C;  /* etiquetas UPPERCASE · enlaces */
+  --gold-200:        #EBD59A;  /* texto sobre botón obsidiana */
+  --gold-100:        #F6EBC9;  /* texto en hover del botón primario */
+  --gold-leaf:       linear-gradient(135deg,#6E5417 0%,#A8842A 30%,#F0DFA8 50%,#A8842A 70%,#6E5417 100%);
+
+  /* Derivados del oro (los únicos permitidos) */
+  --gold-wash:       rgba(201,162,39,.07);  /* relleno de chip activo */
+  --gold-wash-fuerte:rgba(201,162,39,.09);  /* conmutador activo */
+  --gold-borde:      rgba(201,162,39,.45);  /* borde de badge y chip */
+  --gold-halo:       rgba(201,162,39,.20);  /* halo de veta 1px */
+  --gold-glow:       rgba(201,162,39,.12);  /* glow interior en hover */
+  --gold-shimmer:    rgba(201,162,39,.09);  /* brillo del skeleton */
+  --gold-foco:       rgba(201,162,39,.30);  /* anillo de foco suave */
+
+  /* ---------------------------------------------------------------
+     SEMÁNTICOS · estado de un anime
+     --------------------------------------------------------------- */
+  --estado-visto:        #C9A227;  /* oro */
+  --estado-viendo:       #C97F2A;  /* brasa */
+  --estado-espera:       #7A838E;  /* ceniza */
+  --estado-abandonado:   #8A3B3B;  /* granate apagado */
+  --estado-favorito:     #EBD59A;  /* pan de oro claro */
+
+  /* Versiones legibles como TEXTO sobre --slate-850/900 (≥4.5:1).
+     Los valores de arriba son para puntos, barras y bordes; nunca
+     uses --estado-viendo ni --estado-abandonado como color de texto. */
+  --estado-viendo-texto:      #E2A468;
+  --estado-abandonado-texto:  #C08A8A;
+  --estado-viendo-borde:      rgba(201,127,42,.45);
+  --estado-abandonado-borde:  rgba(138,59,59,.50);
+  --estado-viendo-wash:       rgba(201,127,42,.07);
+  --estado-abandonado-wash:   rgba(138,59,59,.09);
+
+  /* ---------------------------------------------------------------
+     TIPOGRAFÍA
+     --------------------------------------------------------------- */
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-ui:      Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Escala display (Cormorant) */
+  --fs-hero:        84px;  /* H1 de la landing */
+  --fs-display-xl:  72px;  /* espécimen de la hoja de estilo */
+  --fs-display-l:   64px;  /* título de la ficha */
+  --fs-display-m:   56px;  /* H2 de sección · número KPI de la ficha */
+  --fs-display-s:   44px;  /* H2 de pantalla */
+  --fs-display-xs:  40px;  /* H2 de contenido (Tu biblioteca) */
+  --fs-titulo-l:    34px;  /* H3 de card · vacío */
+  --fs-titulo-m:    32px;  /* H3 de modal */
+  --fs-titulo-s:    28px;  /* H3 de hoja inferior móvil */
+  --fs-titulo-xs:   26px;  /* H3 de característica */
+  --fs-numero-s:    34px;  /* KPI del resumen de importación */
+
+  /* Escala UI (Inter) */
+  --fs-cuerpo-l:    17px;
+  --fs-cuerpo:      16px;
+  --fs-cuerpo-s:    15px;
+  --fs-ui:          14px;
+  --fs-ui-s:        13px;
+  --fs-ui-xs:       12px;
+  --fs-etiqueta:    11px;  /* UPPERCASE + tracking .18em */
+  --fs-etiqueta-xs: 10px;  /* solo badges GRATIS/PAGO y nav móvil */
+
+  /* Escala mono (IBM Plex Mono) */
+  --fs-mono:        12px;
+  --fs-mono-s:      11px;
+  --fs-mono-l:      14px;
+
+  /* Pesos */
+  --fw-display-light: 300;
+  --fw-display:       400;
+  --fw-ui:            400;
+  --fw-ui-medium:     500;
+  --fw-ui-bold:       600;
+
+  /* Interlineado */
+  --lh-hero:     1.02;
+  --lh-display:  1.05;
+  --lh-titulo:   1.2;
+  --lh-cuerpo:   1.7;
+  --lh-cuerpo-l: 1.8;
+  --lh-ui:       1.4;
+  --lh-solido:   1;
+
+  /* Tracking */
+  --tracking-display:  .02em;
+  --tracking-etiqueta: .18em;
+  --tracking-marca:    .22em;   /* logotipo ANIME VAULT */
+  --tracking-boton:    .04em;
+  --tracking-badge:    .10em;
+
+  /* ---------------------------------------------------------------
+     ESPACIADO · rejilla de 8 px
+     --------------------------------------------------------------- */
+  --e-0:    0px;
+  --e-05:   4px;
+  --e-1:    8px;
+  --e-1-5: 12px;
+  --e-2:   16px;
+  --e-2-5: 20px;
+  --e-3:   24px;
+  --e-4:   32px;
+  --e-5:   40px;
+  --e-6:   48px;
+  --e-7:   56px;
+  --e-8:   64px;
+  --e-9:   72px;
+  --e-10:  80px;
+  --e-12:  96px;
+  --e-13: 104px;
+
+  --contenedor-max:  1440px;
+  --gutter-s:          24px;  /* rejilla de cards */
+  --gutter:            32px;
+  --gutter-l:          40px;  /* padding lateral de pantalla */
+  --marco-offset:      24px;  /* marco dorado de sección */
+  --tactil-min:        44px;  /* área táctil mínima en móvil */
+
+  /* ---------------------------------------------------------------
+     GEOMETRÍA · piedra tallada
+     --------------------------------------------------------------- */
+  --radio-card:    6px;
+  --radio-input:   4px;
+  --radio-boton:   4px;
+  --radio-chip:    3px;
+  --radio-barra:   1px;
+  --radio-avatar:  50%;   /* única forma redonda del sistema */
+  --radio-marco:   0px;   /* el marco dorado nunca lleva radio */
+
+  --borde-fino:    1px;
+  --borde-acento:  2px;   /* borde izquierdo de aviso · barra de progreso */
+
+  /* ---------------------------------------------------------------
+     SOMBRAS Y LUZ · planas y profundas, nunca de color
+     --------------------------------------------------------------- */
+  --sombra-losa:     0 8px 24px rgba(0,0,0,.6);
+  --sombra-hoja:     0 -8px 24px rgba(0,0,0,.6);   /* bottom sheet móvil */
+  --glow-oro:        inset 0 0 24px rgba(201,162,39,.12);
+  --halo-veta:       0 1px 3px rgba(201,162,39,.2);
+  --halo-punto:      0 0 3px rgba(201,162,39,.5);  /* barra de progreso */
+  --halo-subrayado:  0 0 4px rgba(201,162,39,.6);  /* pestaña/chip activo */
+  --anillo-foco:     2px solid var(--gold-400);
+  --anillo-foco-offset: 2px;
+
+  /* Veta kintsugi: divisor de sección */
+  --veta-horizontal: linear-gradient(90deg,transparent,var(--gold-700) 15%,var(--gold-400) 50%,var(--gold-700) 85%,transparent);
+  --veta-corta:      linear-gradient(90deg,var(--gold-700),var(--gold-400) 30%,var(--gold-700) 70%,transparent);
+
+  /* Texturas de fondo */
+  --textura-ruido-opacidad:   .032;
+  --textura-laja-opacidad:    .055;
+  --textura-foto-opacidad:    .50;   /* laja fotográfica en hero */
+  --textura-foto-movil:       .30;
+
+  /* ---------------------------------------------------------------
+     MOVIMIENTO
+     --------------------------------------------------------------- */
+  --dur-instante:  90ms;
+  --dur-rapida:   120ms;
+  --dur-base:     180ms;   /* hover de card, overlay de portada */
+  --dur-lenta:    260ms;   /* modales, hojas inferiores */
+  --dur-shimmer: 2600ms;   /* skeleton dorado */
+  --dur-giro:    1100ms;   /* spinner */
+
+  --ease-base:    cubic-bezier(.4,0,.2,1);
+  --ease-entrada: cubic-bezier(0,0,.2,1);
+  --ease-salida:  cubic-bezier(.4,0,1,1);
+  --ease-lineal:  linear;
+}
+
+/* -----------------------------------------------------------------
+   ANIMACIONES DEL SISTEMA
+   ----------------------------------------------------------------- */
+@keyframes vetaBrillo { 0% { background-position:200% 0 } 100% { background-position:-100% 0 } }
+@keyframes vetaGiro   { to { transform:rotate(360deg) } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important }
+}

@@ -1,0 +1,13 @@
+# El paquete de diseño es la fuente de verdad visual del REPO, no del RUNTIME.
+# Los PNG originales pesan ~85 MB y no se sirven nunca desde la app:
+# lo que la app usa vive ya optimizado en public/texturas/.
+# Excluirlos del bundle de despliegue mantiene los builds rápidos.
+design/assets/
+design/screens/
+design/ANIME-VAULT.dc.html
+design/scripts/
+
+# Material de trabajo que no forma parte del runtime
+.claude/
+tests/
+e2e/

@@ -40,10 +40,30 @@ const PROPS_ICONO = {
   "aria-hidden": true,
 } as const;
 
+/**
+ * ── LAS TRES DESCRIBÍAN FUNCIONES QUE NO EXISTEN ──────────────────────────
+ *
+ * Decían «importa desde AniList o un .xlsx», «con sus espejos V1, V2 y V3» y
+ * «la IA sugiere las etiquetas que faltan». La importación no está construida,
+ * `streaming_mirror` tiene cero filas y no hay interfaz para gestionarlos, y el
+ * enriquecimiento es fase 4.
+ *
+ * En una landing eso se lee como una promesa, no como un dato — pero es la
+ * misma regla: la interfaz no miente. Quien entre el primer día y busque el
+ * botón de importar no lo va a encontrar.
+ *
+ * Ahora las tres dicen algo que la aplicación HACE hoy: la rejilla con estado y
+ * progreso, el enlace de continuar viendo, y la deduplicación que mantiene
+ * separados los tres Higurashi del vault real.
+ *
+ * Cuando esas funciones existan, el texto anterior está en el historial de git
+ * y vuelve tal cual. Lo que no puede es ir por delante de lo construido.
+ */
 const CARACTERISTICAS: readonly Caracteristica[] = [
   {
     titulo: "Un solo catálogo",
-    texto: "Importa desde AniList o un .xlsx y deja de repartir tu historial entre cinco pestañas.",
+    texto:
+      "Toda tu biblioteca en una pantalla, con su portada, su estado y por dónde vas en cada serie.",
     icono: (
       <svg {...PROPS_ICONO}>
         <rect x="3" y="5" width="26" height="22" />
@@ -54,12 +74,11 @@ const CARACTERISTICAS: readonly Caracteristica[] = [
     ),
   },
   {
-    // El ancla «Sitios» de la navegación cae aquí: es la característica que
-    // habla de los sitios de streaming y de sus espejos. Ver `SUPUESTOS.md`.
-    id: "sitios",
+    // Ya no lleva `id: "sitios"`: la entrada de navegación que apuntaba aquí se
+    // ha quitado, porque esta tarjeta habla de retomar un episodio y no de
+    // sitios de streaming —de los que además hay cero sembrados—.
     titulo: "Retomar sin buscar",
-    texto:
-      "Guarda el enlace exacto del episodio en el que te quedaste, con sus espejos V1, V2 y V3.",
+    texto: "Guarda el enlace exacto del episodio en el que te quedaste y ábrelo de un clic.",
     icono: (
       <svg {...PROPS_ICONO}>
         <circle cx="16" cy="16" r="12" />
@@ -69,9 +88,9 @@ const CARACTERISTICAS: readonly Caracteristica[] = [
     ),
   },
   {
-    titulo: "Fichas que se completan solas",
+    titulo: "Los títulos parecidos no se mezclan",
     texto:
-      "Sinopsis, géneros y títulos alternativos llegan desde AniList; la IA sugiere las etiquetas que faltan.",
+      "Tres Higurashi son tres fichas. El catálogo avisa de lo que se parece y decides tú, no él.",
     icono: (
       <svg {...PROPS_ICONO}>
         <path d="M16 3 L20 12 L29 13 L22 19 L24 28 L16 23 L8 28 L10 19 L3 13 L12 12 Z" />

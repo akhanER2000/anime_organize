@@ -46,13 +46,26 @@ export const RUTA_REGISTRO = "/registro";
  * el recorrido en navegador, que pulsa cada enlace y comprueba que el destino
  * se ve.
  */
-export const ANCLAS_PINTADAS = ["caracteristicas", "sitios", "precios"] as const;
+/** Las anclas que ALGUIEN pinta de verdad. Si una entrada de nav no está
+ * aquí, `anclasMuertas` la delata. */
+export const ANCLAS_PINTADAS = ["caracteristicas"] as const;
 
 /** Nav del hero. Las tres son anclas de la propia página: no hay más rutas. */
 export const ENLACES_NAV: readonly EnlaceLanding[] = [
+  // ── AQUÍ HABÍA TRES ENTRADAS Y QUEDA UNA ──────────────────────────────
+  //
+  // «Precios» apuntaba al KPI de «0 €», que se ha quitado por inventado: sin
+  // él, el ancla `#precios` no existe. Y no hay precio que enseñar, así que
+  // tampoco hay sección que construir.
+  //
+  // «Sitios» caía en una tarjeta que habla de retomar un episodio, no de
+  // sitios de streaming — y `streaming_site` tiene CERO filas. Una entrada de
+  // navegación que promete una sección de sitios cuando no hay ni sección ni
+  // sitios es la misma mentira que un enlace muerto, solo que más difícil de
+  // ver: el ancla funciona, y lo que falla es lo que prometía.
+  //
+  // Queda la que lleva a una sección que existe de verdad.
   { etiqueta: "Características", href: "#caracteristicas" },
-  { etiqueta: "Sitios", href: "#sitios" },
-  { etiqueta: "Precios", href: "#precios" },
 ];
 
 /** Botón de la nav: obsidiana con borde dorado. */

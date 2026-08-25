@@ -17,9 +17,18 @@ import { CONTENEDOR, ETIQUETA_SECCION, PADDING_LATERAL } from "./medidas";
  */
 
 const VENTAJAS = [
-  "Exportación a .xlsx cuando quieras irte",
-  "Detección de duplicados al añadir",
-  "Historial de cambios por serie",
+  // ── ESTAS TRES DECÍAN OTRA COSA, Y LAS TRES ERAN FALSAS ────────────────
+  //
+  // «Exportación a .xlsx cuando quieras irte», «Detección de duplicados al
+  // añadir» e «Historial de cambios por serie». La exportación no tiene ni
+  // endpoint, no hay flujo de alta donde ejercitar la deduplicación, y el
+  // historial no existe en ninguna parte —ni tabla, ni pantalla—.
+  //
+  // Las tres describían el producto terminado en una página que ya está
+  // publicada. Ahora las tres dicen algo que se puede comprobar entrando.
+  "Las portadas se guardan en tu vault, no se enlazan desde el sitio de origen",
+  "Los títulos casi idénticos no se colapsan entre sí",
+  "El filtro y el orden viajan en el enlace: compartes la vista exacta",
 ] as const;
 
 /** El progreso de la tarjeta de ejemplo, tal cual lo dibuja el artboard. */
@@ -56,7 +65,7 @@ export function Sincronia() {
           </h2>
 
           <p className="mt-[var(--e-3)] max-w-[460px] font-ui text-cuerpo leading-cuerpo text-[var(--porcelain-200)]">
-            Marca el episodio en el móvil mientras cenas y sigue en el portátil. El vault vive en tu
+            Entra desde el móvil o desde el portátil y encuentras lo mismo. El vault vive en tu
             cuenta, no en el navegador.
           </p>
 

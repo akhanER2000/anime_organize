@@ -89,14 +89,39 @@ test.describe("la landing, usada por una persona", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("las tres anclas de la navegación llevan a algo que EXISTE", async ({ page }) => {
+  test("TODA ancla de la navegación lleva a algo que EXISTE, y no hay más entradas", async ({
+    page,
+  }) => {
     // Un ancla muerta no da error en ninguna parte: el navegador simplemente no
     // se mueve. Aquí se comprueba que el destino está en la página y se ve.
+    //
+    // ── ERAN TRES Y AHORA ES UNA ──────────────────────────────────────────
+    //
+    // «Precios» apuntaba al KPI de «0 €» y «Sitios» a una tarjeta que habla de
+    // retomar un episodio, no de sitios de streaming —de los que hay CERO
+    // sembrados—. Las dos se quitaron con las cifras inventadas del hero.
+    //
+    // Este test comprobaba que las tres anclas llegaban a algún sitio, y las
+    // tres llegaban: el ancla funcionaba y lo que mentía era lo que prometía.
+    // Por eso ahora comprueba también CUÁNTAS entradas hay: si alguien vuelve a
+    // añadir una, tiene que declarar aquí a qué lleva.
     const destinos = [
       { etiqueta: "Características", hash: "#caracteristicas", texto: "Un solo catálogo" },
-      { etiqueta: "Sitios", hash: "#sitios", texto: "Retomar sin buscar" },
-      { etiqueta: "Precios", hash: "#precios", texto: "para empezar" },
     ] as const;
+
+    await page.goto("/");
+
+    // Lo que hay en la nav, dicho por su nombre accesible: el logotipo, las
+    // anclas de la lista y el CTA. Contar contra una lista explícita en vez de
+    // contra un número deja claro QUÉ se espera, y si alguien añade una entrada
+    // el fallo dice cuál sobra en vez de «esperaba 3, recibí 4».
+    const nombres = await page
+      .getByRole("navigation", { name: "Principal" })
+      .getByRole("link")
+      .allInnerTexts();
+    const limpios = nombres.map((n) => n.replace(/\s+/g, " ").trim()).filter((n) => n !== "");
+
+    expect(limpios).toEqual(["ANIME VAULT", ...destinos.map((d) => d.etiqueta), "Entrar"]);
 
     for (const destino of destinos) {
       await page.goto("/");
@@ -104,6 +129,42 @@ test.describe("la landing, usada por una persona", () => {
 
       await expect(page).toHaveURL(new RegExp(`${destino.hash}$`));
       await expect(page.getByText(destino.texto, { exact: false }).first()).toBeVisible();
+    }
+  });
+
+  test("NO HAY CIFRAS INVENTADAS ni promesas de lo que no existe", async ({ page }) => {
+    // ── POR QUÉ ESTE TEST ─────────────────────────────────────────────────
+    //
+    // La landing desplegada decía «2 480 series catalogadas», «18 sitios
+    // enlazados» y «0 € para empezar», en Cormorant 34 px y con el aspecto de
+    // un dato. El vault tiene 83 animes, `streaming_site` tiene cero filas y
+    // esto no se vende. Era una página pública con el nombre de su dueño
+    // detrás afirmando tres cosas falsas.
+    //
+    // Un enlace muerto se nota al pulsarlo. Un número inventado no se nota
+    // nunca, y por eso es peor: nadie lo comprueba porque parece un hecho.
+    //
+    // Las tarjetas prometían además importar desde AniList o .xlsx, espejos
+    // V1/V2/V3 y etiquetas por IA. Ninguna de las tres está construida.
+    await page.goto("/");
+    const texto = (await page.locator("body").innerText()).replace(/\s+/g, " ");
+
+    for (const mentira of [
+      "2 480",
+      "2480",
+      "sitios enlazados",
+      "series catalogadas",
+      "0 €",
+      "para empezar",
+      "Precios",
+      ".xlsx",
+      "espejos V1",
+      "la IA sugiere",
+      "Detección de duplicados al añadir",
+      "Historial de cambios",
+      "Marca el episodio en el móvil",
+    ]) {
+      expect(texto, `la landing volvió a decir «${mentira}»`).not.toContain(mentira);
     }
   });
 

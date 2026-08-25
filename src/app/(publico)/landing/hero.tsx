@@ -6,7 +6,6 @@ import { cn } from "@/lib/ui/cn";
 import { CTA_NAV, CTA_PRINCIPAL, CTA_SECUNDARIO, ENLACES_NAV } from "./enlaces";
 import { Marca } from "./marca";
 import {
-  AIRE_DE_ANCLA,
   CONTENEDOR,
   ETIQUETA_SECCION,
   MARCO_DORADO,
@@ -50,17 +49,31 @@ const VELO_HERO = [
 const FONDO_PANEL_ARTE = "color-mix(in srgb, var(--void) 40%, transparent)";
 
 /**
- * Las tres cifras del hero.
+ * ── AQUÍ HABÍA TRES CIFRAS Y LAS TRES ERAN MENTIRA ───────────────────────
  *
- * Son **copia literal del artboard 02**, no datos en vivo: la landing es
- * pública y no puede consultar el vault de nadie. Anotado en `SUPUESTOS.md`
- * como texto de marketing pendiente de decisión.
+ * «2 480 series catalogadas», «18 sitios enlazados» y «0 € para empezar»,
+ * pintadas en Cormorant 34 px como si fueran datos. Ninguna lo era: el vault
+ * tiene 83 animes, `streaming_site` tiene **cero** filas, y esto no es un
+ * producto de pago.
+ *
+ * ── POR QUÉ SE QUITAN EN VEZ DE CONSULTARLAS ──────────────────────────────
+ *
+ * Se consideró leerlas de la base, que es lo que pedía la regla. Pero de las
+ * tres, dos no dicen nada al ser ciertas: «83 series catalogadas» en la landing
+ * de un vault personal es un dato sobre su dueño, no sobre el producto, y
+ * «0 sitios enlazados» es peor que no poner nada. La tercera no tiene versión
+ * cierta: no hay precio porque no hay producto que vender.
+ *
+ * Y hay una razón de robustez: la landing es la ÚNICA página pública, y atarla
+ * a la base significa que se cae cuando se cae Neon. Una portada que no depende
+ * de nada es lo que se quiere el día que algo va mal.
+ *
+ * El artboard §02 pinta tres KPIs. Se documenta la desviación en `SUPUESTOS.md`
+ * porque el diseño manda — salvo cuando lo que manda es inventarse un dato.
+ *
+ * Si algún día hay cifras que decir de verdad, vuelven: el hueco es un `<ul>`
+ * bajo los CTA y el rol tipográfico está en DESIGN-SPEC §2.
  */
-const KPIS = [
-  { cifra: "2 480", leyenda: "series catalogadas", id: undefined },
-  { cifra: "18", leyenda: "sitios enlazados", id: undefined },
-  { cifra: "0 €", leyenda: "para empezar", id: "precios" },
-] as const;
 
 export function Hero() {
   return (
@@ -195,18 +208,6 @@ export function Hero() {
               </Boton>
             </div>
 
-            <ul className="mt-[var(--e-5)] flex flex-wrap gap-[var(--e-5)]">
-              {KPIS.map((kpi) => (
-                <li key={kpi.leyenda} id={kpi.id} className={AIRE_DE_ANCLA}>
-                  <p className="font-display text-titulo-l font-[var(--fw-display-light)] leading-[var(--lh-solido)] text-[var(--gold-400)]">
-                    {kpi.cifra}
-                  </p>
-                  <p className="mt-[var(--e-05)] font-mono text-mono text-[var(--ash-400)]">
-                    {kpi.leyenda}
-                  </p>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Panel de arte: 404 × 560 con marco de 1 px `--gold-700` y 10 px de

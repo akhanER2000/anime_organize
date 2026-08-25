@@ -8,6 +8,57 @@ allowed-tools: Bash(npm *), Bash(npx *), Bash(git *), Bash(npx vercel *), Read, 
 
 Destino: `$1` (por defecto `preview`).
 
+## 0. LO QUE ESTÁ EN `origin` ES LO QUE SE DESPLIEGA · **PUERTA, VA PRIMERO**
+
+> **Vercel no despliega tu disco. Despliega `origin/main`.** Todas las puertas de
+> calidad de este documento miden el árbol de trabajo, y ninguna sabe si ese árbol
+> llegó a subirse.
+
+```
+!git fetch --quiet origin
+!git status --short
+!git rev-list --left-right --count origin/main...HEAD
+```
+
+Las tres condiciones, y **si falla una se para**:
+
+1. **`git status --short` no imprime nada.** Un solo `M` o `??` es trabajo que no
+   va a desplegarse.
+2. **El contador da `0 0`.** El primer número son commits que tiene `origin` y tú
+   no; el segundo, commits tuyos sin subir. Cualquiera distinto de cero significa
+   que lo desplegado y lo que tienes delante no son lo mismo.
+3. **El SHA que sirve Vercel es el de `origin/main`.** Después de desplegar:
+
+```
+!git --no-pager log --format=%H -1 origin/main
+```
+
+y se compara con `githubCommitSha` del despliegue en Vercel (panel del proyecto →
+Deployments, o `vercel inspect`). **Si no coinciden, el despliegue no es el que
+crees**, por muy verde que esté todo lo demás.
+
+### Por qué esto es la puerta 0 y no un apartado más
+
+Porque ya pasó, y es la cuarta vez que aparece **la misma familia de fallo**: todo
+en verde, apuntando al sitio equivocado.
+
+| Qué | Todo decía «bien» porque… | Y estaba mal porque… |
+|---|---|---|
+| `sessions_valid_from` | 17 tests verdes y mutación aprobada | la función no estaba **conectada** al sistema |
+| El limitador de intentos | 8 tests contra Postgres real | no estaba en **la puerta que se ataca** |
+| `db:verificar` | «Esquema verificado: todo correcto» | leía `DATABASE_URL_UNPOOLED` de `.env.local` y verificaba **la rama de desarrollo** |
+| Este | 895 tests, 74 de integración, 48 e2e, build a 0 | **nada se había commiteado**: Vercel servía un commit anterior a las cuatro pantallas |
+
+El patrón es siempre el mismo: **la medición es correcta y el objeto medido no es
+el que importa.** Un checklist que solo comprueba calidad responde «¿está bien
+esto?» y nunca «¿es esto lo que se va a servir?».
+
+En el caso de este proyecto el fallo se agravó porque el despliegue se hizo a mano
+siguiendo `DESPLIEGUE.md` en vez de este comando, y ese documento no llevaba la
+puerta. Ahora la lleva, y por eso está aquí arriba: **antes que las puertas de
+calidad, no después.** Correr 48 e2e sobre un árbol que no se va a subir es tiempo
+gastado en la pregunta equivocada.
+
 ## 1. Puertas de calidad — todas verdes, sin excepción
 
 ```
@@ -34,7 +85,9 @@ Para `production`, además:
 !git --no-pager log --oneline -5
 ```
 
-- Árbol limpio. Nada sin commitear.
+- El árbol limpio y el estar sincronizado con `origin` ya se comprobaron en la
+  **puerta 0**. Si te la saltaste, vuelve: es la única que responde «¿es esto lo
+  que se va a servir?».
 - Si estás en `main` y el destino es `preview`, crea rama antes.
 - **Comprueba que no se cuela un secreto:**
 
@@ -52,13 +105,14 @@ entorno destino. Deben existir, como mínimo:
 | Variable | Obligatoria | Nota |
 |---|---|---|
 | `DATABASE_URL` | sí | cadena *pooled* de Neon |
-| `DATABASE_URL_UNPOOLED` | sí | para migraciones |
+| `DATABASE_URL_UNPOOLED` | **no** | **nada en runtime la usa.** Solo migraciones y scripts, que corren desde una máquina, no desde Vercel |
 | `AUTH_SECRET` | sí | distinto en producción que en preview |
 | `AUTH_URL` / `NEXTAUTH_URL` | sí | la URL real del despliegue |
 | `ANTHROPIC_API_KEY` | no | sin ella, el paso 2 del enriquecimiento se salta con aviso |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | no | login con Google opcional |
 | `GOOGLE_DRIVE_*` | no | espejo opcional de portadas |
-| `EMAIL_*` | sí en producción | verificación y reset de contraseña |
+| `RESEND_API_KEY` / `EMAIL_FROM` | no | sin ellas el enlace se imprime en el log. Obligatorias el día que se abra el registro a terceros |
+| `AUTH_REQUIRE_EMAIL_VERIFICATION` | sí | `false` mientras el vault sea de una persona |
 
 Si falta alguna obligatoria, para y dilo. Nunca inventes un valor.
 

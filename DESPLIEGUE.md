@@ -28,7 +28,35 @@ filtrar, ordenar, abrir la ficha de cada anime y usar el enlace de «continuar v
 
 ---
 
-## Paso 0 · Comprueba que el repositorio público no lleva secretos
+## Paso 0 · Que lo que quieres desplegar esté **en `origin`**
+
+> **Vercel no despliega tu disco. Despliega `origin/main`.**
+>
+> Este paso no estaba en la primera versión de este documento, y por eso el primer
+> despliegue sirvió un commit anterior a las cuatro pantallas: la aplicación estaba
+> escrita, probada y verde, y **nada se había commiteado**. Todo en verde,
+> apuntando al sitio equivocado.
+
+```bash
+cd /j/Code/Anime_Organize/anime-vault
+git fetch --quiet origin
+git status --short
+git rev-list --left-right --count origin/main...HEAD
+```
+
+- `git status --short` **no debe imprimir nada**.
+- El contador debe dar **`0	0`**: ni commits que te faltan, ni commits sin subir.
+
+Si sale algo, súbelo antes de seguir. Y cuando Vercel termine, comprueba que el
+`githubCommitSha` del despliegue es el de `origin/main`:
+
+```bash
+git --no-pager log --format=%H -1 origin/main
+```
+
+---
+
+## Paso 0 bis · Comprueba que el repositorio público no lleva secretos
 
 **Lo haces tú, aquí, antes de conectar nada.** El repositorio es público.
 

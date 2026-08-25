@@ -180,6 +180,77 @@ hacer y actualizas la fecha.
   —que el dueño legítimo SÍ ve lo suyo—, o una función que devuelve vacío
   siempre pasaría el test entero.
 
+## La operación tuvo éxito. ¿SOBRE QUÉ? · OBLIGATORIA
+
+> **Un `ok: true` dice que algo funcionó. No dice sobre qué.**
+
+Cinco fallos de este proyecto son el mismo fallo. En los cinco, todos los
+indicadores estaban en verde y **la operación se aplicó a la entidad
+equivocada**:
+
+| # | Qué decía «bien» | Sobre qué actuaba de verdad |
+|---|---|---|
+| 1 | `sessions_valid_from`: 17 tests y mutación aprobada | **una función desconectada** — el sistema no la llamaba |
+| 2 | El limitador: 8 tests contra Postgres real | **la puerta equivocada** — no estaba en la que se ataca |
+| 3 | `db:verificar`: «Esquema verificado: todo correcto» | **la rama equivocada** — leía `DATABASE_URL_UNPOOLED` de `.env.local` |
+| 4 | El despliegue: 895 + 74 + 48 tests verdes | **el commit equivocado** — nada se había subido |
+| 5 | El seed: «83 animes, 83 portadas, 3,5 MB» | **no se comprobó de quién eran** — la cuenta que entra ve 0 |
+
+Ninguno se habría evitado con más tests de la operación. Los cinco necesitaban
+**una comprobación distinta**: no «¿funcionó?», sino «¿sobre qué?».
+
+### La pregunta, en tres formas
+
+Ante cualquier operación que escriba, migre, despliegue o verifique, hay que
+responder las tres antes de darla por buena:
+
+1. **¿SOBRE QUÉ FILA?** — ¿el `id` que se tocó es el que se pretendía?
+2. **¿EN QUÉ BASE?** — ¿la rama de Neon es la que se cree? ¿de dónde salió la
+   cadena, del entorno o de un fichero?
+3. **¿QUÉ VERSIÓN?** — ¿el código que corre es el que se acaba de escribir?
+
+Un test que solo comprueba el efecto responde a «¿funcionó?». Estas tres
+responden a «¿le funcionó a quien tenía que funcionarle?», que es la pregunta
+que fallaron los cinco.
+
+### Cómo se comprueba, en la práctica
+
+- **Toda operación destructiva o de escritura masiva ANUNCIA su destino antes de
+  actuar.** Es lo que hacen ya `db:migrate`, `seed` y `db:verificar`: imprimen el
+  host, la base, y **si la cadena vino del entorno o de un fichero**. Sin eso, el
+  número 3 de la tabla habría dicho «todo correcto» sobre desarrollo.
+- **Todo test de una escritura afirma sobre el ID, no solo sobre el efecto.** No
+  basta con «se creó un anime»: hay que comprobar `user_id`. No basta con «la
+  contraseña cambió»: hay que comprobar **de qué fila**. El número 5 es
+  exactamente esto: se contaron 83 animes y 83 portadas con un `count(*)` que
+  **tenía el `user_id` delante en la misma tabla**, y nadie lo agrupó por él.
+  Un `GROUP BY user_id` en vez de un `count(*)` habría contado la misma cosa y
+  además habría respondido la pregunta que importaba.
+- **Todo despliegue compara el SHA servido con `origin`.** Es la puerta 0 de
+  `/project:deploy`.
+- **Cuando algo pueda existir dos veces, se cuenta.** `SELECT count(*)` antes de
+  asumir que hay uno. Dos usuarios con el mismo correo, dos proyectos apuntando
+  al mismo repositorio, dos ramas con el mismo esquema: en los tres casos, todo
+  responde 200 y la mitad de las veces es la mitad equivocada.
+
+### El control que lo delata
+
+El mismo que ya exige la sección de mutación, aplicado a la identidad: **además
+del caso positivo, se comprueba que la operación NO tocó a quien no debía.**
+
+```ts
+// Insuficiente: dice que funcionó, no sobre qué.
+expect(resultado.valido).toBe(true);
+
+// Suficiente: dice sobre QUIÉN funcionó, y sobre quién no.
+expect(resultado.userId).toBe(idEsperado);
+expect(await filasDe(otroUsuario)).toEqual(filasAntesDeOtroUsuario);
+```
+
+Es el mismo razonamiento que el control positivo de siempre —una función que
+devuelve vacío pasa cualquier test negativo—, movido de «¿hace algo?» a «¿a
+quién se lo hace?».
+
 ## Verificación por el CAMINO REAL · OBLIGATORIA, del mismo rango que la mutación
 
 > **Un test que fabrica el insumo demuestra que la función es correcta, no que el

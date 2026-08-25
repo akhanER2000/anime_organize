@@ -6,7 +6,7 @@ import { AuthError } from "next-auth";
 
 import { signIn } from "@/auth";
 import { seExigeVerificacionEmail } from "@/lib/config/entorno";
-import { clavePorEmail, clavePorIp, ipDelCliente, registrarIntentos } from "@/lib/rate-limit";
+import { clavePorEmail, clavePorIp, consultarIntento, ipDelCliente } from "@/lib/rate-limit";
 
 import { ejecutarLogin, hayErrorEnUrl } from "./flujo";
 
@@ -106,8 +106,21 @@ async function comprobarLimiteDeLogin({ email }: { email: string }): Promise<{
       entradas.push({ nombre: LIMITE_POR_IP, clave: clavePorIp("login", ip) });
     }
 
-    const veredicto = await registrarIntentos(entradas);
-    return { permitido: veredicto.permitido };
+    // ── SE CONSULTA, NO SE REGISTRA ──────────────────────────────────────
+    //
+    // Quien cuenta es `authorize`, porque es la puerta que se ataca: un POST
+    // directo al endpoint de Auth.js no pasa por aquí. Esta comprobación existe
+    // solo para poder enseñar «demasiados intentos» en vez de «correo o
+    // contraseña incorrectos», que es lo que hacía perder horas.
+    //
+    // Antes esto llamaba a `registrarIntentos`, así que **un envío del
+    // formulario gastaba dos intentos** —medido: contador = 2 con un solo
+    // envío—. El límite de 5 se agotaba al tercer envío.
+    const veredictos = await Promise.all(
+      entradas.map((entrada) => consultarIntento(entrada.nombre, entrada.clave)),
+    );
+
+    return { permitido: veredictos.every((veredicto) => veredicto.permitido) };
   } catch (error) {
     // FALLA CERRADO. Si el limitador no responde se deniega, y no es una
     // decisión dura: el login necesita la base para verificar la contraseña,

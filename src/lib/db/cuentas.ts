@@ -6,6 +6,8 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { marcaDeRevocacion } from "@/lib/auth/sesion";
 
+import { clavePorEmail, olvidarIntentos } from "@/lib/rate-limit";
+
 import { dbInterna } from "./interno";
 import { passwordResetTokens, users } from "./schema";
 
@@ -277,13 +279,33 @@ export async function consumirTokenDeReset(datos: {
            updated_at          = ${ahora}
       from consumido c
      where u.id = c.user_id
-    returning u.id
+    returning u.id, u.email
   `);
 
-  const primera = (filas as unknown as { rows?: { id?: string }[] }).rows ?? [];
+  const primera = (filas as unknown as { rows?: { id?: string; email?: string }[] }).rows ?? [];
   const id = primera[0]?.id;
+  const correo = primera[0]?.email;
 
-  return id === undefined ? { valido: false } : { valido: true, userId: id };
+  if (id === undefined) return { valido: false };
+
+  // ── Y SE LEVANTA EL BLOQUEO DE ESE CORREO ──────────────────────────────
+  //
+  // Sin esto, quien se bloquea intentando entrar y hace lo único razonable
+  // —restablecer— **sigue bloqueado**, con un mensaje que habla de la
+  // contraseña. Y cada reintento renueva el bloqueo: un callejón sin salida
+  // para el dueño legítimo, reproducido de punta a punta.
+  //
+  // Consumir un token de un solo uso prueba control del buzón, que es una
+  // prueba MEJOR que saber la contraseña. Mantener el límite después no
+  // protege nada.
+  //
+  // Solo el cubo del EMAIL. El de la IP no se toca: es compartido y puede ser
+  // el del atacante. Ver `olvidarIntentos`.
+  if (correo !== undefined) {
+    await olvidarIntentos(clavePorEmail("login", correo));
+  }
+
+  return { valido: true, userId: id };
 }
 
 /**

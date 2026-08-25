@@ -78,6 +78,41 @@ Para `production`, además:
 !npm run test:e2e
 ```
 
+### 1 bis. EL CICLO DE RECUPERACIÓN, ENTERO · **PUERTA**
+
+```
+!npx playwright test e2e/recuperar-y-entrar.spec.ts --project=chromium
+```
+
+Los dos recorridos tienen que pasar. **No vale que `/recuperar` devuelva 200 y el
+formulario se vea**: eso es exactamente lo que se comprobaba antes, y por eso el
+flujo llegó roto a producción.
+
+Lo que prueban, en este orden y seguido:
+
+1. registrarse → restablecer → **volver a entrar con la nueva**;
+2. bloquearse a fuerza de intentos → restablecer → **entrar**.
+
+**Por qué es una puerta propia.** La recuperación es el único flujo cuyo fallo
+te deja sin forma de arreglarlo desde dentro: si no puedes entrar, no puedes
+usar la aplicación para recuperar el acceso. Un fallo aquí no degrada la
+experiencia, la termina.
+
+Y el segundo recorrido existe porque el fallo real no estaba donde se buscaba:
+el restablecimiento funcionaba, y lo que impedía entrar era el limitador de
+intentos, que **no se liberaba al restablecer**. Reproducido de punta a punta:
+
+| paso | resultado |
+|---|---|
+| cinco intentos fallidos | bloqueado 15 minutos |
+| login con la contraseña **correcta** | rechazado |
+| restablecer | «Contraseña cambiada» |
+| login con la **nueva** | **rechazado** |
+| vaciar solo el cubo, sin tocar nada más | **entra** |
+
+El último paso es el control: la contraseña siempre fue buena. Y el bucle se
+realimentaba, porque cada reintento renovaba el bloqueo.
+
 ## 2. Estado del repo
 
 ```

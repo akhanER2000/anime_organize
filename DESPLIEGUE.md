@@ -71,6 +71,22 @@ para y dímelo.
 
 ---
 
+## Paso 0 ter · El ciclo de recuperación, entero
+
+```bash
+npx playwright test e2e/recuperar-y-entrar.spec.ts --project=chromium
+```
+
+Los dos recorridos tienen que pasar: registrarse → restablecer → **entrar**, y
+bloquearse → restablecer → **entrar**.
+
+No se salta. Es el único flujo cuyo fallo te deja sin forma de arreglarlo desde
+dentro: si no puedes entrar, no puedes usar la aplicación para recuperar el
+acceso. Llegó roto a producción porque se dio por bueno con que las pantallas
+devolvieran 200.
+
+---
+
 ## Paso 1 · La rama `production` de Neon
 
 **Lo haces tú, en console.neon.tech.**

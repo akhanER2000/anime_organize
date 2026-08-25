@@ -296,6 +296,8 @@ Son dos preguntas distintas y hacen falta las dos.
 | **Rate limit antes del hash** | `revocacion.camino-real.test.ts`: martillea `POST /api/auth/callback/credentials` contra la app arrancada, comprueba los cubos en Postgres y que los bloqueados NO pagan Argon2id | **REAL** ✓ |
 | **La CSP no deja la app en blanco** | `e2e/auth-humo.spec.ts`: Chromium **sin `bypassCSP`**, comprueba que el `<h1>` se pinta y que la consola no reporta bloqueos | **REAL** ✓ |
 | **Registro → login → vault** | el mismo spec, rellenando los formularios de verdad | **REAL** ✓ |
+| **Recuperar la contraseña Y ENTRAR después** | `e2e/recuperar-y-entrar.spec.ts`: dos recorridos en Chromium que restablecen y a continuación inician sesión, uno de ellos partiendo de una cuenta bloqueada por intentos | **REAL** ✓ |
+| **El límite de login se gasta UNA vez por envío** | el mismo spec, contando en qué envío aparece «Demasiados intentos» (el sexto, con el límite en 5) | **REAL** ✓ |
 | **404 y nunca 403 en la ficha** (`security.md` §1) | `e2e/ficha-anime.spec.ts` mira `response.status()` de un uuid inexistente, de un uuid ajeno y de tres cadenas que no son uuid | **REAL** ✓ |
 | **Contrato de datos alcanzable** | el control positivo de `lint:contrato` OBTIENE el contexto con `exigirSesionParaLeer()`, no lo recibe como parámetro | **REAL** ✓ |
 | **El limitador contra Postgres** (`registrarIntento`) | 8 casos contra la base real: cuenta, atomicidad con 12 llamadas concurrentes, ventana deslizante, aislamiento de claves | **REAL** ✓ |
@@ -405,6 +407,38 @@ podía verlo, porque el HTML era el correcto.
 Arreglado moviendo la biblioteca al grupo de ruta `(biblioteca)` —conserva su esqueleto,
 que es donde hace falta— y dejando la ficha sin `loading.tsx`. Fijado por
 `src/app/app/anime/[id]/sin-loading.test.ts`, verificado por mutación.
+
+### Y la peor de todas: el flujo de recuperación llegó roto a producción
+
+`/recuperar` devolvía 200. `/recuperar/nueva` devolvía 200. Los formularios se
+veían. Se dio por bueno.
+
+**Nadie completó el ciclo**: restablecer **y a continuación entrar**. En
+producción no funcionaba, y el dueño perdió horas — que además empeoraban el
+problema, porque cada intento renovaba el bloqueo.
+
+Al diagnosticarlo midiendo, la causa no estaba donde parecía. El
+restablecimiento funcionaba perfectamente: escribía el hash correcto, en la fila
+correcta, con la marca de revocación en el pasado. Lo que impedía entrar era el
+**limitador de intentos**, que no se liberaba al restablecer:
+
+| paso | resultado |
+|---|---|
+| cinco intentos fallidos | bloqueado 15 minutos |
+| login con la contraseña **correcta** | rechazado |
+| restablecer | «Contraseña cambiada» |
+| login con la **nueva** | **rechazado** |
+| vaciar solo el cubo, sin tocar nada más | **entra** |
+
+El último paso es el control que lo cierra: la contraseña siempre fue buena.
+
+Y debajo había un segundo fallo que lo aceleraba: la Server Action del login
+llamaba a `registrarIntentos` **para poder enseñar el mensaje**, y `authorize`
+volvía a registrar. Un envío del formulario gastaba **dos** intentos —medido,
+`contador = 2`—, así que el límite de cinco se agotaba al tercer envío.
+
+Las dos cosas son de la misma familia que el resto de esta sección: **cada pieza
+medía bien y nadie midió el conjunto**.
 
 ### Y una lección sobre los propios tests: `count()` no reintenta
 

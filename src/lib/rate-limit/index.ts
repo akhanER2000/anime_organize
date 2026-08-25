@@ -152,3 +152,109 @@ export function cabecerasRateLimit(nombre: NombreLimite, v: Veredicto): Record<s
   }
   return cabeceras;
 }
+
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CONSULTAR SIN GASTAR — para poder DECIR que estás bloqueado sin bloquearte más
+ *
+ * ── EL FALLO QUE LA TRAJO, MEDIDO ─────────────────────────────────────────
+ *
+ * La Server Action del login llamaba a `registrarIntentos` **para poder enseñar
+ * el mensaje «demasiados intentos»**, y después `authorize` volvía a registrar
+ * por su cuenta. O sea que **un solo envío del formulario gastaba DOS intentos**.
+ *
+ * Medido: un envío, `contador = 2`. Con el límite en 5, el bloqueo llegaba al
+ * TERCER envío en vez de al sexto, y quien se equivocaba dos veces se quedaba
+ * fuera un cuarto de hora sin entender por qué.
+ *
+ * Quien tiene que contar es `authorize`, porque es **la puerta que se ataca**:
+ * un `POST` directo al endpoint de Auth.js no pasa por la Server Action. La
+ * acción solo necesita SABER si ya está bloqueado, para pintar el mensaje
+ * honesto en vez de «correo o contraseña incorrectos».
+ *
+ * Por eso esto lee y no escribe. No es una optimización: contar dos veces el
+ * mismo intento es contar mal.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export async function consultarIntento(
+  nombre: NombreLimite,
+  clave: string,
+  ahora: Date = new Date(),
+): Promise<Veredicto> {
+  const limite = LIMITES[nombre];
+
+  if (!rateLimitActivo()) {
+    return { permitido: true, restantes: limite.maximo, reintentarEnSegundos: 0, usado: 0 };
+  }
+
+  const inicio = inicioVentana(ahora, limite.ventanaMs);
+  const anterior = ventanaAnterior(inicio, limite.ventanaMs);
+  const cliente = dbInterna();
+
+  const filas = await cliente
+    .select({ ventana: rateLimitBucket.ventanaInicio, contador: rateLimitBucket.contador })
+    .from(rateLimitBucket)
+    .where(sql`${rateLimitBucket.clave} = ${clave}`);
+
+  const deEsta = filas.find((f) => f.ventana.getTime() === inicio.getTime())?.contador ?? 0;
+  const dePrevia = filas.find((f) => f.ventana.getTime() === anterior.getTime())?.contador ?? 0;
+
+  // ── SE CUENTA EL INTENTO QUE ESTÁ A PUNTO DE HACERSE ────────────────────
+  //
+  // `evaluar` da por hecho que el contador YA incluye el intento en curso: lo
+  // llama `registrarIntento` justo después de incrementar, y por eso permite
+  // mientras `usado <= maximo`.
+  //
+  // Aquí no se ha incrementado nada, así que hay que sumar el intento pendiente
+  // o la respuesta llega un intento tarde. Medido: sin el `+ 1`, el formulario
+  // seguía diciendo «correo o contraseña incorrectos» en el envío que `authorize`
+  // ya estaba bloqueando — el mensaje correcto aparecía uno después.
+  //
+  // La pregunta que responde esta función es «¿me dejarían intentarlo AHORA?»,
+  // no «¿cuánto llevo gastado?».
+  return evaluar({
+    limite,
+    contadorActual: deEsta + 1,
+    contadorAnterior: dePrevia,
+    ahora,
+    inicio,
+  });
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * OLVIDAR LOS INTENTOS DE UNA CLAVE.
+ *
+ * ── CUÁNDO ESTÁ JUSTIFICADO, Y CUÁNDO NO ──────────────────────────────────
+ *
+ * Solo cuando ha ocurrido algo que demuestra la identidad **mejor** que la
+ * contraseña. Hoy hay exactamente un caso: consumir un token de recuperación,
+ * que prueba control del buzón — y quien controla el buzón ya puede cambiar la
+ * contraseña, así que mantener el bloqueo no protege nada.
+ *
+ * ── EL CALLEJÓN SIN SALIDA QUE ESTO CIERRA ────────────────────────────────
+ *
+ * Reproducido de punta a punta contra la aplicación arrancada:
+ *
+ *   1. cinco intentos fallidos  → bloqueado 15 minutos
+ *   2. login con la contraseña CORRECTA → rechazado (el bloqueo sigue)
+ *   3. restablecer la contraseña → «Contraseña cambiada»
+ *   4. login con la NUEVA → **rechazado**
+ *   5. vaciando solo el cubo, sin tocar nada más → **entra**
+ *
+ * El paso 5 es el control: la contraseña siempre fue buena. Y el bucle se
+ * realimenta, porque cada reintento renueva el bloqueo: el dueño legítimo se
+ * queda fuera de forma indefinida haciendo exactamente lo que hay que hacer.
+ *
+ * ── LO QUE **NO** SE OLVIDA ───────────────────────────────────────────────
+ *
+ * Nunca el cubo por IP. Una IP es compartida —y puede ser la del atacante—, así
+ * que borrarla abriría la puerta a barrer muchas cuentas desde un mismo origen
+ * usando un reseteo propio como llave maestra. Se olvida la clave del EMAIL que
+ * acaba de demostrar que es suyo, y solo esa.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export async function olvidarIntentos(clave: string): Promise<void> {
+  await dbInterna().delete(rateLimitBucket).where(sql`${rateLimitBucket.clave} = ${clave}`);
+}

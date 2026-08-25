@@ -8,6 +8,15 @@ import { defineConfig, devices } from "@playwright/test";
  * fijar aquí las decisiones que la regla da por cerradas.
  */
 export default defineConfig({
+  /**
+   * Se ejecuta una vez, antes de todo: vacía los cubos del limitador de login.
+   *
+   * La suite hace varios logins —uno por spec— y el límite es 5 cada 15
+   * minutos, así que dos pasadas seguidas se autobloqueaban y el 429 se leía
+   * como un fallo de pantalla. Ver el porqué completo en el fichero.
+   */
+  globalSetup: "./e2e/preparar-suite.ts",
+
   testDir: "./e2e",
   fullyParallel: false,
   forbidOnly: process.env.CI !== undefined,
@@ -22,7 +31,26 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
 
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  /**
+   * DOS PROYECTOS, Y EL PRIMERO NO PRUEBA NADA.
+   *
+   * `sesion` entra UNA vez como propietario por el formulario de verdad y
+   * guarda las cookies; `chromium` depende de él, así que corre después. El
+   * motivo —la suite se comía el límite de 5 intentos/15 min de `login:email`
+   * y dos specs fallaban por eso— está escrito en `e2e/sesion-propietario.ts`.
+   *
+   * `testIgnore` en `chromium` evita que el fichero de preparación se ejecute
+   * otra vez como si fuera un spec normal.
+   */
+  projects: [
+    { name: "sesion", testMatch: /sesion-propietario\.setup\.ts/ },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["sesion"],
+      testIgnore: /sesion-propietario\.setup\.ts/,
+    },
+  ],
 
   /**
    * Contra el BUILD DE PRODUCCIÓN, nunca contra `dev`: `dev` tiene otros tiempos

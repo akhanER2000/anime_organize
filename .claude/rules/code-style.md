@@ -151,3 +151,61 @@ el diseño estaría mal.
 - Todo comentario en **español**, como el resto del dominio.
 - `TODO` con dueño y motivo o no se escribe: `// TODO(portadas): Drive devuelve 302 a un
   interstitial cuando el fichero supera 25 MB — falta manejar ese caso.`
+
+
+## Conceptos con un solo dueño
+
+> **Un concepto, un fichero.** Si algo se puede escribir dos veces, se escribirá dos
+> veces, y las dos copias divergirán. No es pesimismo: está medido.
+
+### Por qué existe esta sección
+
+Cuatro pantallas las escribieron cuatro agentes en paralelo, cada uno confinado a su
+carpeta. Un barrido posterior encontró **34 conceptos implementados dos o más veces**,
+**16 de ellos ya divergiendo**. Ninguna copia estaba mal por separado; lo que estaba mal
+era que hubiera dos.
+
+El caso que lo destapó: la biblioteca y la lista traían cada una su parseador de
+`?estado=` y `?favorito=`. Una devolvía los estados en orden canónico y la otra en el
+orden de la URL —el mismo filtro descrito con dos textos distintos—, y con
+`?favorito=0&favorito=1` una filtraba y la otra no. Con la misma barra de chips encima
+prometiendo lo mismo.
+
+### El registro
+
+Cada concepto de esta tabla tiene **un dueño**. Si necesitas su comportamiento, lo
+importas de ahí. Si necesitas que cambie, cambias ese fichero.
+
+| Concepto | Dueño |
+|---|---|
+| Normalizar un título | `src/lib/domain/normalizar.ts` |
+| Decidir si un alta es duplicada | `src/lib/domain/duplicados.ts` |
+| Los cinco estados, sus etiquetas y su orden | `src/lib/domain/enums.ts` |
+| Mapear el progreso del seed | `src/lib/domain/progreso.ts` |
+| Parsear `?estado=` y `?favorito=` | `src/lib/validation/biblioteca.ts` |
+| Filtrar y contar filas por estado | `src/lib/validation/biblioteca.ts` |
+| Parsear y construir `?orden=` y `?dir=` | `src/lib/validation/orden-lista.ts` |
+| Validar el alta de un anime | `src/lib/validation/anime.ts` |
+| Formatear una fecha para pantalla | `src/lib/ui/fecha.ts` |
+| Componer las clases con los tokens | `src/lib/ui/cn.ts` |
+| Decidir si un `href` es seguro | `src/lib/ui/href.ts` |
+| Botón, enlace, chip, badge, input, skeleton | `src/components/ui/` |
+| La card de un anime | `src/components/anime/anime-card.tsx` |
+| La barra de filtros y el conmutador de vista | `src/components/anime/barra-filtros.tsx` |
+
+### Qué hacer cuando encuentres un duplicado
+
+1. **Compara las dos copias línea a línea** antes de borrar ninguna. Lo importante no es
+   que estén dos veces: es **si se comportan igual**. Un duplicado idéntico es deuda; uno
+   que diverge es un bug que todavía no ha dado la cara.
+2. Si divergen, **decide cuál gana y escribe por qué** en el fichero que sobrevive. La
+   otra pantalla va a cambiar de aspecto o de comportamiento, y quien lo vea merece saber
+   que fue una decisión.
+3. Añade el concepto a la tabla de arriba.
+
+### Y para los agentes de pantalla
+
+Lo dice `CLAUDE.md` § «Cómo se trabaja aquí» punto 6, y se repite aquí porque es donde se
+mira al escribir código: **antes de escribir una utilidad, `grep` en `src/lib/`**. Si no
+existe pero huele a compartida, se entrega como propuesta aparte en vez de enterrarla en
+la carpeta de una pantalla.

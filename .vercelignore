@@ -11,3 +11,11 @@ design/scripts/
 .claude/
 tests/
 e2e/
+
+# Datos y utillería que solo se usan desde una máquina, nunca en el servidor.
+# `animes-seed.json` y `scripts/` los ejecuta el propietario contra la base;
+# `drizzle/` son las migraciones, que se aplican igual desde fuera. Subirlos
+# solo engorda el paquete de la función y alarga el arranque en frío.
+animes-seed.json
+scripts/
+drizzle/

@@ -51,6 +51,17 @@
  * El campo `#deSesionVerificada` no es decorativo: es lo que hace que la clase
  * se tipe de forma nominal. Sin él, cualquier `{ userId: string }` valdría.
  */
+/**
+ * La llave del constructor. **No se exporta, y no debe exportarse nunca.**
+ *
+ * Un `Symbol` de módulo no se puede adivinar ni obtener desde fuera: no está en
+ * el objeto exportado, no lo devuelve `Object.getOwnPropertySymbols` de nada
+ * alcanzable, y `Symbol.for` no lo encuentra porque no está en el registro
+ * global. Es lo que convierte `private constructor` —una promesa del
+ * compilador— en una barrera de runtime.
+ */
+const TESTIGO_DE_SESION: unique symbol = Symbol("ContextoUsuario.deSesionVerificada");
+
 export class ContextoUsuario {
   /**
    * Marca nominal. Nunca se lee; existe para que TypeScript rechace cualquier
@@ -58,7 +69,56 @@ export class ContextoUsuario {
    */
   readonly #deSesionVerificada = true;
 
-  private constructor(readonly userId: string) {
+  /**
+   * El userId, en un campo PRIVADO y expuesto solo por un getter.
+   *
+   * Antes era `readonly userId` en el constructor. `readonly` es una promesa de
+   * TypeScript y **en runtime no existe**: `Object.assign(ctx, { userId: otro })`
+   * lo reescribía sin quejarse, y la instancia seguía siendo auténtica porque la
+   * marca privada continuaba ahí. Peor todavía: `vault.ts` lee `ctx.userId` de
+   * forma perezosa dentro de `mias()`, así que la mutación surtía efecto
+   * **después** de que `vaultDe` hubiera validado el contexto.
+   *
+   * Un campo `#` no se puede alcanzar desde fuera de la clase por ningún medio:
+   * ni `Object.assign`, ni `Reflect.set`, ni `defineProperty`, ni un `Proxy`.
+   */
+  readonly #userId: string;
+
+  /** El identificador del dueño de los datos. Solo lectura, de verdad. */
+  get userId(): string {
+    return this.#userId;
+  }
+
+  /**
+   * ── EL TESTIGO ES LO QUE HACE PRIVADO AL CONSTRUCTOR DE VERDAD ────────────
+   *
+   * `private constructor` lo comprueba **el compilador**, y en runtime el
+   * constructor es uno normal. Un agente cuyo trabajo era refutar las
+   * afirmaciones de este repositorio encontró la puerta:
+   *
+   *     const ctx: ContextoUsuario = Reflect.construct(ContextoUsuario, [ajeno]);
+   *
+   * `Reflect.construct` **ejecuta el constructor de verdad**, así que instala la
+   * marca privada y `esAutentico()` devolvía `true`. Y como devuelve `any`, no
+   * hacía falta `as`, ni `new`, ni el literal: pasaba `tsc` y `eslint` con exit
+   * 0. Abría el vault de cualquier usuario.
+   *
+   * El testigo cierra eso: es un `Symbol` de módulo que **no se exporta**, así
+   * que quien no esté dentro de este fichero no puede conseguirlo, y sin él el
+   * constructor lanza. `Reflect.construct(ContextoUsuario, [id])` pasa
+   * `undefined` como testigo y muere ahí mismo.
+   *
+   * Es la misma idea de siempre: en vez de una regla que hay que recordar, una
+   * llave que no se puede copiar.
+   */
+  private constructor(userId: string, testigo: symbol) {
+    if (testigo !== TESTIGO_DE_SESION) {
+      throw new ErrorContextoFalsificado(
+        "ContextoUsuario se construyó sin el testigo de sesión. " +
+          "Solo `desdeSesionVerificada` puede crear uno.",
+      );
+    }
+
     // Se lee una vez para que `noUnusedLocals` no la elimine del análisis. La
     // marca tiene que EXISTIR en el tipo: es lo que impide falsificarlo.
     void this.#deSesionVerificada;
@@ -67,6 +127,16 @@ export class ContextoUsuario {
     if (userId.trim().length === 0) {
       throw new Error("ContextoUsuario exige un userId no vacío.");
     }
+
+    this.#userId = userId;
+
+    // ── CONGELADO ────────────────────────────────────────────────────────
+    // Cierra las tres formas de reapuntar una instancia LEGÍTIMA a otro
+    // usuario, todas encontradas por el refutador y todas con exit 0 en `tsc`
+    // y `eslint`: `Object.assign` lanza sobre un objeto congelado, `Reflect.set`
+    // devuelve `false` sin escribir, y `Object.defineProperty` lanza porque un
+    // objeto congelado no es extensible.
+    Object.freeze(this);
   }
 
   /**
@@ -80,7 +150,7 @@ export class ContextoUsuario {
    * @internal
    */
   static desdeSesionVerificada(userId: string): ContextoUsuario {
-    return new ContextoUsuario(userId);
+    return new ContextoUsuario(userId, TESTIGO_DE_SESION);
   }
 
   /**
@@ -147,11 +217,12 @@ export type ModoAcceso = "LECTURA" | "MUTACION";
 export class ErrorContextoFalsificado extends Error {
   override readonly name = "ErrorContextoFalsificado";
 
-  constructor() {
+  constructor(detalle?: string) {
     super(
-      "El contexto de usuario no es auténtico. Un ContextoUsuario solo sale de " +
-        "exigirSesionParaLeer() o exigirSesionParaMutar(): no se deserializa, " +
-        "no se reconstruye y no se castea.",
+      detalle ??
+        "El contexto de usuario no es auténtico. Un ContextoUsuario solo sale de " +
+          "exigirSesionParaLeer() o exigirSesionParaMutar(): no se deserializa, " +
+          "no se reconstruye, no se castea y no se construye con Reflect.",
     );
   }
 }

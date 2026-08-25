@@ -56,9 +56,30 @@ export const users = pgTable(
      * Se actualiza a `now()` al cambiar la contraseña, al cerrar todas las
      * sesiones y al borrar la cuenta. Ver `src/lib/auth/sesion.ts`.
      */
-    sessionsValidFrom: timestamp("sessions_valid_from", { withTimezone: true, mode: "date" })
-      .notNull()
-      .defaultNow(),
+    /**
+     * ── SIN `defaultNow()`, Y ES UNA DECISIÓN DE SEGURIDAD ──────────────────
+     *
+     * Esta columna se compara contra la marca de emisión del JWT, que la
+     * escribe la APLICACIÓN. Un `defaultNow()` la escribiría con el reloj de
+     * **Postgres**, y los dos relojes no coinciden: medido contra esta rama de
+     * Neon, la base va entre **566 y 737 ms por delante** de la máquina de
+     * desarrollo. Con ese desfase, un usuario que entra justo después de
+     * registrarse tiene una marca ANTERIOR a su propio corte y **queda revocado
+     * al instante**.
+     *
+     * Quitando el default, omitir el valor deja de ser un descuido silencioso y
+     * pasa a ser un **error de tipos**: Drizzle exige el campo en el `insert`.
+     * Se escribe siempre con `marcaDeRevocacion(new Date())`, del mismo reloj
+     * que la marca del token.
+     *
+     * Es el mismo patrón que el resto del proyecto: en vez de anotar «acuérdate
+     * de usar el reloj correcto», se hace imposible usar el otro.
+     * ────────────────────────────────────────────────────────────────────────
+     */
+    sessionsValidFrom: timestamp("sessions_valid_from", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
 
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),

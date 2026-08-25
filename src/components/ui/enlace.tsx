@@ -1,0 +1,110 @@
+import NextLink from "next/link";
+
+import { cn } from "@/lib/ui/cn";
+import { esHrefSeguro, esInterno } from "@/lib/ui/href";
+
+import type { ComponentProps, ReactNode } from "react";
+
+/**
+ * ENLACE — `--gold-300` («etiquetas UPPERCASE, enlaces», design-tokens.md).
+ *
+ * ── POR QUÉ ES UNA PRIMITIVA Y NO UN `<a>` SUELTO ──────────────────────────
+ * Porque hay tres cosas que se olvidan una y otra vez, y aquí se olvidan una
+ * sola vez o ninguna:
+ *
+ * 1. **`rel="noopener noreferrer"` en todo `target="_blank"`.** Sin `noopener`,
+ *    la página destino recibe un `window.opener` con el que puede redirigir la
+ *    pestaña de origen a una copia del login. Aquí no se puede olvidar: lo pone
+ *    el componente, no quien lo usa.
+ * 2. **`http`/`https` únicamente.** Un `href="javascript:…"` guardado en un
+ *    `continue_link` es XSS almacenado, y los enlaces de continuación son
+ *    literalmente URLs que pega el usuario (security.md §8). Un esquema que no
+ *    sea http(s) NO se renderiza como enlace: se pinta como texto inerte.
+ * 3. **El aviso de «se abre en otra pestaña»** para quien no ve el icono.
+ *
+ * Interno vs externo se decide solo: `next/link` para las rutas propias
+ * —prefetch y navegación de cliente— y `<a>` para lo de fuera.
+ */
+
+/**
+ * Las props salen de `next/link`, NO de `AnchorHTMLAttributes`.
+ *
+ * Con `exactOptionalPropertyTypes: true`, `AnchorHTMLAttributes` declara
+ * `onMouseEnter?: Handler` y `LinkProps` lo declara sin `| undefined`, así que
+ * volcar unas dentro de otro no compila. Tipar desde el componente destino
+ * elimina la incompatibilidad de raíz, sin un solo `as`.
+ *
+ * Las ramas que renderizan un `<a>` desechan las props que solo entiende Next
+ * (`prefetch`, `replace`, `scroll`…): en un ancla suelta serían atributos
+ * desconocidos y React lo avisaría por consola.
+ */
+export type PropsEnlace = Omit<ComponentProps<typeof NextLink>, "href"> & {
+  href: string;
+  children: ReactNode;
+  /** Abre en pestaña nueva. Implica `rel="noopener noreferrer"`, sin opción. */
+  externo?: boolean;
+  /** Sin subrayado ni color dorado: para envolver una card entera. */
+  desnudo?: boolean;
+};
+
+const BASE = cn(
+  "rounded-boton font-ui text-[var(--gold-300)] underline underline-offset-4",
+  "decoration-[var(--gold-borde)]",
+  "transition-colors duration-[var(--dur-rapida)] ease-base",
+  "hover:text-[var(--gold-200)] hover:decoration-[var(--gold-400)]",
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
+);
+
+export function Enlace({
+  href,
+  children,
+  externo = false,
+  desnudo = false,
+  className,
+  ...resto
+}: PropsEnlace) {
+  if (!esHrefSeguro(href)) {
+    // Texto inerte, no un enlace roto: si el esquema no es seguro, la acción
+    // no debe existir. Se conserva el texto para no perder información.
+    return (
+      <span className={cn("text-[var(--ash-400)]", className)} title="Enlace no válido">
+        {children}
+      </span>
+    );
+  }
+
+  const clases = cn(desnudo ? "focus-visible:outline-2" : BASE, className);
+
+  // Props que solo existen en `next/link`: fuera antes de tocar un `<a>`.
+  const { prefetch, replace, scroll, ...propsAncla } = resto;
+
+  if (externo) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        // No es configurable A PROPÓSITO. Ver el punto 1 de la cabecera.
+        rel="noopener noreferrer"
+        className={clases}
+        {...propsAncla}
+      >
+        {children}
+        <span className="sr-only"> (se abre en una pestaña nueva)</span>
+      </a>
+    );
+  }
+
+  if (esInterno(href)) {
+    return (
+      <NextLink href={href} className={clases} {...resto}>
+        {children}
+      </NextLink>
+    );
+  }
+
+  return (
+    <a href={href} className={clases} {...propsAncla}>
+      {children}
+    </a>
+  );
+}

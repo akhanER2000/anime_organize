@@ -9,6 +9,7 @@ import { textoObligatorio, textoOpcional } from "@/lib/config/entorno";
 
 import * as schema from "./schema";
 
+import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 /**
@@ -47,6 +48,21 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
  */
 export type ClienteInterno = PgDatabase<PgQueryResultHKT, typeof schema>;
 
+/**
+ * El cliente HTTP CONCRETO, con `batch`.
+ *
+ * `ClienteInterno` es el tipo genérico que aceptan el vault y las funciones que
+ * también pueden recibir una transacción. Pero el driver HTTP de Neon tiene algo
+ * que el genérico no declara: **`batch`**, que ejecuta varias sentencias como
+ * UNA transacción sin necesitar una conexión interactiva.
+ *
+ * Es lo que permite escribir de forma atómica desde una Server Action sin abrir
+ * un WebSocket — que en el servidor empaquetado de Next falla, y que además
+ * costaba más de un segundo y delataba por tiempo qué correos tienen cuenta.
+ * Ver `src/lib/db/cuentas.ts`.
+ */
+export type ClienteHttp = NeonHttpDatabase<typeof schema>;
+
 /** Cliente que además puede abrir transacciones interactivas. */
 export type ClienteTransaccional = ClienteInterno & {
   transaction: <T>(cb: (tx: ClienteInterno) => Promise<T>) => Promise<T>;
@@ -60,14 +76,14 @@ function urlApp(): string {
   });
 }
 
-let http: ClienteInterno | null = null;
+let http: ClienteHttp | null = null;
 
 /**
  * Cliente HTTP: una consulta, una petición. Sin transacciones.
  *
  * @internal Restringido por ESLint fuera de `src/lib/db/**`.
  */
-export function dbInterna(): ClienteInterno {
+export function dbInterna(): ClienteHttp {
   http ??= drizzleHttp(neon(urlApp()), { schema, casing: "snake_case" });
   return http;
 }

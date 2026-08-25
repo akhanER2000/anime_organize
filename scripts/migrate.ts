@@ -14,13 +14,16 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
 import ws from "ws";
 
-import { cargarEntorno } from "./cargar-entorno";
+import { cargarEntorno, vinoDelEntorno } from "./cargar-entorno";
+import { anunciarDestino } from "./rama-destino";
 
 cargarEntorno();
 
 // El driver por WebSocket necesita una implementación de WS en Node.
 neonConfig.webSocketConstructor = ws;
 
+const variable =
+  process.env.DATABASE_URL_UNPOOLED !== undefined ? "DATABASE_URL_UNPOOLED" : "DATABASE_URL";
 const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 
 if (url === undefined || url.trim().length === 0) {
@@ -32,6 +35,10 @@ if (url === undefined || url.trim().length === 0) {
   );
   process.exit(1);
 }
+
+// Antes de tocar nada: contra qué base. Las dos ramas de Neon se parecen lo
+// bastante como para confundirlas, y migrar la equivocada no tiene deshacer.
+anunciarDestino(url, { variable, pasadaEnLinea: vinoDelEntorno(variable) });
 
 const carpeta = fileURLToPath(new URL("../drizzle", import.meta.url));
 

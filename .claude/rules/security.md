@@ -140,6 +140,39 @@ Aplica a **los tres flujos que revelan existencia**: login, «olvidé mi contras
 reenvío de verificación. Para los dos últimos, donde el trabajo caro no es el hash sino la
 consulta y el correo, existe `consumirTiempoEquivalente()`.
 
+### Cuánto dura una sesión · «Recordarme»
+
+| Casilla | Duración | Por qué |
+|---|---|---|
+| **desmarcada** (por defecto) | **12 horas** | una jornada de trabajo |
+| marcada | **30 días** | el ordenador de casa |
+
+La casilla viene **desmarcada**: la opción segura es la que no hay que elegir.
+
+**La caducidad es ABSOLUTA, desde el instante del `authorize`.** No desliza con el uso, y
+el motivo es el mismo que ya destrozó una vez la revocación de sesiones: Auth.js
+**refirma el JWT en cada navegación**. Con una caducidad relativa, quien robara la cookie y
+siguiera navegando la mantendría viva indefinidamente. La marca de emisión (`em`) se pone al
+autenticar y sobrevive a los refirmados; la caducidad es `em + duración`.
+
+Tres piezas, y las tres hacen falta:
+
+1. `authorize` lee la casilla y la congela en el token (`rd`).
+2. El callback `jwt` **expulsa** cuando `em + duración` ha pasado. Es quien de verdad
+   corta: verificado por mutación —con el `exp` intacto y esta comprobación fuera, la
+   sesión caducada seguía autenticando—.
+3. Un `jwt.encode` propio alinea el `exp` del token con esa misma fecha, para que un token
+   fuera de plazo tampoco valga por otra vía.
+
+Implementación en `src/lib/auth/duracion.ts`. Verificado por el camino real en
+`revocacion.camino-real.test.ts`: login de verdad, cookie de verdad, token descifrado con
+el secreto y la sal reales, y espera a que caduque navegando contra el middleware.
+
+**La cookie dura lo máximo (30 días) y el TOKEN manda.** Auth.js calcula la caducidad de la
+cookie con `session.maxAge`, que es global y no se puede variar por inicio de sesión.
+Consecuencia asumida y dicha sin adornos: en un ordenador ajeno queda una cookie hasta 30
+días que **no da acceso a nada** —lleva un token muerto—, pero está ahí.
+
 ### El orden del login NO es negociable: parsear → RATE LIMIT → hash
 
 Argon2id está diseñado para ser **caro** (19 MiB y decenas de ms por verificación). Si el
@@ -284,7 +317,7 @@ Upstash en producción — configurable, nunca solo memoria en serverless).
 |---|---|---|
 | `POST /api/auth/login` | 5 / 15 min | IP + email |
 | `POST /api/registro` | 5 / hora | IP |
-| `POST /api/recuperar` | 3 / hora | IP + email |
+| `POST /api/recuperar` | **3 / hora por email · 10 / hora por IP** | IP y email, por separado |
 | `POST /api/covers` | 30 / hora | userId |
 | `POST /api/enrich` | 60 / hora | userId |
 | `POST /api/enrich/batch` | 2 / hora | userId |
@@ -293,6 +326,17 @@ Upstash en producción — configurable, nunca solo memoria en serverless).
 | `POST /api/sitios/comprobar` | 10 / hora | userId |
 
 Respuesta al superarlo: **429** con `Retry-After` y el código `LIMITE_EXCEDIDO`.
+
+> **Los dos números de recuperación no son el mismo, y la tabla decía que sí.**
+> Esta regla ponía «3 / hora, IP + email», que se lee como el mismo límite
+> aplicado a las dos claves. `src/lib/rate-limit/politica.ts` implementa **3/h
+> por email y 10/h por IP**, y esa asimetría es correcta: detrás de una IP
+> puede haber una familia, una oficina o un CGNAT entero, así que 3/h por IP
+> echaría a gente que no ha hecho nada. Lo que hay que frenar con firmeza es el
+> martilleo contra **una dirección concreta**, y eso lo hace la clave de email.
+> La regla se corrige para decir lo que el código hace, porque quien lea esta
+> tabla y encuentre otra cosa en el código dejará de fiarse de la tabla.
+> Lo detectó el agente que escribió `/recuperar`.
 
 ### Por qué Postgres y no memoria
 

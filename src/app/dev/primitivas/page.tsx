@@ -1,12 +1,19 @@
 import { BadgeEstado, BadgeTipo } from "@/components/ui/badge";
 import { Boton, type VarianteBoton } from "@/components/ui/boton";
 import { AreaTexto, Campo } from "@/components/ui/campo";
+import { Enlace } from "@/components/ui/enlace";
 import { BarraProgreso, Card, Veta } from "@/components/ui/card";
 import { Chip, ChipEspejo } from "@/components/ui/chip";
 import { Skeleton, SkeletonRejilla } from "@/components/ui/skeleton";
 import { ESTADOS } from "@/lib/domain/enums";
 
-import { MuestraCargando, MuestraModal, MuestraToasts } from "./muestras";
+import {
+  MuestraCargando,
+  MuestraCasillas,
+  MuestraMedidorPassword,
+  MuestraModal,
+  MuestraToasts,
+} from "./muestras";
 
 import type { Metadata } from "next";
 
@@ -68,7 +75,7 @@ function Muestra({ nombre, children }: { nombre: string; children: React.ReactNo
   return (
     <div className="flex flex-col items-start gap-[var(--e-1)]">
       {children}
-      <span className="font-mono text-mono-s text-[var(--ash-500)]">{nombre}</span>
+      <span className="font-mono text-mono-s text-[var(--ash-400)]">{nombre}</span>
     </div>
   );
 }
@@ -91,7 +98,13 @@ const PALETA = [
   },
   {
     grupo: "Texto · porcelana / ceniza",
-    tokens: ["--ash-500", "--ash-400", "--porcelain-200", "--porcelain-100", "--porcelain-050"],
+    tokens: [
+      "--ash-inactivo",
+      "--ash-400",
+      "--porcelain-200",
+      "--porcelain-100",
+      "--porcelain-050",
+    ],
   },
   {
     grupo: "Oro · kintsugi",
@@ -144,7 +157,7 @@ const ESCALA_UI = [
 
 export default function GaleriaPrimitivas() {
   return (
-    <main className="fondo-laja fondo-ruido min-h-screen bg-[var(--slate-950)]">
+    <main className="fondo-laja fondo-ruido min-h-screen">
       <div className="mx-auto flex max-w-[var(--contenedor-max)] flex-col gap-[var(--e-12)] px-[var(--gutter-l)] py-[var(--e-10)]">
         <header className="flex flex-col gap-[var(--e-2)]">
           <Etiqueta>Solo en desarrollo</Etiqueta>
@@ -170,7 +183,7 @@ export default function GaleriaPrimitivas() {
             {PALETA.map(({ grupo, tokens }) => (
               <div key={grupo} className="flex flex-col gap-[var(--e-2)]">
                 <Etiqueta>{grupo}</Etiqueta>
-                <div className="grid grid-cols-4 gap-[var(--e-2)] sm:grid-cols-7">
+                <div className="grid grid-cols-4 gap-[var(--e-2)] tablet:grid-cols-7">
                   {tokens.map((token) => (
                     <Muestra key={token} nombre={token}>
                       <div
@@ -185,7 +198,7 @@ export default function GaleriaPrimitivas() {
 
             <div className="flex flex-col gap-[var(--e-2)]">
               <Etiqueta>Derivados del oro · los únicos permitidos</Etiqueta>
-              <div className="grid grid-cols-4 gap-[var(--e-2)] sm:grid-cols-7">
+              <div className="grid grid-cols-4 gap-[var(--e-2)] tablet:grid-cols-7">
                 {[
                   "--gold-wash",
                   "--gold-wash-fuerte",
@@ -207,7 +220,7 @@ export default function GaleriaPrimitivas() {
 
             <div className="flex flex-col gap-[var(--e-2)]">
               <Etiqueta>Pan de oro y veta</Etiqueta>
-              <div className="grid grid-cols-1 gap-[var(--e-2)] sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-[var(--e-2)] tablet:grid-cols-3">
                 <Muestra nombre="--gold-leaf">
                   <div
                     className="h-[56px] w-full rounded-card"
@@ -234,12 +247,12 @@ export default function GaleriaPrimitivas() {
           titulo="Tipografía"
           nota="Cormorant Garamond para display, Inter para interfaz, IBM Plex Mono para datos. Cormorant nunca por debajo de 26 px; mono nunca para texto corrido."
         >
-          <div className="grid grid-cols-1 gap-[var(--e-6)] lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-[var(--e-6)] laptop:grid-cols-2">
             <div className="flex flex-col gap-[var(--e-3)]">
               <Etiqueta>Display · Cormorant Garamond 300</Etiqueta>
               {ESCALA_DISPLAY.map(({ token, px, texto }) => (
                 <div key={token} className="flex items-baseline gap-[var(--e-3)]">
-                  <span className="w-[120px] shrink-0 font-mono text-mono-s text-[var(--ash-500)]">
+                  <span className="w-[120px] shrink-0 font-mono text-mono-s text-[var(--ash-400)]">
                     {px} px
                   </span>
                   <span
@@ -256,7 +269,7 @@ export default function GaleriaPrimitivas() {
               <Etiqueta>Interfaz · Inter</Etiqueta>
               {ESCALA_UI.map(({ token, px }) => (
                 <div key={token} className="flex items-baseline gap-[var(--e-3)]">
-                  <span className="w-[120px] shrink-0 font-mono text-mono-s text-[var(--ash-500)]">
+                  <span className="w-[120px] shrink-0 font-mono text-mono-s text-[var(--ash-400)]">
                     {px} px
                   </span>
                   <span
@@ -271,7 +284,7 @@ export default function GaleriaPrimitivas() {
               <Etiqueta>Datos · IBM Plex Mono</Etiqueta>
               {["--fs-mono-l", "--fs-mono", "--fs-mono-s"].map((token) => (
                 <div key={token} className="flex items-baseline gap-[var(--e-3)]">
-                  <span className="w-[120px] shrink-0 font-mono text-mono-s text-[var(--ash-500)]">
+                  <span className="w-[120px] shrink-0 font-mono text-mono-s text-[var(--ash-400)]">
                     {token}
                   </span>
                   <span
@@ -359,7 +372,7 @@ export default function GaleriaPrimitivas() {
           titulo="Campo"
           nota="Etiqueta, control, ayuda y error van juntos y conectados por aria-describedby. El estado de error lo activa la presencia del mensaje, no una prop booleana aparte que se pueda desincronizar."
         >
-          <div className="grid max-w-[840px] grid-cols-1 gap-[var(--e-4)] sm:grid-cols-2">
+          <div className="grid max-w-[840px] grid-cols-1 gap-[var(--e-4)] tablet:grid-cols-2">
             <Campo etiqueta="Correo" placeholder="tu@correo.test" />
             <Campo etiqueta="Correo" defaultValue="yo@ejemplo.test" ayuda="Con ayuda debajo." />
             <Campo
@@ -370,7 +383,7 @@ export default function GaleriaPrimitivas() {
             <Campo etiqueta="Correo" defaultValue="bloqueado@ejemplo.test" disabled />
             <Campo etiqueta="Contraseña" type="password" defaultValue="una-contrasena" />
             <Campo etiqueta="Buscar" type="search" placeholder="Busca en tu vault" />
-            <div className="sm:col-span-2">
+            <div className="tablet:col-span-2">
               <AreaTexto
                 etiqueta="Notas"
                 placeholder="Lo que quieras recordar de esta serie"
@@ -456,7 +469,7 @@ export default function GaleriaPrimitivas() {
           titulo="Card, veta y barra de progreso"
           nota="La veta kintsugi tiene tres formas y solo tres: divisor de sección, borde izquierdo en hover, y veta decorativa SVG (esta última solo en el hero y el header)."
         >
-          <div className="grid grid-cols-1 gap-[var(--e-3)] sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-[var(--e-3)] tablet:grid-cols-2 laptop:grid-cols-4">
             <Muestra nombre="Card">
               <Card>
                 <div className="p-[var(--e-3)] font-ui text-ui-s text-[var(--porcelain-200)]">
@@ -498,7 +511,7 @@ export default function GaleriaPrimitivas() {
             ].map(({ p, g, a, e }, i) => (
               <div key={i} className="flex flex-col gap-[var(--e-1)]">
                 <BarraProgreso porcentaje={p} grosor={g} abandonado={a} etiqueta={e} />
-                <span className="font-mono text-mono-s text-[var(--ash-500)]">
+                <span className="font-mono text-mono-s text-[var(--ash-400)]">
                   {p === null ? "indeterminado" : `${p} %`} · {g}
                   {a ? " · abandonado (sin halo)" : ""} — «{e}»
                 </span>
@@ -541,9 +554,43 @@ export default function GaleriaPrimitivas() {
           </div>
         </Seccion>
 
+        {/* ── CASILLA, MEDIDOR Y ENLACE ──────────────────────────────────── */}
+        <Seccion
+          titulo="Casilla, medidor y enlace"
+          nota="La casilla es un <input type=checkbox> real con la caja pintada encima: conserva teclado, indeterminado y lector de pantalla. Mide 15 px porque lo manda el diseño, pero el área pulsable es la fila entera (44 px). El medidor se anuncia con palabras, no con oro. El enlace pone rel=noopener él solo y se niega a renderizar un esquema que no sea http(s)."
+        >
+          <div className="flex flex-col gap-[var(--e-5)]">
+            <div className="flex flex-col gap-[var(--e-2)]">
+              <Etiqueta>Casilla · faceta, recuento, indeterminado, deshabilitada</Etiqueta>
+              <MuestraCasillas />
+            </div>
+
+            <div className="flex flex-col gap-[var(--e-2)]">
+              <Etiqueta>Medidor de contraseña · cuatro segmentos de 2 px</Etiqueta>
+              <MuestraMedidorPassword />
+            </div>
+
+            <div className="flex flex-col gap-[var(--e-2)]">
+              <Etiqueta>Enlace · interno, externo y esquema rechazado</Etiqueta>
+              <div className="flex flex-col gap-[var(--e-1)] font-ui text-ui">
+                <Enlace href="/app">Volver al vault (interno, con prefetch)</Enlace>
+                <Enlace href="https://anilist.co" externo>
+                  Ver en AniList (abre pestaña nueva)
+                </Enlace>
+                <span>
+                  Esquema peligroso:{" "}
+                  <Enlace href="javascript:alert(1)">
+                    esto se pinta como texto inerte, no como enlace
+                  </Enlace>
+                </span>
+              </div>
+            </div>
+          </div>
+        </Seccion>
+
         <footer className="pb-[var(--e-10)]">
           <Veta />
-          <p className="pt-[var(--e-3)] font-mono text-mono text-[var(--ash-500)]">
+          <p className="pt-[var(--e-3)] font-mono text-mono text-[var(--ash-400)]">
             Si algo de esta página no coincide con design/screens/01-hoja-de-estilo.png, manda el
             PNG. Si algo no está aquí, no está decidido: pregunta antes de inventarlo.
           </p>

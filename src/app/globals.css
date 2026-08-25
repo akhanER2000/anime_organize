@@ -100,6 +100,15 @@
   --text-titulo-m: 32px;
   --text-titulo-s: 28px;
   --text-titulo-xs: 26px;
+
+  /* ── EL LOGOTIPO, Y SOLO EL LOGOTIPO ──────────────────────────────────────
+   * DESIGN-SPEC §2 fija el logotipo entre 15 y 19 px, y medido en el artboard
+   * 07 son 19. No encaja en la escala display —que empieza en 26— ni en la de
+   * UI, porque es Cormorant. Tiene nombre propio en vez de quedarse como un
+   * `text-[19px]` suelto: así se busca, se cambia en un sitio, y la regla de
+   * «Cormorant nunca por debajo de 26» tiene su excepción declarada en vez de
+   * incumplida en silencio. */
+  --text-marca: 19px;
   --text-cuerpo-l: 17px;
   --text-cuerpo: 16px;
   --text-cuerpo-s: 15px;
@@ -194,7 +203,20 @@
   --ease-entrada: cubic-bezier(0, 0, 0.2, 1);
   --ease-salida: cubic-bezier(0.4, 0, 1, 1);
 
-  /* Breakpoints */
+  /* ── Breakpoints ────────────────────────────────────────────────────────
+   * `--breakpoint-*: initial` BORRA los de Tailwind (`sm` `md` `lg` `xl`
+   * `2xl`) antes de declarar los nuestros. Sin esa línea, v4 **añade** en vez
+   * de reemplazar y conviven los dos sistemas: `md:` (768) y `tablet:` (768)
+   * significan lo mismo y compilan igual, así que nada avisa mientras media
+   * app usa uno y media el otro.
+   *
+   * Importa sobre todo ahora, con varios agentes escribiendo pantallas en
+   * paralelo: el que teclee `md:` por costumbre tiene que obtener CSS vacío y
+   * enterarse, no un resultado que funciona y desalinea el sistema.
+   *
+   * Los cuatro salen de DESIGN-SPEC.md y no hay más.
+   * ────────────────────────────────────────────────────────────────────── */
+  --breakpoint-*: initial;
   --breakpoint-movil: 390px;
   --breakpoint-tablet: 768px;
   --breakpoint-laptop: 1024px;
@@ -227,7 +249,34 @@
   --slate-600: var(--color-slate-600);
 
   /* Texto */
-  --ash-500: var(--color-ash-500);
+
+  /* ── EL NOMBRE ES LA ADVERTENCIA ────────────────────────────────────────
+   * `--ash-500` se llamaba así y no decía nada, así que se usaba como «gris
+   * de texto secundario». **No lo es.** Contrastes MEDIDOS (WCAG 2.1, no
+   * estimados):
+   *
+   *   fondo        --ash-inactivo   --ash-400   --porcelain-200
+   *   slate-950        2.94:1         5.03:1        11.34:1
+   *   slate-900        2.81:1         4.80:1        10.82:1
+   *   slate-850        2.66:1         4.54:1        10.24:1
+   *   slate-800        2.44:1         4.17:1         9.39:1   ← el input
+   *
+   * Este token NO llega a 4.5:1 sobre NINGUNA superficie del sistema. Es
+   * legítimo únicamente donde WCAG exime al texto: controles **inactivos**
+   * (1.4.3 exceptúa el texto de componentes deshabilitados) y el placeholder,
+   * que nunca porta información que no esté también en la etiqueta.
+   *
+   * **El color NO se cambia**: el diseño está aprobado y para ese uso es
+   * correcto. Lo que se cambia es el nombre, para que nadie lo alcance
+   * buscando «un gris apagado». `npm run lint:tokens` falla si aparece fuera
+   * de un contexto inactivo.
+   * ──────────────────────────────────────────────────────────────────────── */
+  --ash-inactivo: var(--color-ash-500);
+
+  /* Mínimo para texto ACTIVO, y con una salvedad que hay que respetar:
+   * 4.54:1 sobre `--slate-850` pero **4.17:1 sobre `--slate-800`**, que es el
+   * fondo del input y del menú de acciones. Sobre slate-800 el mínimo real
+   * para texto activo es `--porcelain-200`. */
   --ash-400: var(--color-ash-400);
   --porcelain-200: var(--color-porcelain-200);
   --porcelain-100: var(--color-porcelain-100);
@@ -257,6 +306,11 @@
   --estado-espera: var(--color-estado-espera);
   --estado-abandonado: var(--color-estado-abandonado);
   --estado-favorito: var(--color-estado-favorito);
+  /* Punto y borde del estado PENDIENTE. Mismo valor que `--ash-inactivo`, pero
+   * NO es texto: un punto de 6 px siempre acompañado de su etiqueta escrita,
+   * así que el mínimo de 4.5:1 no le aplica. Nombre propio para que el lint de
+   * texto inactivo no tenga que hacer excepciones aquí. */
+  --estado-pendiente: var(--color-ash-500);
   --estado-viendo-texto: var(--color-estado-viendo-text);
   --estado-abandonado-texto: var(--color-estado-abandonado-text);
   --estado-viendo-borde: var(--color-estado-viendo-border);
@@ -318,6 +372,18 @@
   --e-2: 16px;
   --e-2-5: 20px;
   --e-3: 24px;
+  /* ── FUERA DE LA REJILLA DE 8, Y A PROPÓSITO ──────────────────────────────
+   * 28 px no está en la rejilla, pero DESIGN-SPEC lo pide en dos sitios
+   * concretos: el alto del chip de espejo (§6) y el gap vertical de la rejilla
+   * de portadas. Existía ya como literal `[28px]` en dos componentes, que es
+   * peor: si el diseño lo cambia, hay que cazarlos a mano.
+   *
+   * Con nombre propio, la excepción está declarada y es buscable. NO se usa
+   * como espaciado general: para eso están --e-3 y --e-4. */
+  --e-3-5: 28px;
+
+  /* Grosor del marco del artboard 12. Ver `componentes.css`. */
+  --borde-marco-dispositivo: 1.5px;
   --e-4: 32px;
   --e-5: 40px;
   --e-6: 48px;
@@ -333,6 +399,34 @@
   --gutter: var(--spacing-gutter);
   --gutter-l: var(--spacing-gutter-l);
   --marco-offset: var(--spacing-marco);
+
+  /* ── FONDO DE AUTENTICACIÓN · artboard 07 ─────────────────────────────────
+   * «Fondo laja-marco.jpg al 55 % + radial de --void.» Los dos valores salen
+   * de DESIGN-SPEC §07 y viven aquí porque los usan las TRES pantallas de auth:
+   * si cada una llevara su literal, acabarían siendo tres fondos distintos. */
+  /* ── ANCHO DE LAS TRES CARDS DE AUTENTICACIÓN ───────────────────────────
+   * Las tres pantallas del artboard 07 las escribieron agentes distintos y las
+   * tres derivaron el ancho por su cuenta: dos llegaron a 416 px y una a 432,
+   * porque esa última no descontó el marco dorado —`--marco-offset` se SUMA al
+   * gutter, no se solapa: en el PNG la primera card empieza en x=65, no en
+   * x=40—. Puestas una al lado de otra se habría notado.
+   *
+   * Se calcula UNA vez, aquí. Si el contenedor o los gutters cambian, las tres
+   * cambian juntas. Medido en el artboard: 414 px; este cálculo da 416. */
+  --ancho-card-auth: calc(
+    (var(--contenedor-max) - 2 * var(--marco-offset) - 2 * var(--gutter-l) - 2 * var(--gutter)) / 3
+  );
+
+  --opacidad-laja-auth: 0.55;
+  --velo-auth: radial-gradient(
+    ellipse at 50% 42%,
+    /* 86 % en el centro y 97 % en el borde: el rango que fija design-tokens.md
+     * («siempre bajo un velo de --void al 86–97 %»). Estaba al 62 % en el
+     * centro, así que la laja se leía bastante más que en el artboard. */
+    color-mix(in srgb, var(--void) 86%, transparent) 0%,
+    color-mix(in srgb, var(--void) 97%, transparent) 46%,
+    var(--void) 100%
+  );
   --tactil-min: var(--spacing-tactil);
 
   /* Geometría */
@@ -422,7 +516,9 @@
   }
 
   ::placeholder {
-    color: var(--ash-500);
+    /* Texto inactivo por definición: desaparece al escribir y nunca lleva
+     * información que no esté en la etiqueta. Ver `--ash-inactivo`. */
+    color: var(--ash-inactivo);
   }
 }
 

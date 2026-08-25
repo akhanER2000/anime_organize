@@ -165,7 +165,33 @@ Y la skill de dominio, que es la primera parada ante cualquier duda funcional:
    `security-reviewer` son **obligatorios**.
 4. **Antes de declarar terminada una fase:** `verification-before-completion` y, si hubo UI,
    el subagente `ui-fidelity-checker` contra el PNG del artboard.
-5. **El usuario quiere ver el resultado de cada fase antes de seguir.** No se encadenan dos
+5. **NINGUNA PANTALLA ESTÁ TERMINADA SIN UN RECORRIDO EN NAVEGADOR.** Un `e2e/*.spec.ts`
+   en Chromium que la use como la usaría una persona: rellenar, enviar, **dejar en blanco
+   todo lo opcional**, equivocarse, volver atrás y recargar a mitad. Contra `build` + `start`,
+   nunca contra `dev`, y **sin `bypassCSP`**. No vale un test que llame a la Server Action.
+   La regla completa —y el fallo que la trajo, que sobrevivió a 499 tests— está en
+   `.claude/rules/testing.md`.
+6. **ANTES DE ESCRIBIR UNA FUNCIÓN DE UTILIDAD, BUSCA SI YA EXISTE.** Un `grep` en
+   `src/lib/` cuesta diez segundos. Si existe, se importa. Si NO existe pero huele a
+   compartida —formatear una fecha, componer el texto de un estado, construir una URL
+   con filtros, cortar un título largo, decidir el color de un badge— **se entrega como
+   propuesta aparte**, diciendo dónde debería vivir, en vez de enterrarla en la carpeta
+   de una pantalla.
+
+   No es burocracia: es lo único que frena un fallo que ya pasó. La biblioteca y la
+   lista llegaron cada una con **su propio parseador** de los mismos `?estado=` y
+   `?favorito=`, y no hacían lo mismo — una devolvía los estados en orden canónico y la
+   otra en el orden de la URL, y con `?favorito=0&favorito=1` una filtraba y la otra no.
+   Ninguna estaba mal por separado; lo que estaba mal era que la misma URL significara
+   dos cosas según en qué pantalla la pegaras.
+
+   Un barrido posterior encontró **34 conceptos más** implementados dos o más veces, 16
+   de ellos divergiendo ya. Eso es lo que producen los agentes en paralelo por
+   construcción: cada uno resuelve el mismo problema sin saber que el otro ya lo
+   resolvió. El registro está en `.claude/rules/code-style.md` § «Conceptos con un solo
+   dueño».
+
+7. **El usuario quiere ver el resultado de cada fase antes de seguir.** No se encadenan dos
    fases sin su visto bueno.
 
 Si algo no está en `design/` ni en las reglas y no se deduce con seguridad → **pregunta**.

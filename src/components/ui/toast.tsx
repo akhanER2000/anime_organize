@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -47,11 +47,25 @@ const BORDES: Record<TipoToast, string> = {
 };
 
 export function Toast({ tipo, mensaje, accion, duracionMs = 6000, alCerrar, icono }: PropsToast) {
+  // ── EL TEMPORIZADOR NO DEPENDE DE LA IDENTIDAD DE `alCerrar` ─────────────
+  // `alCerrar` suele llegar como arrow inline (`alCerrar={() => quitar(id)}`),
+  // así que cambia de identidad en CADA render del padre. Con `alCerrar` en las
+  // dependencias, el efecto se limpiaba y volvía a montar cada vez: un toast
+  // dentro de una pantalla que re-renderiza a menudo **no se cerraba nunca**,
+  // porque su cuenta atrás empezaba de cero antes de llegar al final.
+  //
+  // La ref guarda siempre la última función sin participar en las dependencias:
+  // el temporizador se arma UNA vez y llama a la versión vigente al disparar.
+  const alCerrarRef = useRef(alCerrar);
   useEffect(() => {
-    if (duracionMs === null || alCerrar === undefined) return;
-    const id = setTimeout(alCerrar, duracionMs);
+    alCerrarRef.current = alCerrar;
+  }, [alCerrar]);
+
+  useEffect(() => {
+    if (duracionMs === null) return;
+    const id = setTimeout(() => alCerrarRef.current?.(), duracionMs);
     return () => clearTimeout(id);
-  }, [duracionMs, alCerrar]);
+  }, [duracionMs]);
 
   const esError = tipo === "error";
 

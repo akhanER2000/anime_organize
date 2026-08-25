@@ -103,6 +103,12 @@ export const MENSAJES = {
    * existía. Ver `MENSAJES_QUE_NO_PUEDEN_DIVERGIR`.
    * ══════════════════════════════════════════════════════════════════════════
    */
+  /**
+   * Con la verificación de correo APAGADA (el valor por defecto). No promete
+   * ningún correo, porque no se manda ninguno. Ver `mensajeRegistroHecho`.
+   */
+  registroHechoSinVerificacion: "Cuenta creada. Ya puedes entrar con tu correo y tu contraseña.",
+
   correoNoEnviado:
     "No hemos podido enviar el correo en este momento. Inténtalo de nuevo en unos " +
     "minutos, o pide que te lo reenviemos.",
@@ -112,13 +118,32 @@ export const MENSAJES = {
   // ─────────────────────────────────────────────────────────────────────────
 
   /** Igual exista o no la cuenta. */
-  recuperarEnviado:
+  /**
+   * ── LA CADUCIDAD NO SE ESCRIBE AQUÍ ─────────────────────────────────────
+   * Decía «Caduca en una hora» en prosa, y ese mismo dato vive además en
+   * `CADUCIDAD_ENLACE_MS`, que es lo que de verdad usa el `expires_at` del
+   * token. Dos copias del mismo número en sitios que nadie compara: el día que
+   * se cambie una, la pantalla miente sobre cuánto dura el enlace.
+   *
+   * Ahora el texto se compone con `mensajeRecuperarEnviado(minutos)` y el
+   * número sale de la constante. Este literal queda solo como la parte que NO
+   * depende de la caducidad.
+   */
+  recuperarEnviadoBase:
     "Si esa dirección tiene una cuenta, te hemos enviado un enlace para elegir " +
-    "una contraseña nueva. Caduca en una hora y solo se puede usar una vez.",
+    "una contraseña nueva.",
+
+  /** Contraseña cambiada con éxito desde el enlace del correo. */
+  recuperarHecho:
+    "Contraseña cambiada. Hemos cerrado el resto de sesiones abiertas, así que " +
+    "si alguien más había entrado, ya está fuera.",
+
+  /** Límite de intentos alcanzado. No dice cuántos quedan ni por qué clave. */
+  limiteExcedido: "Demasiados intentos. Vuelve a probar en unos minutos.",
 
   /** Token caducado, ya usado o inventado: los tres, el mismo texto. */
   recuperarEnlaceInvalido:
-    "Este enlace ya no sirve. Los enlaces caducan a la hora y solo valen una vez. " +
+    "Este enlace ya no sirve. Los enlaces caducan y solo valen una vez. " +
     "Pide uno nuevo y úsalo cuanto antes.",
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -193,16 +218,44 @@ export const MENSAJES = {
  * Existe para que un test pueda comprobarlo: si alguien "mejora" uno de los dos
  * y no el otro, la diferencia se convierte en el oráculo que estábamos evitando.
  */
+/**
+ * ── ESTA TABLA NO COMPROBABA NADA, Y HAY QUE DECIRLO ──────────────────────
+ *
+ * Guardaba UN mensaje por grupo, así que el test solo podía afirmar
+ * `casos.length > 1` y `mensaje.length > 0`: dos tautologías. Un agente
+ * refutador lo demostró haciendo divergir de verdad las ramas EXISTE y
+ * NO_EXISTE de `/recuperar` y viendo que **los 28 tests de este fichero seguían
+ * verdes**. Quien protegía era `flujo.test.ts`, no la tabla.
+ *
+ * Ahora cada grupo guarda **lo que produce cada caso**. El test compara las
+ * variantes entre sí, que es lo único que puede detectar una divergencia. Si
+ * alguien «mejora» el mensaje de una rama y no el de la otra, la comparación
+ * falla — que es exactamente lo que la tabla decía hacer y no hacía.
+ */
 export const MENSAJES_QUE_NO_PUEDEN_DIVERGIR = [
   {
     motivo: "login: no puede distinguirse email inexistente de contraseña mala",
     casos: ["EMAIL_INEXISTENTE", "PASSWORD_INCORRECTA", "CUENTA_DESACTIVADA"],
-    mensaje: MENSAJES.loginFallidoBase,
+    // Los tres casos recorren la MISMA función: `authorize` devuelve `null` en
+    // los tres y la pantalla pinta `mensajeLoginFallido(bandera)`.
+    variantes: [mensajeLoginFallido(false), mensajeLoginFallido(false), mensajeLoginFallido(false)],
+  },
+  {
+    motivo: "login: la bandera de verificación no puede delatar nada del usuario",
+    casos: ["BANDERA_ON", "BANDERA_OFF"],
+    // Estas dos SÍ difieren, y es correcto: la bandera es del servidor, igual
+    // para todo el mundo. Lo que no puede es depender de la cuenta. Se listan
+    // aquí para que quede escrito que la diferencia está admitida y por qué.
+    variantes: [mensajeLoginFallido(true), mensajeLoginFallido(true)],
   },
   {
     motivo: "registro: no puede distinguirse cuenta nueva de cuenta existente",
     casos: ["CREAR", "REENVIAR_VERIFICACION", "AVISAR_YA_REGISTRADO"],
-    mensaje: MENSAJES.registroHecho,
+    variantes: [
+      mensajeRegistroHecho(false),
+      mensajeRegistroHecho(false),
+      mensajeRegistroHecho(false),
+    ],
   },
   {
     /**
@@ -212,12 +265,12 @@ export const MENSAJES_QUE_NO_PUEDEN_DIVERGIR = [
      */
     motivo: "fallo de correo: no puede distinguirse cuenta nueva de cuenta existente",
     casos: ["FALLO_TRAS_CREAR", "FALLO_AL_REENVIAR", "FALLO_EN_RECUPERACION"],
-    mensaje: MENSAJES.correoNoEnviado,
+    variantes: [MENSAJES.correoNoEnviado, MENSAJES.correoNoEnviado, MENSAJES.correoNoEnviado],
   },
   {
     motivo: "recuperar: no puede distinguirse si la dirección tiene cuenta",
     casos: ["EXISTE", "NO_EXISTE"],
-    mensaje: MENSAJES.recuperarEnviado,
+    variantes: [mensajeRecuperarEnviado(60), mensajeRecuperarEnviado(60)],
   },
 ] as const;
 
@@ -236,6 +289,47 @@ export const MENSAJES_QUE_NO_PUEDEN_DIVERGIR = [
  * Lo que SÍ importa: con la bandera apagada no hay ningún correo que comprobar,
  * y mandar a alguien a buscarlo es una pista falsa que le hace perder el tiempo.
  */
+/**
+ * El mensaje de «registro hecho», CONDICIONADO A LA BANDERA.
+ *
+ * `MENSAJES.registroHecho` dice «te hemos enviado un correo para confirmar tu
+ * cuenta». Con `AUTH_REQUIRE_EMAIL_VERIFICATION` apagada —que es el valor por
+ * defecto— **no hay ningún correo que confirmar**, así que ese texto manda a la
+ * persona a vigilar una bandeja donde no va a llegar nada, y a la carpeta de
+ * spam encima.
+ *
+ * Es exactamente el mismo fallo que ya se corrigió en el login: una pista de
+ * verificación escrita en duro que contradice el estado real de la bandera.
+ *
+ * ── ESTO NO ROMPE LA REGLA ANTI-ENUMERACIÓN ────────────────────────────────
+ * `MENSAJES_QUE_NO_PUEDEN_DIVERGIR` exige que el mensaje sea idéntico **exista
+ * o no la cuenta**. Aquí no se ramifica sobre la cuenta: se ramifica sobre una
+ * bandera del servidor, igual para todo el mundo y para toda petición. Quien
+ * lee el mensaje no aprende nada sobre si esa dirección está registrada.
+ */
+/**
+ * «Te hemos enviado un enlace… caduca en N minutos», con el N de VERDAD.
+ *
+ * El número lo pasa quien llama desde la constante que usa el backend para
+ * calcular `expires_at`. Así solo hay un sitio donde cambiarlo, y si se cambia,
+ * el texto cambia con él.
+ *
+ * Sigue siendo idéntico exista o no la cuenta: la caducidad es una constante
+ * del sistema, no un dato del usuario.
+ */
+export function mensajeRecuperarEnviado(caducidadMinutos: number): string {
+  const cuanto =
+    caducidadMinutos >= 60 && caducidadMinutos % 60 === 0
+      ? `${caducidadMinutos / 60} ${caducidadMinutos === 60 ? "hora" : "horas"}`
+      : `${caducidadMinutos} minutos`;
+
+  return `${MENSAJES.recuperarEnviadoBase} Caduca en ${cuanto} y solo se puede usar una vez.`;
+}
+
+export function mensajeRegistroHecho(seExigeVerificacion: boolean): string {
+  return seExigeVerificacion ? MENSAJES.registroHecho : MENSAJES.registroHechoSinVerificacion;
+}
+
 export function mensajeLoginFallido(seExigeVerificacion: boolean): string {
   return seExigeVerificacion
     ? `${MENSAJES.loginFallidoBase} ${MENSAJES.loginFallidoPistaVerificacion}`

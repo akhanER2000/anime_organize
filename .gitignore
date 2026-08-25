@@ -76,3 +76,7 @@ design/assets/*.png
 
 # Fixtures temporales de scripts/verificar-contrato.mjs (se borran solos)
 src/__contrato-tmp__/
+
+# Carpeta temporal de scripts/verificar-contrato.mjs
+/verificacion-contrato/
+e2e/.sesion-propietario.json

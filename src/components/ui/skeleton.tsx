@@ -58,7 +58,7 @@ export function SkeletonRejilla({ cuantos = 5 }: { cuantos?: number }) {
       role="status"
       aria-busy="true"
       aria-live="polite"
-      className="grid grid-cols-2 gap-x-[var(--gutter-s)] gap-y-[28px] sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+      className="grid grid-cols-2 gap-x-[var(--gutter-s)] gap-y-[var(--e-3-5)] tablet:grid-cols-3 laptop:grid-cols-4 desktop:grid-cols-5"
     >
       <span className="sr-only">Cargando tu biblioteca…</span>
       {Array.from({ length: cuantos }, (_, i) => (

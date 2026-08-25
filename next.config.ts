@@ -1,29 +1,43 @@
 import type { NextConfig } from "next";
 
 /**
- * Cabeceras de seguridad de .claude/rules/security.md §6.
- * La CSP permite exactamente tres origenes externos: AniList, Anthropic y las
- * fuentes de Google. Anadir un cuarto es una decision consciente.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CABECERAS DE SEGURIDAD — `.claude/rules/security.md` §6.
+ *
+ * ── LA CSP DE LAS PÁGINAS NO ESTÁ AQUÍ, Y ES A PROPÓSITO ───────────────────
+ *
+ * Estaba, con `script-src 'self'` y sin nonce, y **servía la aplicación en
+ * blanco en producción**: Next entrega el árbol de React en `<script>` EN LÍNEA
+ * (184 en una sola pantalla de este proyecto) y esa directiva los bloquea
+ * todos. Medido con la CSP real: cero `<h1>`, cero inputs, `body.innerText`
+ * vacío. En desarrollo no se veía porque la CSP de desarrollo llevaba
+ * `'unsafe-inline'`.
+ *
+ * Un nonce hay que generarlo **por petición**, y `headers()` de Next es
+ * estática: se evalúa una vez al construir. Por eso la CSP de las páginas vive
+ * ahora en `src/middleware.ts`, que sí corre por petición. Ver
+ * `src/lib/security/csp.ts` para el porqué completo.
+ *
+ * Aquí queda **solo la de `/api/*`**, que el middleware no cubre (está fuera de
+ * su matcher, también a propósito). Esas respuestas son JSON y binarios: no
+ * ejecutan scripts, así que `script-src 'none'` es la respuesta correcta y la
+ * más estricta posible.
+ *
+ * IMPORTANTE: no volver a poner una CSP para `/:path*`. Se acumularía con la
+ * del middleware y **el navegador aplica la intersección**, así que la más
+ * restrictiva ganaría y volvería el blanco.
+ * ═══════════════════════════════════════════════════════════════════════════
  */
-const cspProduccion = [
-  "default-src 'self'",
-  "script-src 'self'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
+const cspDeApi = [
+  "default-src 'none'",
+  "script-src 'none'",
+  "style-src 'none'",
   "img-src 'self' data: blob:",
-  "connect-src 'self' https://graphql.anilist.co https://api.anthropic.com",
   "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
+  "base-uri 'none'",
+  "form-action 'none'",
   "object-src 'none'",
-  "upgrade-insecure-requests",
 ].join("; ");
-
-// En desarrollo Next necesita eval para el refresco en caliente y websockets.
-const cspDesarrollo = cspProduccion
-  .replace("script-src 'self'", "script-src 'self' 'unsafe-eval' 'unsafe-inline'")
-  .replace("connect-src 'self'", "connect-src 'self' ws: http://localhost:*")
-  .replace("; upgrade-insecure-requests", "");
 
 const esProduccion = process.env.NODE_ENV === "production";
 
@@ -34,9 +48,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // La CSP de las páginas la pone el middleware, con nonce por petición.
+        source: "/api/:path*",
+        headers: [{ key: "Content-Security-Policy", value: cspDeApi }],
+      },
+      {
         source: "/:path*",
         headers: [
-          { key: "Content-Security-Policy", value: esProduccion ? cspProduccion : cspDesarrollo },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "DENY" },

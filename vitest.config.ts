@@ -11,6 +11,20 @@ import { defineConfig } from "vitest/config";
 cargarEnv({ path: fileURLToPath(new URL("./.env.local", import.meta.url)), quiet: true });
 
 export default defineConfig({
+  /**
+   * ── EL JSX HAY QUE TRANSFORMARLO AQUÍ, PORQUE `tsconfig` NO LO HACE ──────
+   *
+   * `tsconfig.json` lleva `"jsx": "preserve"` porque **lo exige Next**: el JSX
+   * llega intacto a su propio compilador. Vitest no pasa por ahí, así que un
+   * `.tsx` con JSX de verdad le llega como sintaxis inválida y el fichero entero
+   * falla al importarse —ni un test ejecutado, que es peor que un test en rojo—.
+   *
+   * `automatic` es el runtime moderno: no hace falta `import React` en cada
+   * fichero de test. Y esto NO añade ninguna dependencia: Vite 8 transforma con
+   * **oxc**, que ya viene dentro —por eso la clave es `oxc` y no `esbuild`, que
+   * es la que se encuentra en casi toda la documentación y aquí no hace nada—.
+   */
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     // Vite 8 resuelve los `paths` de tsconfig de forma nativa.
     tsconfigPaths: true,

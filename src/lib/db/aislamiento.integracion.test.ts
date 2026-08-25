@@ -49,10 +49,11 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { marcaDeRevocacion } from "@/lib/auth/sesion";
 import { normalizarTitulo } from "@/lib/domain/normalizar";
 
 import { crearClientePrueba, urlDePruebas, type ClientePrueba } from "./cliente-test";
-import { contextoDePrueba } from "./contexto-pruebas";
+import { contextoDePrueba } from "./contexto-fuera-de-sesion";
 import { anime, animeCover, continueLink, progress, users } from "./schema";
 import { vaultDe, type Vault } from "./vault";
 
@@ -94,8 +95,17 @@ describeSiHayBase("aislamiento entre usuarios", () => {
     db = cliente.db;
     console.info(`[aislamiento] motor: ${cliente.motor}`);
 
-    const [a] = await db.insert(users).values({ email: emailA }).returning({ id: users.id });
-    const [b] = await db.insert(users).values({ email: emailB }).returning({ id: users.id });
+    // `sessionsValidFrom` va sin default a propósito (ver el esquema): se
+    // escribe con el reloj de la aplicación, nunca con el de Postgres.
+    const ahora = () => marcaDeRevocacion(new Date());
+    const [a] = await db
+      .insert(users)
+      .values({ email: emailA, sessionsValidFrom: ahora() })
+      .returning({ id: users.id });
+    const [b] = await db
+      .insert(users)
+      .values({ email: emailB, sessionsValidFrom: ahora() })
+      .returning({ id: users.id });
     if (a === undefined || b === undefined) throw new Error("no se pudieron crear los usuarios");
     idA = a.id;
     idB = b.id;
@@ -352,7 +362,10 @@ describeSiHayBase("aislamiento entre usuarios", () => {
     it("la cascada se lleva animes, progreso y enlaces del borrado, y respeta al otro", async () => {
       // Usuario desechable para no destruir a A ni a B a mitad de la suite.
       const emailC = `aislamiento-c-${marca}@ejemplo.test`;
-      const [c] = await db.insert(users).values({ email: emailC }).returning({ id: users.id });
+      const [c] = await db
+        .insert(users)
+        .values({ email: emailC, sessionsValidFrom: marcaDeRevocacion(new Date()) })
+        .returning({ id: users.id });
       if (c === undefined) throw new Error("no se pudo crear el usuario C");
 
       const [rc] = await db

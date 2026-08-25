@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ContextoUsuario, ErrorContextoFalsificado } from "./contexto";
-import { contextoDePrueba } from "./contexto-pruebas";
+import { contextoDePrueba } from "./contexto-fuera-de-sesion";
 import { vaultDe } from "./vault";
 
 /**
@@ -111,5 +111,95 @@ describe("el contexto no se puede serializar por descuido", () => {
   it("un userId vacío se rechaza al construir", () => {
     expect(() => contextoDePrueba("")).toThrow();
     expect(() => contextoDePrueba("   ")).toThrow();
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * LOS CUATRO SALTOS QUE PASABAN `tsc` Y `eslint` CON EXIT 0.
+ *
+ * Los encontró un agente cuyo único trabajo era refutar las afirmaciones de
+ * este repositorio. Los doce intentos de `lint:contrato` seguían siendo doce
+ * rechazados — porque los doce se juegan en el COMPILADOR y en el LINTER, y
+ * estos cuatro se juegan en RUNTIME.
+ *
+ * Los cuatro abrían el vault de cualquier usuario, y ninguno necesitaba un
+ * `as`, ni un `new`, ni un `eslint-disable`, ni un import dinámico. El comentario
+ * de `contexto.ts` que decía «no se puede forjar un contexto · el compilador ·
+ * **nunca**» era literalmente falso.
+ *
+ * Van aquí y no en `verificar-contrato.mjs` porque ese script mide lo que
+ * rechazan `tsc` y `eslint`, y estos cuatro **compilan y pasan el lint**: lo que
+ * los para es el testigo del constructor y el `Object.freeze`.
+ *
+ * ── VERIFICADO POR MUTACIÓN · 2026-08-24 ───────────────────────────────────
+ *
+ * | Mutación | Resultado |
+ * |---|---|
+ * | quitar la comprobación del testigo en el constructor | **1 en ROJO** («Reflect.construct») |
+ * | quitar `Object.freeze(this)` | **1 en ROJO** («Object.defineProperty») |
+ *
+ * La segunda tumba solo uno de los tres casos de mutación, y merece decirse con
+ * precisión en vez de dar por hecho que el `freeze` lo hace todo: quien de
+ * verdad para a `Object.assign` y a `Reflect.set` es que **`userId` es un getter
+ * sin setter**, y eso ya lanza en modo estricto sin congelar nada. El `freeze`
+ * añade el caso que el getter no cubre —`defineProperty` puede definir una
+ * propiedad propia que lo tape, salvo si el objeto no es extensible—.
+ *
+ * Dos mecanismos, dos casos distintos, y los dos hacen falta.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe("los saltos de RUNTIME, que el compilador no puede ver", () => {
+  it("Reflect.construct NO fabrica un contexto: el constructor exige un testigo", () => {
+    // `private constructor` lo comprueba el compilador; en runtime era un
+    // constructor normal, y `Reflect.construct` lo ejecutaba de verdad —así que
+    // instalaba la marca privada y `esAutentico` decía que sí—. Devuelve `any`,
+    // así que ni siquiera hacía falta un `as`.
+    expect(() => Reflect.construct(ContextoUsuario, ["de-otra-persona"])).toThrow(
+      ErrorContextoFalsificado,
+    );
+  });
+
+  it("Object.assign NO reapunta un contexto legítimo a otro usuario", () => {
+    // `readonly userId` es una promesa de TypeScript que en runtime no existe.
+    // Y era peor de lo que parece: `vault.ts` lee `ctx.userId` de forma perezosa
+    // dentro de `mias()`, así que la mutación surtía efecto DESPUÉS de que
+    // `vaultDe` hubiera validado el contexto.
+    const ctx = contextoDePrueba("el-mio");
+
+    expect(() => Object.assign(ctx, { userId: "el-de-otro" })).toThrow(TypeError);
+    expect(ctx.userId).toBe("el-mio");
+  });
+
+  it("Reflect.set NO escribe: devuelve false y deja el userId intacto", () => {
+    // `Reflect.set` no lanza sobre un objeto congelado; devuelve `false`. Si
+    // alguien no mirara el valor de retorno —nadie lo mira— parecería funcionar.
+    const ctx = contextoDePrueba("el-mio");
+
+    expect(Reflect.set(ctx, "userId", "el-de-otro")).toBe(false);
+    expect(ctx.userId).toBe("el-mio");
+  });
+
+  it("Object.defineProperty NO puede redefinir el userId", () => {
+    const ctx = contextoDePrueba("el-mio");
+
+    expect(() => Object.defineProperty(ctx, "userId", { value: "el-de-otro" })).toThrow(TypeError);
+    expect(ctx.userId).toBe("el-mio");
+  });
+
+  it("y el contexto legítimo sigue siendo auténtico después de los cuatro intentos", () => {
+    // El control positivo. Sin esto, congelar de más —o romper el getter— haría
+    // pasar los cuatro casos de arriba rompiendo la aplicación entera.
+    const ctx = contextoDePrueba("el-mio");
+
+    try {
+      Object.assign(ctx, { userId: "otro" });
+    } catch {
+      // esperado
+    }
+    Reflect.set(ctx, "userId", "otro");
+
+    expect(ContextoUsuario.esAutentico(ctx)).toBe(true);
+    expect(ctx.userId).toBe("el-mio");
   });
 });

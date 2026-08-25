@@ -45,11 +45,16 @@ export type VeredictoSesion = { valida: true } | { valida: false; motivo: Motivo
  * ¿Sigue siendo válida esta sesión?
  *
  * @param cuenta  estado en la base, o `null` si el usuario ya no existe
- * @param iatSegundos  `iat` del JWT, en SEGUNDOS (es lo que marca el estándar)
+ * @param emitidoMs  marca de emisión del token, en MILISEGUNDOS.
+ *
+ * **No es el `iat` del JWT.** `iat` va en segundos enteros por el estándar, y
+ * esa truncación era la causa de dos fallos distintos (ver abajo). Como esta
+ * marca la escribimos nosotros en un claim propio (`em`), va en milisegundos y
+ * el problema deja de existir en vez de acotarse.
  */
 export function evaluarSesion(
   cuenta: EstadoCuenta,
-  iatSegundos: number | undefined,
+  emitidoMs: number | undefined,
 ): VeredictoSesion {
   // El usuario borró su cuenta: el `user_id` del token no apunta a nada. Este es
   // el caso que hace que borrar la cuenta eche a la sesión de verdad.
@@ -63,27 +68,36 @@ export function evaluarSesion(
 
   // Un token sin `iat` no se puede fechar, así que no se puede saber si es
   // anterior al corte. Se rechaza: ante la duda, fuera.
-  if (iatSegundos === undefined || !Number.isFinite(iatSegundos)) {
+  if (emitidoMs === undefined || !Number.isFinite(emitidoMs)) {
     return { valida: false, motivo: "TOKEN_SIN_IAT" };
   }
 
-  const emitidoEnMs = Math.floor(iatSegundos) * 1000;
+  /**
+   * ── MILISEGUNDOS EN AMBOS LADOS. SIN REDONDEOS, SIN VENTANAS ─────────────
+   *
+   * Aquí hubo dos fallos seguidos, y los dos venían de comparar una marca
+   * truncada al segundo contra un `timestamptz` con milisegundos:
+   *
+   * 1. Una cuenta creada a las `10:00:00.800` cuyo dueño entraba a las
+   *    `10:00:00.900` obtenía una marca de `10:00:00.000` —menor que su propio
+   *    corte por defecto— y quedaba **revocada en el mismo segundo de
+   *    registrarse**. Habría roto el registro con entrada automática.
+   * 2. Al truncar los dos lados para arreglar lo anterior, una contraseña
+   *    cambiada en el MISMO segundo en que se emitió el token no revocaba: el
+   *    test del camino real lo destapó poniéndose intermitente según la carga
+   *    de la máquina.
+   *
+   * La solución no es elegir cuál de los dos agujeros se tolera: es dejar de
+   * truncar. `em` es un claim NUESTRO, no el `iat` del estándar, así que va en
+   * milisegundos y la comparación es exacta.
+   *
+   * Las dos marcas salen del mismo reloj —el de la aplicación—: quien revoca
+   * escribe `marcaDeRevocacion(new Date())`. Ver esa función para el único caso
+   * en que interviene el reloj de Postgres.
+   * ───────────────────────────────────────────────────────────────────────── */
   const corteMs = cuenta.sessionsValidFrom.getTime();
 
-  /**
-   * Emitido ANTES del corte → revocado.
-   *
-   * Comparación con `<` y no `<=`: al cambiar la contraseña se pone el corte a
-   * `now()` y se emite un token nuevo, que puede caer en el MISMO segundo. Con
-   * `<=` se rechazaría el token recién emitido y el usuario quedaría fuera justo
-   * después de cambiar su contraseña.
-   *
-   * Contrapartida conocida: un token robado emitido en el mismo segundo exacto
-   * del cambio sobrevive. Es una ventana de un segundo que exige que el robo
-   * haya ocurrido en ese mismo segundo; el borrado de cuenta no la tiene, porque
-   * ahí manda `USUARIO_NO_EXISTE`, que no depende del reloj.
-   */
-  if (emitidoEnMs < corteMs) {
+  if (emitidoMs < corteMs) {
     return { valida: false, motivo: "SESION_REVOCADA" };
   }
 
@@ -91,16 +105,28 @@ export function evaluarSesion(
 }
 
 /**
- * Marca de corte al revocar.
+ * Marca de corte al revocar. **Es el instante exacto, sin margen.**
  *
- * Se resta un segundo para absorber el desfase de redondeo del `iat` (que va en
- * segundos enteros): sin esto, un token emitido a las 12:00:00.700 tiene
- * `iat` = 12:00:00.000 y un corte puesto a 12:00:00.400 lo mataría por error.
- * Al restar, el corte nunca cae por delante del `iat` de un token legítimo ya
- * emitido en ese mismo segundo.
+ * Antes restaba un segundo para absorber la truncación del `iat`. Ese margen
+ * dejaba viva durante un segundo entero la sesión que se acababa de revocar:
+ * justo lo que no puede pasar cuando alguien cambia la contraseña porque cree
+ * que se la han robado. Con `em` en milisegundos el margen sobra, así que se
+ * quita.
+ *
+ * ── EL ÚNICO SITIO DONDE INTERVIENE EL RELOJ DE POSTGRES ───────────────────
+ * `users.sessions_valid_from` tiene `defaultNow()`, que lo pone la BASE. Esta
+ * función lo pone la APLICACIÓN. Mientras el corte lo escriba quien revoca
+ * —siempre, salvo en el valor por defecto al crear la cuenta— las dos marcas
+ * salen del mismo reloj y no hay desfase que valga.
+ *
+ * **Al registrar un usuario, escribe `sessionsValidFrom` explícitamente con
+ * esta función** en vez de dejar el `defaultNow()`. Si no, un reloj de Neon
+ * unos milisegundos por delante del de la función revocaría la sesión recién
+ * creada. Está anotado aquí porque el registro todavía no existe y es
+ * exactamente el tipo de detalle que se pierde entre fases.
  */
 export function marcaDeRevocacion(ahora: Date): Date {
-  return new Date(ahora.getTime() - 1000);
+  return new Date(ahora.getTime());
 }
 
 /** Operaciones que revocan TODAS las sesiones anteriores del usuario. */
@@ -128,6 +154,38 @@ export type OperacionRevocadora = (typeof OPERACIONES_QUE_REVOCAN)[number];
  * a una revocación. Para una escritura la ventana es **cero**.
  */
 export const SEGUNDOS_ENTRE_COMPROBACIONES = 60;
+
+/**
+ * La ventana efectiva, configurable por entorno.
+ *
+ * `AUTH_VENTANA_CHEQUEO_SEGUNDOS=0` desactiva el acotado: cada petición
+ * consulta la base.
+ *
+ * EXISTE PARA QUE LA PROTECCIÓN SE PUEDA PROBAR POR EL CAMINO REAL. Un test que
+ * roba una cookie y espera 60 segundos no es un test, es una siesta; y uno que
+ * fabrica el token para saltarse la espera vuelve a demostrar solo que la
+ * función es correcta. Con la ventana a 0, el mecanismo completo —middleware,
+ * callback `jwt`, consulta, `evaluarSesion`— se ejercita de verdad.
+ *
+ * En producción NO se toca: el valor por defecto es 60 y es el que documenta
+ * `security.md` §1 bis.
+ */
+export function ventanaDeChequeoSegundos(entorno: NodeJS.ProcessEnv = process.env): number {
+  const bruto = entorno.AUTH_VENTANA_CHEQUEO_SEGUNDOS?.trim();
+  if (bruto === undefined || bruto.length === 0) return SEGUNDOS_ENTRE_COMPROBACIONES;
+
+  const valor = Number(bruto);
+  // Un valor inválido NO baja la guardia en silencio: se usa el defecto seguro.
+  if (!Number.isInteger(valor) || valor < 0) {
+    console.warn(
+      `[sesion] AUTH_VENTANA_CHEQUEO_SEGUNDOS="${bruto}" no es un entero >= 0. ` +
+        `Se usa el valor por defecto (${SEGUNDOS_ENTRE_COMPROBACIONES} s).`,
+    );
+    return SEGUNDOS_ENTRE_COMPROBACIONES;
+  }
+
+  return valor;
+}
 
 /**
  * Sensibilidad de la operación. Determina si se puede confiar en el token o hay
@@ -164,6 +222,6 @@ export function hayQueComprobarContraLaBase(parametros: {
   // Un reloj que va hacia atrás (marca en el futuro) es sospechoso: se comprueba.
   if (parametros.ultimaComprobacion > parametros.ahoraSegundos) return true;
 
-  const ventana = parametros.ventanaSegundos ?? SEGUNDOS_ENTRE_COMPROBACIONES;
+  const ventana = parametros.ventanaSegundos ?? ventanaDeChequeoSegundos();
   return parametros.ahoraSegundos - parametros.ultimaComprobacion >= ventana;
 }

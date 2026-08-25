@@ -7,9 +7,16 @@ import {
   type EstadoCuenta,
 } from "./sesion";
 
-/** `iat` de un JWT: segundos desde epoch, enteros. */
-function iat(fecha: Date): number {
-  return Math.floor(fecha.getTime() / 1000);
+/**
+ * Marca de emisión, en MILISEGUNDOS.
+ *
+ * Se llamaba `iat` y truncaba a segundos, imitando al claim estándar. Era el
+ * error: `em` es un claim NUESTRO y no tiene por qué perder precisión. Truncar
+ * causó dos fallos opuestos —una cuenta revocada en el mismo segundo de nacer,
+ * y una contraseña cambiada que no revocaba— hasta que se dejó de truncar.
+ */
+function emitido(fecha: Date): number {
+  return fecha.getTime();
 }
 
 const T0 = new Date("2026-08-23T12:00:00.000Z");
@@ -20,16 +27,29 @@ const CUENTA_SANA: EstadoCuenta = {
 
 describe("sesión válida", () => {
   it("un token emitido después del corte, con la cuenta viva, vale", () => {
-    expect(evaluarSesion(CUENTA_SANA, iat(T0))).toEqual({ valida: true });
+    expect(evaluarSesion(CUENTA_SANA, emitido(T0))).toEqual({ valida: true });
   });
 
   it("un token emitido justo en el corte vale", () => {
-    // Al cambiar la contraseña se emite un token nuevo que puede caer en el mismo
-    // segundo que el corte. Rechazarlo dejaría al usuario fuera justo después de
-    // cambiar su propia contraseña.
+    // Al cambiar la contraseña se emite un token nuevo que puede caer en el
+    // mismo INSTANTE que el corte. Rechazarlo dejaría al usuario fuera justo
+    // después de cambiar su propia contraseña.
     const corte = new Date("2026-08-23T12:00:00.000Z");
-    expect(evaluarSesion({ deletedAt: null, sessionsValidFrom: corte }, iat(corte))).toEqual({
+    expect(evaluarSesion({ deletedAt: null, sessionsValidFrom: corte }, emitido(corte))).toEqual({
       valida: true,
+    });
+  });
+
+  it("UN MILISEGUNDO antes del corte YA está revocado", () => {
+    // Esta es la precisión que se ganó al dejar de truncar. Con marcas en
+    // segundos, este caso y el anterior eran indistinguibles, y la sesión que
+    // se acababa de revocar sobrevivía hasta un segundo entero.
+    const corte = new Date("2026-08-23T12:00:00.000Z");
+    const justoAntes = emitido(new Date(corte.getTime() - 1));
+
+    expect(evaluarSesion({ deletedAt: null, sessionsValidFrom: corte }, justoAntes)).toEqual({
+      valida: false,
+      motivo: "SESION_REVOCADA",
     });
   });
 });
@@ -38,7 +58,7 @@ describe("BORRADO DE CUENTA · la sesión muere de inmediato", () => {
   it("si el usuario ya no existe, la sesión NO vale", () => {
     // ESTE ES EL AGUJERO QUE CIERRA TODO ESTO: sin la comprobación, el JWT sigue
     // autenticando durante días contra un user_id que ya no existe.
-    const v = evaluarSesion(null, iat(T0));
+    const v = evaluarSesion(null, emitido(T0));
 
     expect(v.valida).toBe(false);
     if (v.valida) throw new Error("inalcanzable");
@@ -48,7 +68,7 @@ describe("BORRADO DE CUENTA · la sesión muere de inmediato", () => {
   it("no depende del reloj: un token recién emitido tampoco vale", () => {
     // El borrado no tiene ventana de carrera, a diferencia del cambio de
     // contraseña: aquí manda que la fila no está.
-    const recienEmitido = iat(new Date(T0.getTime() + 60_000));
+    const recienEmitido = emitido(new Date(T0.getTime() + 60_000));
     expect(evaluarSesion(null, recienEmitido).valida).toBe(false);
   });
 
@@ -58,7 +78,7 @@ describe("BORRADO DE CUENTA · la sesión muere de inmediato", () => {
         deletedAt: new Date("2026-08-23T11:30:00.000Z"),
         sessionsValidFrom: CUENTA_SANA.sessionsValidFrom,
       },
-      iat(T0),
+      emitido(T0),
     );
 
     expect(v.valida).toBe(false);
@@ -72,7 +92,7 @@ describe("CAMBIO DE CONTRASEÑA · las sesiones anteriores se revocan", () => {
     // El escenario real: me roban la sesión, cambio la contraseña, y el token
     // robado tiene que dejar de valer. Esto es lo que el usuario cree que pasa
     // al cambiar la contraseña.
-    const robado = iat(new Date("2026-08-23T10:00:00.000Z"));
+    const robado = emitido(new Date("2026-08-23T10:00:00.000Z"));
     const cuenta: EstadoCuenta = {
       deletedAt: null,
       sessionsValidFrom: new Date("2026-08-23T11:00:00.000Z"),
@@ -87,7 +107,7 @@ describe("CAMBIO DE CONTRASEÑA · las sesiones anteriores se revocan", () => {
 
   it("un token de un segundo antes del corte queda revocado", () => {
     const corte = new Date("2026-08-23T12:00:00.000Z");
-    const unSegundoAntes = iat(new Date(corte.getTime() - 1000));
+    const unSegundoAntes = emitido(new Date(corte.getTime() - 1000));
 
     expect(
       evaluarSesion({ deletedAt: null, sessionsValidFrom: corte }, unSegundoAntes).valida,
@@ -96,7 +116,7 @@ describe("CAMBIO DE CONTRASEÑA · las sesiones anteriores se revocan", () => {
 
   it("el token nuevo emitido tras el cambio SÍ vale", () => {
     const corte = new Date("2026-08-23T12:00:00.000Z");
-    const nuevo = iat(new Date(corte.getTime() + 1000));
+    const nuevo = emitido(new Date(corte.getTime() + 1000));
 
     expect(evaluarSesion({ deletedAt: null, sessionsValidFrom: corte }, nuevo)).toEqual({
       valida: true,
@@ -104,17 +124,18 @@ describe("CAMBIO DE CONTRASEÑA · las sesiones anteriores se revocan", () => {
   });
 });
 
-describe("marcaDeRevocacion · absorbe el redondeo del iat", () => {
-  it("retrocede un segundo respecto al momento de revocar", () => {
+describe("marcaDeRevocacion · el instante exacto, sin margen", () => {
+  it("NO retrocede: el corte es el momento de revocar", () => {
+    // Antes restaba un segundo para absorber la truncación del `iat`. Ese
+    // margen mantenía viva un segundo entero la sesión recién revocada, que es
+    // justo lo que no puede pasar cuando alguien cambia la contraseña porque
+    // cree que se la han robado. Con `em` en milisegundos el margen sobra.
     const ahora = new Date("2026-08-23T12:00:00.400Z");
-    expect(marcaDeRevocacion(ahora).getTime()).toBe(ahora.getTime() - 1000);
+    expect(marcaDeRevocacion(ahora).getTime()).toBe(ahora.getTime());
   });
 
-  it("no mata un token legítimo emitido en el mismo segundo", () => {
-    // iat va en segundos ENTEROS: un token emitido a las 12:00:00.700 lleva
-    // iat = 12:00:00.000. Un corte puesto a 12:00:00.400 sin retroceder lo
-    // mataría por un redondeo, no por seguridad.
-    const emitido = new Date("2026-08-23T12:00:00.700Z");
+  it("revoca de verdad un token emitido milisegundos antes", () => {
+    const emitidoEn = new Date("2026-08-23T12:00:00.399Z");
     const revocadoEn = new Date("2026-08-23T12:00:00.400Z");
 
     const cuenta: EstadoCuenta = {
@@ -122,17 +143,19 @@ describe("marcaDeRevocacion · absorbe el redondeo del iat", () => {
       sessionsValidFrom: marcaDeRevocacion(revocadoEn),
     };
 
-    expect(evaluarSesion(cuenta, iat(emitido)).valida).toBe(true);
+    expect(evaluarSesion(cuenta, emitido(emitidoEn)).valida).toBe(false);
   });
 
-  it("aun retrocediendo, un token de hace una hora sigue revocado", () => {
-    const viejo = iat(new Date("2026-08-23T11:00:00.000Z"));
+  it("no mata el token que se emite justo después de revocar", () => {
+    const revocadoEn = new Date("2026-08-23T12:00:00.400Z");
+    const emitidoEn = new Date("2026-08-23T12:00:00.401Z");
+
     const cuenta: EstadoCuenta = {
       deletedAt: null,
-      sessionsValidFrom: marcaDeRevocacion(new Date("2026-08-23T12:00:00.000Z")),
+      sessionsValidFrom: marcaDeRevocacion(revocadoEn),
     };
 
-    expect(evaluarSesion(cuenta, viejo).valida).toBe(false);
+    expect(evaluarSesion(cuenta, emitido(emitidoEn)).valida).toBe(true);
   });
 });
 

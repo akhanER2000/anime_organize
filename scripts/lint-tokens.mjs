@@ -70,6 +70,33 @@ const PATRONES = [
       /(?:color|background|background-color|border-color|fill|stroke|outline-color)\s*:\s*(?:white|black|red|blue|green|gray|grey|silver|gold|orange|purple|yellow)\b/gi,
     consejo: "Nada de colores con nombre: usa los tokens del sistema.",
   },
+  {
+    // ── CONTRASTE, NO ESTÉTICA ────────────────────────────────────────────
+    // `--ash-inactivo` (#565E68) no alcanza 4.5:1 sobre NINGUNA superficie del
+    // sistema: 2.94:1 sobre slate-950 y 2.44:1 sobre slate-800, que es el fondo
+    // del input. WCAG 2.1 exime al texto de controles **deshabilitados**
+    // (1.4.3), y el placeholder no porta información que no esté en la
+    // etiqueta. Fuera de esos dos casos es texto ilegible.
+    //
+    // El color NO se toca —el diseño está aprobado y para ese uso es correcto—.
+    // Lo que se impide es que se use como «gris de texto secundario», que es
+    // exactamente para lo que se estaba colando cuando se llamaba `--ash-500`.
+    //
+    // Mínimo para texto ACTIVO: `--ash-400`, y con salvedad —4.17:1 sobre
+    // `--slate-800`, así que sobre esa superficie el mínimo es
+    // `--porcelain-200`—.
+    nombre: "texto inactivo fuera de un estado inactivo",
+    regex:
+      /var\(--ash-inactivo\)|(?:^|[\s"'`:[])(?:text|bg|border|fill|stroke|ring|outline|decoration)-ash-500\b/g,
+    // Si la línea declara el estado, el uso es legítimo y no hace falta nada
+    // más. Ojo: NO vale buscar «inactiv», porque el propio nombre del token lo
+    // contiene y la excepción se tragaría todos los casos.
+    salvoSi: /disabled|placeholder|:disabled|aria-disabled/i,
+    consejo:
+      "Texto activo: usa --ash-400 (o --porcelain-200 sobre --slate-800). " +
+      "Si de verdad es un estado inactivo, dilo en la línea o marca " +
+      "`lint-tokens-ok: <motivo>`.",
+  },
 ];
 
 /** Falsos positivos conocidos que NO son colores. */
@@ -116,6 +143,8 @@ for (const carpeta of CARPETAS) {
       if (NO_ES_COLOR.some((p) => p instanceof RegExp && p.test(linea))) return;
 
       for (const patron of PATRONES) {
+        // Excepción propia del patrón: el contexto de la línea lo legitima.
+        if (patron.salvoSi instanceof RegExp && patron.salvoSi.test(linea)) continue;
         patron.regex.lastIndex = 0;
         const encontrados = linea.match(patron.regex);
         if (encontrados !== null) {

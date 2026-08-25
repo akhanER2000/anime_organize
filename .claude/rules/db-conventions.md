@@ -109,6 +109,42 @@ Cuidado con `neon_auth.user` frente a `public.users`: se parecen lo suficiente c
 que alguien consulte la equivocada. `scripts/verificar-esquema.ts` lista los esquemas
 ajenos en cada ejecución precisamente para que estén a la vista.
 
+## Dos relojes, y no coinciden
+
+`users.sessions_valid_from` es la única columna del esquema **sin `DEFAULT`**, y
+es a propósito.
+
+Esa marca se compara contra la marca de emisión del JWT, que escribe la
+**aplicación**. Un `DEFAULT now()` la escribiría con el reloj de **Postgres**, y
+los dos relojes no son el mismo. Medido contra la rama `development` de Neon
+desde esta máquina:
+
+```
+desfase db-app = 737 ms   (ida y vuelta 496 ms)
+desfase db-app = 718 ms   (ida y vuelta 454 ms)
+desfase db-app = 569 ms   (ida y vuelta 153 ms)
+desfase db-app = 566 ms   (ida y vuelta 150 ms)
+```
+
+Con ~600 ms de desfase, un usuario que inicia sesión inmediatamente después de
+registrarse obtiene una marca de emisión **anterior** a su propio corte y la
+sesión se considera revocada nada más nacer. El registro con entrada automática
+habría estado roto desde el primer día, y en producción habría parecido
+aleatorio.
+
+Al no haber default, **omitir el valor es un error de compilación** (Drizzle lo
+exige en el `insert`), no un valor silenciosamente escrito con el reloj
+equivocado. Se escribe siempre así:
+
+```ts
+sessionsValidFrom: marcaDeRevocacion(new Date()),
+```
+
+Regla general que se deriva: **si dos marcas se van a comparar entre sí, tienen
+que salir del mismo reloj.** Mezclar `now()` de Postgres con `Date.now()` de
+Node es correcto para auditoría (`created_at`) y es un fallo para cualquier
+comparación de seguridad.
+
 ## Integridad
 
 - **`ON DELETE CASCADE`** desde `users` hacia abajo y desde `anime` hacia sus hijas.

@@ -23,7 +23,21 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const RAIZ = fileURLToPath(new URL("..", import.meta.url));
-const CARPETA = join(RAIZ, "src", "__contrato-tmp__");
+/**
+ * FUERA DE `src/`, y no es un detalle de organización.
+ *
+ * Estos ficheros tienen errores de tipo A PROPÓSITO. Mientras existían dentro
+ * de `src/`, cualquier `npm run typecheck` o `npm run build` que se solapara
+ * con el verificador —el caso normal en cuanto trabajan varios agentes a la
+ * vez— fallaba con doce errores ajenos al cambio de quien compilaba.
+ *
+ * Ahora viven en la raíz, el `tsconfig.json` principal los excluye y
+ * `eslint.config.mjs` los ignora. El verificador los ve porque usa sus propias
+ * configuraciones (`tsconfig.contrato.json` y `eslint.contrato.mjs`), que se
+ * limitan a levantar esa exclusión sin tocar una sola regla.
+ */
+const NOMBRE_CARPETA = "verificacion-contrato";
+const CARPETA = join(RAIZ, NOMBRE_CARPETA);
 
 /** Cada intento de saltarse el contrato, y quién debe pararlo. */
 const INTENTOS = [
@@ -112,7 +126,7 @@ export const vault = vaultDe();
     quienLoPara: "linter",
     fichero: "contexto-de-pruebas.ts",
     codigo: `
-import { contextoDePrueba } from "@/lib/db/contexto-pruebas";
+import { contextoDePrueba } from "@/lib/db/contexto-fuera-de-sesion";
 import { vaultDe } from "@/lib/db";
 
 // ENCONTRADO POR EL ATAQUE ADVERSARIAL: era un estatico publico de la clase
@@ -183,12 +197,30 @@ export const f = exigirAnimePropio;
 const CONTROL_POSITIVO = {
   nombre: "el uso correcto SÍ compila",
   fichero: "control-positivo.ts",
+  /**
+   * ── ESTE CONTROL EMPIEZA POR OBTENER EL CONTEXTO, Y ANTES NO ──────────────
+   *
+   * La versión anterior recibía el `ctx` como PARÁMETRO. Comprobaba que
+   * `vaultDe(ctx)` compila, que es la mitad fácil, y **nunca comprobaba que se
+   * pudiera conseguir un `ctx` en primer lugar**.
+   *
+   * Y no se podía: `exigirSesionParaLeer()` devolvía `{ userId, email }` sin
+   * contexto, y `desdeSesionVerificada` solo se llamaba desde el helper de
+   * pruebas. Las doce barreras estaban intactas alrededor de una puerta que no
+   * daba a ninguna parte, y el ejemplo que documentaba `src/lib/db/index.ts`
+   * era un error de tipos. Lo destapó un agente refutador; ningún test lo veía
+   * porque ninguna pantalla consultaba datos de usuario todavía.
+   *
+   * Un control positivo que no recorre el camino entero no es un control
+   * positivo: es la misma trampa que este proyecto persigue en los tests.
+   */
   codigo: `
-import { vaultDe, type ContextoUsuario } from "@/lib/db";
+import { exigirSesionParaLeer } from "@/auth";
+import { vaultDe } from "@/lib/db";
 
-export async function listarLoMio(ctx: ContextoUsuario) {
-  const vault = vaultDe(ctx);
-  return vault.listar();
+export async function listarLoMio() {
+  const { ctx } = await exigirSesionParaLeer();
+  return vaultDe(ctx).listar();
 }
 `,
 };
@@ -237,7 +269,7 @@ try {
   );
 
   console.log("\n=== CONTROL POSITIVO ===");
-  const tsc = ejecutar("npx", ["tsc", "--noEmit"]);
+  const tsc = ejecutar("npx", ["tsc", "--noEmit", "-p", "tsconfig.contrato.json"]);
   const controlRechazado = tsc.salida.includes(CONTROL_POSITIVO.fichero);
   comprobar(
     CONTROL_POSITIVO.nombre,
@@ -249,7 +281,7 @@ try {
   console.log("  (todos deben ser RECHAZADOS)\n");
 
   for (const intento of INTENTOS) {
-    const ruta = `src/__contrato-tmp__/${intento.fichero}`;
+    const ruta = `${NOMBRE_CARPETA}/${intento.fichero}`;
 
     if (intento.quienLoPara === "compilador") {
       const rechazado = tsc.salida.includes(intento.fichero);
@@ -259,7 +291,7 @@ try {
         rechazado ? "" : "COMPILÓ. El contrato tiene un agujero.",
       );
     } else {
-      const lint = ejecutar("npx", ["eslint", "--no-warn-ignored", ruta]);
+      const lint = ejecutar("npx", ["eslint", "--config", "eslint.contrato.mjs", ruta]);
       comprobar(
         `[linter] ${intento.nombre}`,
         !lint.ok,

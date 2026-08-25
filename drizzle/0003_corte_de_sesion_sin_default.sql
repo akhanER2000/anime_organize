@@ -1,0 +1,33 @@
+-- ============================================================================
+-- users.sessions_valid_from: SE QUITA EL DEFAULT
+--
+-- Motivo (MEDIDO, no supuesto): esta columna se compara contra la marca de
+-- emisión del JWT, que escribe la aplicación. `DEFAULT now()` la escribía con
+-- el reloj de Postgres, y contra la rama de desarrollo de Neon ese reloj va
+-- entre 566 y 737 ms POR DELANTE del de la máquina de la aplicación.
+--
+-- Con ese desfase, un usuario que inicia sesión inmediatamente después de
+-- registrarse obtiene una marca de emisión ANTERIOR a su propio corte, y la
+-- sesión se considera revocada en el mismo momento de crearse.
+--
+-- Sin default, omitir el valor es un error de tipos en Drizzle, no un valor
+-- silenciosamente escrito con el reloj equivocado.
+--
+-- ── ESTA MIGRACIÓN YA EXISTIÓ UNA VEZ Y NO SE APLICÓ NUNCA ──────────────────
+-- La primera versión se escribió A MANO como `.sql` suelto, sin registrarla en
+-- `drizzle/meta/_journal.json`. `migrate()` enumera desde el journal, así que
+-- el fichero nunca se ejecutó: `npm run db:migrate` respondió «Migraciones
+-- aplicadas» —de las tres que sí conocía— y la base siguió con `DEFAULT now()`
+-- durante horas, mientras tres documentos afirmaban lo contrario.
+--
+-- Lo destapó un agente que se dedicaba a refutar las afirmaciones del repo,
+-- consultando `information_schema` en vez de leer el `.sql`.
+--
+-- Corolario: **una migración se genera con `npm run db:generate`, nunca a mano**,
+-- y después se comprueba contra la base, no contra el fichero.
+--
+-- REVERSIÓN:
+--   ALTER TABLE "users" ALTER COLUMN "sessions_valid_from" SET DEFAULT now();
+-- ============================================================================
+
+ALTER TABLE "users" ALTER COLUMN "sessions_valid_from" DROP DEFAULT;

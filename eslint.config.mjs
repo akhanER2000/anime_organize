@@ -21,6 +21,11 @@ const configuracion = [
       ".claude/**",
       "drizzle/**",
       "next-env.d.ts",
+      // Carpeta temporal de `verificar-contrato.mjs`. Se ignora AQUÍ para que
+      // un `npm run lint` de otra persona no reviente si el verificador está
+      // corriendo a la vez. El propio verificador usa `eslint.contrato.mjs`,
+      // que levanta este ignore. Ver el encabezado de ese fichero.
+      "verificacion-contrato/**",
     ],
   },
 
@@ -66,7 +71,10 @@ const configuracion = [
   // Ver `src/lib/db/contexto.ts` para las cuatro capas y sus garantías.
   // ═══════════════════════════════════════════════════════════════════════
   {
-    files: ["src/**/*.{ts,tsx}"],
+    // La carpeta del verificador entra aquí a propósito: sus ficheros DEBEN
+    // ser juzgados por las mismas reglas que el código real, o el verificador
+    // no estaría verificando nada.
+    files: ["src/**/*.{ts,tsx}", "verificacion-contrato/**/*.ts"],
     ignores: [
       // La capa de datos ES quien puede tocar las tablas: para eso existe.
       "src/lib/db/**",
@@ -77,6 +85,16 @@ const configuracion = [
       "src/lib/rate-limit/**",
     ],
     rules: {
+      // `const { prefetch, ...resto } = props` es la forma idiomática de QUITAR
+      // una prop antes de pasar el resto a un `<a>`. Sin esto, las descartadas
+      // se marcan como «asignadas y no usadas» y el arreglo pasa por renombrar
+      // a `_p`, `_r`, `_s`, que no dice nada. Solo aplica a hermanos de un
+      // rest: una variable suelta sin usar se sigue marcando.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { ignoreRestSiblings: true, argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+
       "no-restricted-imports": [
         "error",
         {
@@ -119,7 +137,7 @@ const configuracion = [
             {
               // HALLAZGO DEL ATAQUE: `paraPruebas()` era un estatico publico de la
               // clase y minteaba un contexto de CUALQUIER usuario.
-              group: ["@/lib/db/contexto-pruebas", "**/db/contexto-pruebas"],
+              group: ["@/lib/db/contexto-fuera-de-sesion", "**/db/contexto-fuera-de-sesion"],
               message:
                 "`contextoDePrueba()` fabrica un contexto de cualquier usuario. " +
                 "Solo en ficheros *.test.ts.",
@@ -168,7 +186,7 @@ const configuracion = [
           // ESTÁTICOS. Un import dinámico llega al mismo módulo por la puerta
           // de atrás.
           selector:
-            "ImportExpression > Literal[value=/db[/](interno|schema|ownership|cliente-test|contexto-pruebas)/]",
+            "ImportExpression > Literal[value=/db[/](interno|schema|ownership|cliente-test|contexto-fuera-de-sesion)/]",
           message: "Un import dinamico no esquiva el contrato de datos. Usa `vaultDe(ctx)`.",
         },
         {

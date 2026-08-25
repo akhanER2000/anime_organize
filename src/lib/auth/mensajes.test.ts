@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   MENSAJES,
+  mensajeRecuperarEnviado,
   MENSAJES_QUE_NO_PUEDEN_DIVERGIR,
   accionesLogin,
   mensajeLoginFallido,
@@ -113,18 +114,32 @@ describe("NINGÚN MENSAJE CONFIRMA NI NIEGA QUE UNA CUENTA EXISTA", () => {
 });
 
 describe("LOS MENSAJES QUE NO PUEDEN DIVERGIR", () => {
-  it.each(MENSAJES_QUE_NO_PUEDEN_DIVERGIR)("$motivo", ({ casos, mensaje }) => {
-    // El mensaje es UNO para todos los casos del grupo. Si alguien "mejora" uno
-    // y no el otro, la diferencia se convierte en el oráculo que evitábamos.
+  it.each(MENSAJES_QUE_NO_PUEDEN_DIVERGIR)("$motivo", ({ casos, variantes }) => {
+    // ── SE COMPARAN LAS VARIANTES ENTRE SÍ ─────────────────────────────────
+    // La versión anterior afirmaba `casos.length > 1` y `mensaje.length > 0`:
+    // dos tautologías que no podían fallar nunca. La tabla guardaba UN mensaje
+    // por grupo, así que no había nada que comparar, y una divergencia real
+    // entre ramas dejaba los 28 tests de este fichero en verde.
     expect(casos.length).toBeGreaterThan(1);
-    expect(mensaje.length).toBeGreaterThan(0);
+    expect(variantes).toHaveLength(casos.length);
+
+    const distintos = new Set<string>(variantes);
+    expect(
+      [...distintos],
+      `los ${String(casos.length)} casos (${casos.join(", ")}) deben producir el MISMO ` +
+        "texto: cualquier diferencia es un oráculo de si la cuenta existe",
+    ).toHaveLength(1);
+
+    expect([...distintos][0]?.length ?? 0).toBeGreaterThan(0);
   });
 
   it("registro y recuperación usan el condicional «si…»", () => {
     // Es el recurso que permite ser informativo sin afirmar nada: la frase es
     // verdadera exista o no la cuenta.
     expect(MENSAJES.registroHecho).toMatch(/^Si /);
-    expect(MENSAJES.recuperarEnviado).toMatch(/^Si /);
+    expect(MENSAJES.recuperarEnviadoBase).toMatch(/^Si /);
+    // Y el texto compuesto conserva el condicional: la caducidad se añade detrás.
+    expect(mensajeRecuperarEnviado(60)).toMatch(/^Si /);
     expect(MENSAJES.reenvioHecho).toMatch(/^Si /);
   });
 });
@@ -279,7 +294,7 @@ describe("EL FALLO DE CORREO NO PUEDE DELATAR UN REGISTRO NUEVO", () => {
     );
 
     expect(grupo).toBeDefined();
-    expect(grupo?.mensaje).toBe(MENSAJES.correoNoEnviado);
+    expect(new Set(grupo?.variantes ?? [])).toEqual(new Set([MENSAJES.correoNoEnviado]));
     // Los tres caminos que un atacante puede provocar saturando el proveedor.
     expect(grupo?.casos).toContain("FALLO_TRAS_CREAR");
     expect(grupo?.casos).toContain("FALLO_AL_REENVIAR");

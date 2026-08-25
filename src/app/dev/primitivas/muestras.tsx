@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 
+import { Campo } from "@/components/ui/campo";
+import { Casilla } from "@/components/ui/casilla";
+import { MedidorPassword } from "@/components/ui/medidor-password";
+
 import { Boton } from "@/components/ui/boton";
 import { Modal } from "@/components/ui/modal";
 import { Toast } from "@/components/ui/toast";
@@ -99,5 +103,69 @@ export function MuestraCargando() {
     >
       Pulsa para ver el spinner
     </Boton>
+  );
+}
+
+/**
+ * CASILLA — las facetas del panel de filtros (DESIGN-SPEC §08).
+ * Se muestran los cinco estados que existen, incluido el indeterminado, que es
+ * el que siempre se olvida al implementar «seleccionar todo».
+ */
+export function MuestraCasillas() {
+  const [marcadas, setMarcadas] = useState<Record<string, boolean>>({
+    visto: true,
+    viendo: false,
+  });
+
+  const alternar = (clave: string) =>
+    setMarcadas((previo) => ({ ...previo, [clave]: previo[clave] !== true }));
+
+  const algunas = Object.values(marcadas).some(Boolean);
+  const todas = Object.values(marcadas).every(Boolean);
+
+  return (
+    <div className="flex max-w-[320px] flex-col">
+      <Casilla
+        etiqueta="Todos los estados"
+        checked={todas}
+        indeterminado={algunas && !todas}
+        onChange={() => setMarcadas({ visto: !todas, viendo: !todas })}
+      />
+      <Casilla
+        etiqueta="Visto"
+        recuento={69}
+        checked={marcadas.visto === true}
+        onChange={() => alternar("visto")}
+      />
+      <Casilla
+        etiqueta="Viendo"
+        recuento={10}
+        checked={marcadas.viendo === true}
+        onChange={() => alternar("viendo")}
+      />
+      <Casilla etiqueta="Abandonado" recuento={0} />
+      <Casilla etiqueta="En espera (deshabilitada)" recuento={4} disabled />
+    </div>
+  );
+}
+
+/**
+ * MEDIDOR DE CONTRASEÑA — DESIGN-SPEC §07. Escribe para verlo moverse;
+ * prueba `1234567890123456` para comprobar que la longitud no compra nivel.
+ */
+export function MuestraMedidorPassword() {
+  const [valor, setValor] = useState("");
+
+  return (
+    <div className="flex max-w-[380px] flex-col gap-[var(--e-1)]">
+      <Campo
+        etiqueta="Contraseña"
+        type="password"
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        ayuda="Mínimo 12 caracteres. Una frase larga es mejor que un críptico corto."
+      />
+      <MedidorPassword password={valor} />
+    </div>
   );
 }

@@ -58,7 +58,9 @@
 .spinner-aro {
   width: 14px;
   height: 14px;
-  border: 1.5px solid var(--slate-600);
+  /* 1,5 px: es el grosor que pide el marco de dispositivo del artboard 12.
+   * Con nombre para que no vuelva a aparecer como literal suelto. */
+  border: var(--borde-marco-dispositivo) solid var(--slate-600);
   border-top-color: var(--gold-400);
   border-radius: var(--radio-avatar);
   animation: vetaGiro var(--dur-giro) linear infinite;
@@ -98,6 +100,22 @@
  * Con una máscara, el blanco del SVG ya NO es un color: es alfa opaco. El color
  * de verdad lo pone `background-color`, que sí lee el token.
  */
+/* ── TRAMPA: NO LE PONGAS FONDO AL ELEMENTO QUE LLEVA ESTA CLASE ─────────────
+ *
+ * Las dos capas de textura son pseudo-elementos con `z-index: -2`, o sea que se
+ * pintan DETRÁS de su propio elemento. Si ese elemento además lleva
+ * `bg-[var(--slate-950)]`, su fondo las tapa y la textura **se calcula y no se
+ * ve**: cuesta lo mismo y no aporta nada.
+ *
+ * No hace falta ponerlo: `body` ya pinta `--slate-950` en `globals.css`. Lo
+ * correcto es la clase sola.
+ *
+ *     MAL   <div className="fondo-laja fondo-ruido bg-[var(--slate-950)]">
+ *     BIEN  <div className="fondo-laja fondo-ruido">
+ *
+ * Lo encontró el agente de la landing revisando por qué su textura no aparecía,
+ * y estaba en tres pantallas a la vez — incluida una que acababa de escribir yo.
+ * ─────────────────────────────────────────────────────────────────────────── */
 .fondo-laja::before {
   content: "";
   position: fixed;

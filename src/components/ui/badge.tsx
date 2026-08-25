@@ -21,7 +21,7 @@ const PUNTO: Record<Estado, string> = {
   VIENDO: "bg-[var(--estado-viendo)]",
   EN_ESPERA: "bg-[var(--estado-espera)]",
   ABANDONADO: "bg-[var(--estado-abandonado)]",
-  PENDIENTE: "bg-[var(--ash-500)]",
+  PENDIENTE: "bg-[var(--estado-pendiente)]",
 };
 
 /** Color del TEXTO. Distinto del punto en los dos semánticos. */

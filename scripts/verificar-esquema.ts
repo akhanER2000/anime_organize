@@ -8,19 +8,38 @@
  *
  *     npx tsx scripts/verificar-esquema.ts
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 
-import { cargarEntorno } from "./cargar-entorno";
+import { cargarEntorno, vinoDelEntorno } from "./cargar-entorno";
+import { anunciarDestino } from "./rama-destino";
 
 cargarEntorno();
 neonConfig.webSocketConstructor = ws;
 
+// ── OJO AL ORDEN: `UNPOOLED` GANA, Y ESO ES UNA TRAMPA AL OPERAR ─────────
+//
+// Si alguien pasa solo `DATABASE_URL` en la línea de comandos para verificar
+// producción, `DATABASE_URL_UNPOOLED` se rellena desde `.env.local` —que apunta
+// a desarrollo— y **este script verificaría la rama equivocada diciendo que
+// todo está bien**. Pasó al preparar el despliegue y se vio por el anuncio de
+// destino, no por el resultado.
+//
+// Se conserva la precedencia (el DDL y los índices se leen mejor por la
+// conexión directa) y se añade el anuncio, que es lo que hace visible cuál de
+// las dos ganó.
+const variable =
+  process.env.DATABASE_URL_UNPOOLED !== undefined ? "DATABASE_URL_UNPOOLED" : "DATABASE_URL";
 const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 if (url === undefined) {
   console.error("Falta DATABASE_URL_UNPOOLED");
   process.exit(1);
 }
+
+anunciarDestino(url, { variable, pasadaEnLinea: vinoDelEntorno(variable) });
 
 const TABLAS = [
   "users",
@@ -138,14 +157,51 @@ async function principal(): Promise<void> {
     comprobar("nuestras tablas viven en public", hay.has("users") && hay.has("anime"));
 
     console.log("\n=== users.sessions_valid_from ===");
-    const col = await pool.query<{ data_type: string; is_nullable: string }>(
-      `SELECT data_type, is_nullable FROM information_schema.columns
+    const col = await pool.query<{
+      data_type: string;
+      is_nullable: string;
+      column_default: string | null;
+    }>(
+      // `column_default` NO se consultaba, y esa omisión dejó pasar el fallo
+      // durante horas: la migración que quita el `DEFAULT now()` se escribió a
+      // mano sin registrarla en el journal de Drizzle, así que **nunca se
+      // aplicó**, y este guardián imprimía OK contra una base que seguía
+      // teniendo el default del reloj equivocado. Tres documentos afirmaban lo
+      // contrario y ninguno miraba la base.
+      `SELECT data_type, is_nullable, column_default FROM information_schema.columns
         WHERE table_name='users' AND column_name='sessions_valid_from'`,
     );
     comprobar(
       "existe, timestamptz, NOT NULL",
       col.rows[0]?.data_type === "timestamp with time zone" && col.rows[0]?.is_nullable === "NO",
       `${col.rows[0]?.data_type ?? "ausente"} / nullable=${col.rows[0]?.is_nullable ?? "?"}`,
+    );
+    comprobar(
+      "SIN default (se escribe con el reloj de la aplicación)",
+      col.rows[0]?.column_default === null,
+      col.rows[0]?.column_default === null
+        ? ""
+        : `tiene DEFAULT ${String(col.rows[0]?.column_default)} — lo pondría el reloj de ` +
+            "Postgres, que va ~600 ms por delante del de la app: la sesión de quien entra " +
+            "justo tras registrarse nacería revocada. Ver db-conventions.md § «Dos relojes».",
+    );
+
+    console.log("\n=== las migraciones del journal están aplicadas ===");
+    const journal = JSON.parse(
+      readFileSync(join(process.cwd(), "drizzle", "meta", "_journal.json"), "utf-8"),
+    ) as { entries: { tag: string }[] };
+    const aplicadas = await pool.query<{ n: string }>(
+      "SELECT count(*)::text AS n FROM drizzle.__drizzle_migrations",
+    );
+    const enDisco = journal.entries.length;
+    const enBase = Number(aplicadas.rows[0]?.n ?? "0");
+    comprobar(
+      `${String(enDisco)} en el journal, ${String(enBase)} aplicadas`,
+      enBase >= enDisco,
+      enBase >= enDisco
+        ? ""
+        : "hay migraciones en disco que la base no tiene. Ojo: un `.sql` que NO esté en " +
+            "`_journal.json` no se aplica nunca y `db:migrate` no se queja.",
     );
 
     console.log("\n=== citext funciona de verdad ===");

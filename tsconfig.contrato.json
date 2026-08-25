@@ -1,0 +1,21 @@
+{
+  // Config de `scripts/verificar-contrato.mjs`, y SOLO de él.
+  //
+  // El tsconfig principal EXCLUYE `verificacion-contrato/` para que el
+  // typecheck de cualquier otra persona no vea los ficheros temporales del
+  // verificador —eran doce ficheros con errores de tipo A PROPÓSITO dentro de
+  // `src/`, y si alguien compilaba en ese momento, se le rompía la compilación
+  // por un motivo que no tenía nada que ver con su trabajo—.
+  //
+  // Aquí se vuelven a incluir. `extends` NO fusiona `include`/`exclude`: los
+  // reemplaza, así que ambos se repiten enteros.
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    ".next/types/**/*.ts",
+    "verificacion-contrato/**/*.ts"
+  ],
+  "exclude": ["node_modules", "design", ".claude"]
+}

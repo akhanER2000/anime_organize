@@ -56,11 +56,43 @@ Las dos listas salen del mismo JSON. Si tocas una, tocas la otra.
 
 | Token | Utilidad | Valor | Uso |
 |---|---|---|---|
-| `--ash-500` | `ash-500` | `#565E68` | deshabilitado, placeholder, meta menor |
+| `--ash-inactivo` | — | `#565E68` | **solo deshabilitado y placeholder** (ver abajo) |
 | `--ash-400` | `ash-400` | `#7A838E` | secundario, datos mono, nav inactiva |
 | `--porcelain-200` | `porcelain-200` | `#C9C6BF` | terciario claro, cuerpo largo, UI secundaria |
 | `--porcelain-100` | `porcelain-100` | `#E6E2DA` | principal, logotipo, label de botón |
 | `--porcelain-050` | `porcelain-050` | `#F4F1EA` | titulares Cormorant |
+
+### Contraste del texto gris · medido, no estimado
+
+`--ash-500` se renombró a **`--ash-inactivo`**. El valor **no cambió** —el diseño está
+aprobado y para su uso real es correcto—; lo que cambió es el nombre, porque `ash-500`
+no decía nada y se estaba usando como «gris de texto secundario», que es justo lo que no
+es.
+
+Contrastes WCAG 2.1 reales sobre las superficies del sistema:
+
+| Fondo | `--ash-inactivo` | `--ash-400` | `--porcelain-200` |
+|---|---|---|---|
+| `--slate-950` | 2.94:1 | 5.03:1 | 11.34:1 |
+| `--slate-900` | 2.81:1 | 4.80:1 | 10.82:1 |
+| `--slate-850` | 2.66:1 | 4.54:1 | 10.24:1 |
+| `--slate-800` (input, menú) | **2.44:1** | **4.17:1** | 9.39:1 |
+
+Tres consecuencias, y las tres son normativas:
+
+1. **`--ash-inactivo` no llega a 4.5:1 sobre ninguna superficie.** Es legítimo únicamente
+   donde WCAG exime al texto: controles **deshabilitados** (1.4.3 exceptúa los componentes
+   inactivos) y el **placeholder**, que nunca lleva información que no esté en la etiqueta.
+2. **`--ash-400` es el mínimo para texto ACTIVO**, con una salvedad que hay que respetar:
+   sobre **`--slate-800`** se queda en 4.17:1. En el input y en el menú de acciones el
+   mínimo real es **`--porcelain-200`**.
+3. El punto del estado `PENDIENTE` usa **`--estado-pendiente`** (mismo valor, nombre
+   propio): es un punto de 6 px acompañado SIEMPRE de su etiqueta escrita, así que el
+   mínimo de texto no le aplica.
+
+`npm run lint:tokens` falla si `--ash-inactivo` o una utilidad `*-ash-500` aparecen en una
+línea que no declare `disabled` o `placeholder`. Para el caso raro y justificado, el escape
+de siempre: `// lint-tokens-ok: <motivo>`.
 
 ### Oro · kintsugi
 

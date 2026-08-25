@@ -16,8 +16,17 @@ import type { Metadata } from "next";
  */
 export const metadata: Metadata = {
   title: { absolute: "Anime Vault · lo que viste, guardado en piedra" },
+  // ── LA DESCRIPCIÓN TAMBIÉN PROMETÍA LO QUE NO EXISTE ──────────────────
+  //
+  // Decía «Importa desde AniList o desde un .xlsx». La importación no está
+  // construida, y esta frase es **la más pública de todas**: es la que sale en
+  // Google y en la previsualización de cualquier enlace que se comparta.
+  //
+  // Se coló al limpiar la landing porque no está en la landing: vive en la
+  // metadata de la página, y el recorrido en navegador solo mira texto VISIBLE.
+  // Por eso el test de esta pantalla comprueba ahora también el `<meta>`.
   description:
-    "Tu biblioteca personal de anime: qué viste, por dónde vas y el enlace exacto para seguir. Importa desde AniList o desde un .xlsx y deja de repartir tu historial entre cinco pestañas.",
+    "Tu biblioteca personal de anime: qué viste, por dónde vas y el enlace exacto para seguir, en una sola pantalla.",
 };
 
 export default function Home() {

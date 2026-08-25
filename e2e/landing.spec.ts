@@ -147,7 +147,20 @@ test.describe("la landing, usada por una persona", () => {
     // Las tarjetas prometían además importar desde AniList o .xlsx, espejos
     // V1/V2/V3 y etiquetas por IA. Ninguna de las tres está construida.
     await page.goto("/");
-    const texto = (await page.locator("body").innerText()).replace(/\s+/g, " ");
+
+    // ── EL TEXTO VISIBLE NO BASTA ─────────────────────────────────────────
+    //
+    // La primera versión de este test solo miraba `body.innerText()`, y por eso
+    // dejó pasar «Importa desde AniList o desde un .xlsx» escondido en el
+    // `<meta name="description">` — que es la frase MÁS pública de todas: la
+    // que sale en Google y en la previsualización de cualquier enlace.
+    //
+    // Lo cazó un `curl` que no distinguía entre texto visible y metadatos.
+    const visible = (await page.locator("body").innerText()).replace(/\s+/g, " ");
+    const meta =
+      (await page.locator('meta[name="description"]').getAttribute("content")) ?? "";
+    const titulo = await page.title();
+    const texto = `${visible} ${meta} ${titulo}`;
 
     for (const mentira of [
       "2 480",

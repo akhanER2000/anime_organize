@@ -276,17 +276,45 @@ describeSiSePuede("revocación de sesión · camino real", () => {
     // el test se pone verde sobre código que ya no existe. Es el peor verde
     // posible —dice que la protección funciona cuando ni siquiera se ejecutó—
     // y me pasó al escribir este mismo fichero.
-    await new Promise<void>((resolver, rechazar) => {
-      const compilacion = spawn("npx", ["next", "build"], {
-        cwd: process.cwd(),
-        shell: process.platform === "win32",
-        stdio: "ignore",
-        env: { ...process.env, NODE_ENV: "production" },
+    // ── ¿HAY QUE COMPILAR, O YA ESTÁ COMPILADO? ───────────────────────
+    //
+    // En CI NO: el paso «Build de producción» acaba de dejar un `.next` de
+    // ESTE commit y con ESTE entorno, y este test corre justo después.
+    // Compilar aquí dentro además MATABA el worker de vitest —sin mensaje,
+    // y sin que el fichero apareciera siquiera en el recuento—.
+    //
+    // En local SÍ, y no es opcional: `next start` sirve lo que haya en
+    // `.next`, así que sin compilar una edición en `auth.ts` o `sesion.ts` se
+    // probaría contra el build ANTERIOR. El test se pondría verde sobre
+    // código que ya no existe —el peor verde posible, y me pasó escribiendo
+    // este mismo fichero—. Por eso la bandera solo la pone el workflow, en el
+    // único sitio donde saltarse el build es seguro.
+    if (process.env.CAMINO_REAL_REUSA_BUILD !== "1") {
+      await new Promise<void>((resolver, rechazar) => {
+        let salidaBuild = "";
+        const compilacion = spawn("npx", ["next", "build"], {
+          cwd: process.cwd(),
+          shell: process.platform === "win32",
+          // NO `ignore`: tragarse esta salida es lo que hizo que un fallo de
+          // compilación se viera como «el worker murió» y nada más.
+          stdio: ["ignore", "pipe", "pipe"],
+          env: { ...process.env, NODE_ENV: "production" },
+        });
+        compilacion.stdout?.on("data", (d: Buffer) => (salidaBuild += d.toString()));
+        compilacion.stderr?.on("data", (d: Buffer) => (salidaBuild += d.toString()));
+        compilacion.on("exit", (codigo) =>
+          codigo === 0
+            ? resolver()
+            : rechazar(
+                new Error(
+                  `next build salió con ${String(codigo)}
+
+${salidaBuild.slice(-4000)}`,
+                ),
+              ),
+        );
       });
-      compilacion.on("exit", (codigo) =>
-        codigo === 0 ? resolver() : rechazar(new Error(`next build salió con ${String(codigo)}`)),
-      );
-    });
+    }
 
     servidor = spawn("npx", ["next", "start", "-p", String(PUERTO)], {
       cwd: process.cwd(),

@@ -175,6 +175,30 @@ jobs:
       - name: Build de producción
         run: npm run build
 
+      # ── EL CAMINO REAL, DESPUÉS DEL BUILD Y REUTILIZÁNDOLO ────────────────
+      #
+      # Este test arranca la aplicación de verdad. Estaba dentro de «Tests
+      # unitarios» y ahí hacía su PROPIO `next build` dentro de un worker de
+      # vitest: el paso tardaba 1m54s y el worker moría sin dejar mensaje,
+      # arrastrando el paso entero con «Worker exited unexpectedly». Peor aún,
+      # vitest no contaba ese fichero ni como pasa ni como falla, así que el
+      # informe decía «57 passes · 57 total» cuando los ficheros eran 58.
+      #
+      # Aquí ya hay un `.next` recién construido, de ESTE commit y con ESTE
+      # entorno, hecho por el paso de arriba. `CAMINO_REAL_REUSA_BUILD` le dice
+      # al test que no vuelva a compilar.
+      #
+      # OJO CON ESO: el test compila por su cuenta A PROPÓSITO, porque
+      # `next start` sirve lo que haya en `.next` y sin compilar se probaría
+      # contra un build anterior —un verde sobre código que ya no existe—. La
+      # bandera solo es segura porque este paso va inmediatamente después del
+      # build, en el mismo job y el mismo commit. En local NO se pone, y el
+      # test sigue compilando.
+      - name: Camino real (sesión revocada, servidor de verdad)
+        run: npm run test:camino-real
+        env:
+          CAMINO_REAL_REUSA_BUILD: "1"
+
   auditoria:
     name: dependencias
     runs-on: ubuntu-latest

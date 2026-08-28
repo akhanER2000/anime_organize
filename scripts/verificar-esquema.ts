@@ -11,14 +11,33 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { neonConfig, Pool } from "@neondatabase/serverless";
+import { neonConfig, Pool as PoolNeon } from "@neondatabase/serverless";
+import { Pool as PoolPg } from "pg";
 import ws from "ws";
 
 import { cargarEntorno, vinoDelEntorno } from "./cargar-entorno";
 import { anunciarDestino, exigirMismaRama } from "./rama-destino";
 
 cargarEntorno();
-neonConfig.webSocketConstructor = ws;
+
+/**
+ * Una URL de Neon habla su protocolo por WebSocket; una local, no.
+ *
+ * Mismo criterio que `scripts/migrate.ts` y `src/lib/db/cliente-test.ts`: contra
+ * el contenedor `postgres:18` de CI no hay proxy de Neon al otro lado, así que
+ * el driver por WebSocket no llega ni a la primera consulta. Este script corre
+ * inmediatamente después de las migraciones en el workflow, así que heredaba el
+ * mismo fallo.
+ */
+function esNeon(cadena: string): boolean {
+  return cadena.includes("neon.tech") || cadena.includes("neon.build");
+}
+
+/** Lo único que este script usa de un pool: consultar y cerrar. */
+type PoolMinimo = {
+  query: <T>(texto: string, valores?: unknown[]) => Promise<{ rows: T[] }>;
+  end: () => Promise<void>;
+};
 
 // ── OJO AL ORDEN: `UNPOOLED` GANA, Y ESO ES UNA TRAMPA AL OPERAR ─────────
 //
@@ -38,6 +57,12 @@ if (url === undefined) {
   console.error("Falta DATABASE_URL_UNPOOLED");
   process.exit(1);
 }
+
+/**
+ * La cadena, ya comprobada. TypeScript no arrastra el estrechamiento del guard
+ * al cuerpo de una función declarada después, y `code-style.md` prohíbe el `!`.
+ */
+const destino: string = url;
 
 exigirMismaRama();
 anunciarDestino(url, { variable, pasadaEnLinea: vinoDelEntorno(variable) });
@@ -78,8 +103,19 @@ function comprobar(etiqueta: string, ok: boolean, detalle = ""): void {
   if (!ok) fallos += 1;
 }
 
+function abrirPool(cadena: string): PoolMinimo {
+  if (esNeon(cadena)) {
+    neonConfig.webSocketConstructor = ws;
+    return new PoolNeon({ connectionString: cadena }) as unknown as PoolMinimo;
+  }
+  return new PoolPg({ connectionString: cadena }) as unknown as PoolMinimo;
+}
+
 async function principal(): Promise<void> {
-  const pool = new Pool({ connectionString: url });
+  const contraNeon = esNeon(destino);
+  console.log(`Motor: ${contraNeon ? "neon (websocket)" : "postgres (pg)"}`);
+
+  const pool = abrirPool(destino);
 
   try {
     console.log("\n=== EXTENSIONES ===");
@@ -230,7 +266,7 @@ async function principal(): Promise<void> {
   process.exit(fallos === 0 ? 0 : 1);
 }
 
-async function tiene(pool: Pool, ext: string): Promise<boolean> {
+async function tiene(pool: PoolMinimo, ext: string): Promise<boolean> {
   const r = await pool.query("SELECT 1 FROM pg_extension WHERE extname = $1", [ext]);
   return r.rows.length > 0;
 }

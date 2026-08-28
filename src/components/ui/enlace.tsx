@@ -39,10 +39,17 @@ import type { ComponentProps, ReactNode } from "react";
  * (`prefetch`, `replace`, `scroll`…): en un ancla suelta serían atributos
  * desconocidos y React lo avisaría por consola.
  */
-export type PropsEnlace = Omit<ComponentProps<typeof NextLink>, "href"> & {
+export type PropsEnlace = Omit<ComponentProps<typeof NextLink>, "href" | "target" | "rel"> & {
   href: string;
   children: ReactNode;
-  /** Abre en pestaña nueva. Implica `rel="noopener noreferrer"`, sin opción. */
+  /**
+   * Abre en pestaña nueva. Implica `rel="noopener noreferrer"`, sin opción.
+   *
+   * `target` y `rel` están fuera del tipo A PROPÓSITO —son el punto 1 de la
+   * cabecera— y por eso no se pueden pasar. Si necesitas una pestaña nueva
+   * hacia una ruta PROPIA, `externo` también sirve: renderiza un `<a>` con
+   * las dos garantías puestas.
+   */
   externo?: boolean;
   /** Sin subrayado ni color dorado: para envolver una card entera. */
   desnudo?: boolean;
@@ -82,12 +89,22 @@ export function Enlace({
   if (externo) {
     return (
       <a
+        // ── EL SPREAD VA PRIMERO, Y ESO ES LA PROTECCIÓN ──────────────────
+        // JSX aplica los atributos EN ORDEN, y el último gana ENTERO. Con el
+        // spread aquí abajo, un `rel=""` del llamador sustituía al
+        // `noopener noreferrer` de la línea siguiente y la página destino
+        // recibía un `window.opener` vivo con el que redirigir la pestaña del
+        // vault a una copia del login. El comentario decía «no es configurable»
+        // y era configurable: lo encontró un barrido, no un test.
+        //
+        // Y es alcanzable: los dos llamadores de `externo` —el gestor de
+        // enlaces y el botón de continuar— pintan URLs QUE PEGA EL USUARIO.
+        {...propsAncla}
         href={href}
         target="_blank"
         // No es configurable A PROPÓSITO. Ver el punto 1 de la cabecera.
         rel="noopener noreferrer"
         className={clases}
-        {...propsAncla}
       >
         {children}
         <span className="sr-only"> (se abre en una pestaña nueva)</span>
@@ -97,14 +114,16 @@ export function Enlace({
 
   if (esInterno(href)) {
     return (
-      <NextLink href={href} className={clases} {...resto}>
+      // El spread delante, igual que en la rama externa: `href` y las clases
+      // del sistema son de la primitiva.
+      <NextLink {...resto} href={href} className={clases}>
         {children}
       </NextLink>
     );
   }
 
   return (
-    <a href={href} className={clases} {...propsAncla}>
+    <a {...propsAncla} href={href} className={clases}>
       {children}
     </a>
   );

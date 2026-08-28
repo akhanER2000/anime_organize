@@ -40,6 +40,11 @@ export function Card({
 }: PropsCard) {
   return (
     <div
+      // El spread delante: con `{...resto}` al final, un `className` del
+      // llamador sustituía ENTERA la receta de abajo —incluidos el borde, el
+      // fondo y la veta en hover—. Es exactamente el fallo que dejó el campo
+      // de portada en 198 × 26 px. `cn()` ya mezcla lo que trae `className`.
+      {...resto}
       className={cn(
         "rounded-card border border-[var(--slate-700)]",
         elevada ? "bg-[var(--slate-800)]" : "bg-[var(--slate-850)]",
@@ -51,7 +56,6 @@ export function Card({
           ),
         className,
       )}
-      {...resto}
     >
       {children}
     </div>

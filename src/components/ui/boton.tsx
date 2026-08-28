@@ -182,11 +182,16 @@ export function Boton(props: PropsBoton) {
 
     return (
       <Enlace
+        // ── EL SPREAD DELANTE, Y AQUÍ IMPORTA MÁS QUE EN NINGÚN SITIO ────
+        // Éste es el segundo camino hasta `Enlace externo`, y el que llega a
+        // URLs QUE PEGA EL USUARIO (el botón «Continuar» de la ficha). Con el
+        // spread al final, lo que se colara por `props` pisaba `href`,
+        // `externo` y las clases del botón.
+        {...sinPropsDeAspecto(props)}
         href={href}
         externo={externo}
         desnudo
         className={clases}
-        {...sinPropsDeAspecto(props)}
       >
         <Adorno icono={icono} cargando={false} />
         {children}

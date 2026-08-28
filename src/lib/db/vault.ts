@@ -333,6 +333,17 @@ export interface Vault {
   paraExportar(): Promise<FilaParaExportar[]>;
   porTituloNormalizado(tituloNormalizado: string): Promise<{ id: string; titulo: string } | null>;
   /**
+   * TODOS mis títulos normalizados, SIN tope.
+   *
+   * Para la deduplicación de una importación. `listar()` no vale: no trae la
+   * columna normalizada y además lleva `limite` — un conjunto de
+   * deduplicación construido sobre una consulta acotada reproduce el tope en
+   * vez de deduplicar. Ver el cuerpo.
+   */
+  titulosNormalizados(): Promise<string[]>;
+  /** Anota el id del espejo de Drive sobre una portada PROPIA ya guardada. */
+  anotarEspejoDrive(animeId: string, driveFileId: string): Promise<{ animeId: string } | null>;
+  /**
    * El progreso guardado de un anime PROPIO, o `null`.
    *
    * `obtener()` devuelve la fila de `anime` y **no** su progreso: son dos
@@ -809,6 +820,34 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
       return fila ?? null;
     },
 
+    /**
+     * TODOS mis títulos normalizados. Sin tope, y ése es el punto.
+     *
+     * ── POR QUÉ NO SIRVE `listar()` PARA ESTO ──────────────────────────────
+     *
+     * Dos motivos, y el segundo es un fallo que este proyecto ya cometió:
+     *
+     * 1. `listar()` no devuelve `title_normalized`, y comparar por el título
+     *    visible dejaría entrar `MONSTER` junto a `Monster` para chocar
+     *    después contra el `UNIQUE` de la base.
+     * 2. `listar()` lleva `limite`. **Un conjunto de deduplicación construido
+     *    sobre una consulta acotada no deduplica: reproduce el tope.** Con 200
+     *    animes y un tope de 100, la importación marcaría como nuevas las que
+     *    ya están en la mitad no leída y la base las rechazaría una a una.
+     *    Es el mismo fallo que los agregados sobre consultas con tope.
+     *
+     * Son cadenas cortas: 83 títulos son unos pocos KB, y diez mil seguirían
+     * siendo menos que una sola portada.
+     */
+    async titulosNormalizados(): Promise<string[]> {
+      const filas = await cliente
+        .select({ normalizado: anime.titleNormalized })
+        .from(anime)
+        .where(mias());
+
+      return filas.map((f) => f.normalizado);
+    },
+
     /** El progreso de un anime propio. `null` si no hay o no es suyo. */
     async progresoDe(animeId: string) {
       const [fila] = await cliente
@@ -1117,6 +1156,32 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
           source_url  = excluded.source_url,
           checksum    = excluded.checksum
         returning anime_id
+      `);
+
+      const devueltas = (filas as unknown as { rows?: { anime_id?: string }[] }).rows ?? [];
+      const id = devueltas[0]?.anime_id;
+
+      return id === undefined ? null : { animeId: id };
+    },
+
+    /**
+     * Anota el id del fichero en el espejo de Drive. `null` si no es suyo.
+     *
+     * Va aparte de `guardarPortada` a propósito: la portada se guarda **antes**
+     * de subir nada, y el espejo se anota después si sale bien. Meterlo en la
+     * misma escritura obligaría a esperar a Drive para servir una portada que
+     * ya está en Postgres, y la skill §5 es explícita: **si Drive falla, la app
+     * sigue funcionando**.
+     */
+    async anotarEspejoDrive(animeId: string, driveFileId: string) {
+      const filas = await cliente.execute(sql`
+        update anime_cover ac
+        set drive_file_id = ${driveFileId}
+        from anime a
+        where ac.anime_id = a.id
+          and a.id = ${animeId}
+          and a.user_id = ${ctx.userId}
+        returning ac.anime_id
       `);
 
       const devueltas = (filas as unknown as { rows?: { anime_id?: string }[] }).rows ?? [];

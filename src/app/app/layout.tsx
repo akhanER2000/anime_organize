@@ -2,6 +2,7 @@ import { AccionAnadirConModal } from "@/components/anime/accion-anadir-con-modal
 import { exigirSesionParaLeer } from "@/auth";
 import { Buscador } from "@/components/anime/buscador";
 import { AvatarDeCuenta, BarraSuperior } from "@/components/layout/barra-superior";
+import { NavMovil } from "@/components/layout/nav-movil";
 
 import type { ReactNode } from "react";
 
@@ -50,7 +51,24 @@ export default async function LayoutVault({ children }: { children: ReactNode })
           </>
         }
       />
-      <main className="mx-auto max-w-[var(--contenedor-max)]">{children}</main>
+      {/* El hueco de la barra inferior se reserva EN EL CONTENIDO, no con un
+       * margen en la barra: la barra es `fixed` y no ocupa sitio, así que sin
+       * esto el último anime de la rejilla queda debajo de ella y no se puede
+       * pulsar. Desde `tablet` la barra no existe y el hueco tampoco.
+       *
+       * El mismo cálculo que usa la barra —52 px más la safe area— para que los
+       * dos digan lo mismo si un día cambia. */}
+      <main
+        className="mx-auto max-w-[var(--contenedor-max)] pb-[var(--alto-nav-movil)] tablet:pb-0"
+        style={{
+          ["--alto-nav-movil" as string]:
+            "calc(var(--e-7) + max(var(--e-2-5), env(safe-area-inset-bottom)))",
+        }}
+      >
+        {children}
+      </main>
+
+      <NavMovil />
     </div>
   );
 }

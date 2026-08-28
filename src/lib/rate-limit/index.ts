@@ -52,6 +52,42 @@ export async function registrarIntento(
   clave: string,
   ahora: Date = new Date(),
 ): Promise<Veredicto> {
+  /**
+   * ── LA CLAVE LA COMPONEN LOS CONSTRUCTORES, NO SE ESCRIBE A MANO ─────────
+   *
+   * `nombre` elige la POLÍTICA —cuántos y en qué ventana— y `clave` identifica
+   * el CUBO. Son dos cosas, y confundirlas no da error: da un cubo compartido.
+   *
+   * EL FALLO REAL: tres rutas nuevas pasaron `sesion.userId` pelado como clave.
+   * Con eso, **todos los límites `*:user` de la misma persona cuentan en el
+   * mismo contador** —importar una hoja le gastaba el presupuesto de enriquecer
+   * y el de comprobar espejos— y la tabla se llena de uuids que no dicen de qué
+   * son. El efecto observable de cada ruta por separado es idéntico al
+   * correcto, así que ningún test de esas rutas podía verlo.
+   *
+   * ── POR QUÉ NO SE EXIGE QUE EMPIECE POR `nombre` ─────────────────────────
+   *
+   * Fue el primer intento y **estaba mal**: `/recuperar/nueva` aplica la
+   * política `recuperar:ip` a un cubo propio, `recuperar-nueva:ip:<ip>`, y eso
+   * es correcto y deliberado — reutiliza el límite sin compartir el contador
+   * con «pedir el enlace». Aquella guarda lo rompía con un 500, y lo destapó el
+   * recorrido en navegador del restablecimiento.
+   *
+   * Lo que se exige es la FORMA que producen `clavePorEmail`, `clavePorIp` y
+   * `clavePorUsuario`: `<accion>:<email|ip|user>:<valor>`. Un uuid pelado no la
+   * cumple; un cubo propio con la misma política, sí.
+   *
+   * Lanza en vez de avisar: es un error de programación, no una entrada del
+   * usuario, y falla en la primera llamada — nunca en silencio.
+   */
+  if (!/^[a-z0-9-]+:(email|ip|user):/.test(clave)) {
+    throw new Error(
+      `La clave del limitador debe tener la forma "<accion>:<email|ip|user>:<valor>" ` +
+        `y era "${clave}". Compónla con clavePorUsuario/clavePorEmail/clavePorIp ` +
+        "de @/lib/rate-limit en vez de escribirla a mano.",
+    );
+  }
+
   const limite = LIMITES[nombre];
 
   // Escotilla SOLO para los tests de integración, que necesitan ejecutar cien

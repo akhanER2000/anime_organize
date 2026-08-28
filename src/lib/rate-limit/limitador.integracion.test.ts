@@ -55,9 +55,17 @@ import { registrarIntento, registrarIntentos } from "./index";
 const SUFIJO = randomUUID();
 const clavesUsadas: string[] = [];
 
-/** Una clave nueva para cada caso: los tests no comparten cubo. */
+/**
+ * Una clave nueva para cada caso: los tests no comparten cubo.
+ *
+ * Con la FORMA de producción —`<accion>:<user>:<valor>`—, que es la que exige
+ * `registrarIntento`. Antes era `test:<nombre>:<sufijo>`, que no la cumple; el
+ * día que la guarda entró, estos ocho tests se pusieron rojos y tenían razón:
+ * un test que usa una forma de clave que producción no acepta deja de probar
+ * producción.
+ */
 function clave(nombre: string): string {
-  const k = `test:${nombre}:${SUFIJO}`;
+  const k = `test-${nombre}:user:${SUFIJO}`;
   clavesUsadas.push(k);
   return k;
 }

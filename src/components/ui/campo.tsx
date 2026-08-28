@@ -62,7 +62,10 @@ type Comunes = {
  * ═══════════════════════════════════════════════════════════════════════════
  */
 export type PropsCampo = Comunes &
-  Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "className"> & {
+  Omit<
+    InputHTMLAttributes<HTMLInputElement>,
+    "id" | "className" | "aria-describedby" | "aria-invalid"
+  > & {
     /** Adorno a la derecha: un botón de «mostrar contraseña», un atajo… */
     adorno?: ReactNode;
     /** Se aplica al ENVOLTORIO, para colocarlo. Nunca al control. */
@@ -70,7 +73,10 @@ export type PropsCampo = Comunes &
   };
 
 export type PropsAreaTexto = Comunes &
-  Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id" | "className"> & {
+  Omit<
+    TextareaHTMLAttributes<HTMLTextAreaElement>,
+    "id" | "className" | "aria-describedby" | "aria-invalid"
+  > & {
     /** Se aplica al ENVOLTORIO, para colocarlo. Nunca al control. */
     className?: string;
   };
@@ -189,6 +195,18 @@ export function Campo({
 
       <div className="relative">
         <input
+          // ── EL SPREAD VA PRIMERO. NO ES ESTILO, ES LA GARANTÍA ────────────
+          // JSX aplica los atributos EN ORDEN y el último gana ENTERO —no los
+          // mezcla—. Con el spread al final, un `aria-describedby` del llamador
+          // borraba el enlace con el mensaje de error y con el texto de ayuda,
+          // que es LA RAZÓN POR LA QUE ESTE COMPONENTE EXISTE (ver cabecera): el
+          // <p> del error seguía pintado y ya no lo apuntaba nadie.
+          //
+          // Delante, el reparto queda dicho: el llamador aporta lo suyo —`name`,
+          // `type`, `onChange`, el `ref` de react-hook-form— y encima se escribe
+          // lo que la primitiva GARANTIZA. Es el mismo fallo del `className`, que
+          // dejó el campo de portada en 198 × 26 px y sin poder escribir.
+          {...resto}
           id={id}
           // `aria-invalid` es lo que un lector anuncia como «campo con error».
           aria-invalid={hayError || undefined}
@@ -201,7 +219,6 @@ export function Campo({
               ? "border-[var(--estado-abandonado)]"
               : "border-[var(--slate-600)] hover:bg-[var(--slate-700)]",
           )}
-          {...resto}
         />
         {adorno !== undefined && (
           <span className="absolute right-[var(--e-1-5)] top-1/2 -translate-y-1/2">{adorno}</span>
@@ -234,6 +251,8 @@ export function AreaTexto({
       </label>
 
       <textarea
+        // El mismo reparto que en el `<input>`. Ver la nota de arriba.
+        {...resto}
         id={id}
         rows={rows}
         aria-invalid={hayError || undefined}
@@ -245,7 +264,6 @@ export function AreaTexto({
             ? "border-[var(--estado-abandonado)]"
             : "border-[var(--slate-600)] hover:bg-[var(--slate-700)]",
         )}
-        {...resto}
       />
 
       <Mensajes idError={idError} idAyuda={idAyuda} error={error} ayuda={ayuda} />

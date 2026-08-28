@@ -156,6 +156,7 @@ export function ZonaPeligro({ email }: { email: string }) {
         {error !== null && error.detalles === undefined && <MensajeDeFallo fallo={error} />}
 
         <Campo
+          {...errorDeCampo("emailEscrito")}
           etiqueta={`Escribe ${email} para confirmar`}
           value={emailEscrito}
           onChange={(evento) => {
@@ -167,10 +168,10 @@ export function ZonaPeligro({ email }: { email: string }) {
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck={false}
-          {...errorDeCampo("emailEscrito")}
         />
 
         <Campo
+          {...errorDeCampo("password")}
           etiqueta="Tu contraseña"
           type="password"
           autoComplete="current-password"
@@ -178,7 +179,6 @@ export function ZonaPeligro({ email }: { email: string }) {
           onChange={(evento) => {
             setPassword(evento.target.value);
           }}
-          {...errorDeCampo("password")}
         />
 
         <div>

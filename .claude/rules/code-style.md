@@ -129,12 +129,79 @@ el diseño estaría mal.
 
 ## Errores
 
-- Errores de dominio tipados en `src/lib/api/errors.ts` (`ErrorDominio` con `codigo`).
-  Nunca `throw new Error("algo falló")` en una ruta de negocio.
+> **Esta sección describe lo que HAY.** Describía otra cosa —un `src/lib/api/errors.ts`
+> con una clase `ErrorDominio`, y un logger en `src/lib/log.ts`— y **ninguno de los dos
+> existió nunca**. Una regla que documenta lo que no existe manda a quien la lee a buscar
+> un fichero fantasma, y hace que deje de fiarse del resto del documento. Se corrigió el
+> 2026-08-28, al pillarla.
+
+### Un fallo esperado NO se lanza: se devuelve
+
+El dueño del contrato es **`src/lib/api/respuesta.ts`**, y no exporta ninguna clase de
+error: exporta un **sobre discriminado** y tres funciones para construirlo.
+
+```ts
+import { exito, fallo, falloDeValidacion, type Respuesta } from "@/lib/api/respuesta";
+
+if (!validado.success) return falloDeValidacion(validado.error.issues);
+if (creado === null) return fallo("ANIME_DUPLICADO", "Ya tienes ese anime en tu vault.");
+return exito({ id: creado.id });
+```
+
+`CODIGOS` es la lista cerrada de códigos y `CodigoError` se deriva de ella. La tabla con
+el significado de cada uno y su equivalente HTTP está en `api-conventions.md`.
+
+**Por qué se devuelve y no se lanza:** una Server Action que lanza le llega al cliente como
+un error genérico de React —sin código y sin mensaje en producción—, así que el formulario
+no puede pintar nada útil. Devolver el sobre deja el error donde se puede enseñar.
+
+### Las excepciones que SÍ existen, y para qué
+
+Cuatro clases, y ninguna es un «error de negocio»: las cuatro señalan que **el programa
+está en un estado en el que no puede continuar**.
+
+| Clase | Dónde | Qué señala |
+|---|---|---|
+| `ErrorSesionInvalida` | `src/auth.ts` | la sesión no vale: hay que mandar al login |
+| `ErrorConfiguracion` | `src/lib/config/entorno.ts` | falta una variable obligatoria: se para al arrancar |
+| `ErrorContextoFalsificado` | `src/lib/db/contexto.ts` | alguien intentó forjar un `ContextoUsuario` |
+| `ErrorNoEncontrado` | `src/lib/db/contexto.ts` | el recurso no existe **o no es tuyo** |
+
 - `try/catch` solo donde puedes **hacer algo** con el error. Envolver por envolver y
   re-lanzar el mismo error es ruido.
 - Nada de `catch {}` vacío. Si de verdad se ignora, se comenta por qué en una línea.
-- `console.log` fuera del código de producción. Para trazas, el logger de `src/lib/log.ts`.
+
+### Trazas: `console` directo, y ésa es la convención
+
+**No hay módulo de logger, y no hace falta.** El código de producción escribe con
+`console` directamente: 15 llamadas en `src/`, **ninguna de ellas `console.log`**.
+
+| Nivel | Cuándo | Ejemplo real |
+|---|---|---|
+| `console.error` | algo falló y alguien tiene que mirarlo | `[email] fallo al enviar` |
+| `console.warn` | siguió funcionando, pero hay algo que decir | `[portadas] no se pudo subir al espejo de Drive` |
+| `console.info` | un camino alternativo se activó a propósito | el driver de consola del correo |
+
+**`console.log` está prohibido igual que antes.** Lo que cambia es a dónde te manda la
+regla: en Vercel, `console.error` y `console.warn` van a los logs de la función con su
+nivel, y eso es exactamente lo que hace falta. Un módulo envoltorio encima no añadiría
+nada que no tengamos y sería una indirección más que abrir para leer una traza.
+
+**El prefijo es `[modulo]`**, entre corchetes, y en español: `[email]`, `[portadas]`,
+`[recuperar]`, `[pantalla]`. Hay cuatro llamadas antiguas con el estilo `modulo:` sin
+corchetes (`login:`, `recuperar:`); no se migran a la fuerza, pero lo nuevo lleva
+corchetes: son lo que hace que un `grep` sobre los logs de Vercel encuentre un módulo
+entero.
+
+**Lo que NUNCA se loguea** (`security.md` §7 y `api-conventions.md`): contraseña,
+`password_hash`, token de reset, `AUTH_SECRET`, `ANTHROPIC_API_KEY`, la cadena de la base,
+el cuerpo de la respuesta de un proveedor —que puede traer cabeceras y credenciales— ni el
+email completo en producción. Del error de un tercero se registra **el código de estado**,
+no la respuesta.
+
+**Si algún día hace falta un logger de verdad** —correlación por petición, salida
+estructurada, envío a un servicio—, se crea entonces y se migran las 15 llamadas en el
+mismo commit. Lo que no se hace es documentarlo antes de que exista.
 
 ## Formato
 
@@ -193,6 +260,7 @@ importas de ahí. Si necesitas que cambie, cambias ese fichero.
 | Validar el alta de un anime | `src/lib/validation/anime.ts` |
 | Formatear una fecha para pantalla | `src/lib/ui/fecha.ts` |
 | Componer las clases con los tokens | `src/lib/ui/cn.ts` |
+| Entregar un nodo a un `ref` que viene de fuera | `src/lib/ui/refs.ts` |
 | Decidir si un `href` es seguro | `src/lib/ui/href.ts` |
 | Botón, enlace, chip, badge, input, skeleton | `src/components/ui/` |
 | Selector, combobox, pestañas, tooltip, zona de arrastre, diálogo de confirmación, progreso editable | `src/components/ui/` |
@@ -200,6 +268,10 @@ importas de ahí. Si necesitas que cambie, cambias ese fichero.
 | El logotipo | `src/components/ui/marca.tsx` |
 | El mensaje de error de un campo | `src/components/ui/mensaje-error.tsx` |
 | El anillo de foco, la transición, el titular, la caja de un control, el marco dorado, la etiqueta de sección, la nota secundaria, el hover dorado | `src/lib/ui/clases.ts` |
+| La pantalla suelta (404 y error) y el párrafo que explica un estado | `src/lib/ui/clases.ts` |
+| El aspecto de un 404 | `src/components/layout/pantalla-404.tsx` |
+| La navegación inferior de móvil | `src/components/layout/nav-movil.tsx` |
+| Abrir el modal de añadir y enfocar el buscador desde otra rama del árbol | `src/lib/ui/eventos.ts` |
 | La card de un anime | `src/components/anime/anime-card.tsx` |
 | La barra de filtros y el conmutador de vista | `src/components/anime/barra-filtros.tsx` |
 
@@ -261,3 +333,78 @@ Lo dice `CLAUDE.md` § «Cómo se trabaja aquí» punto 6, y se repite aquí por
 mira al escribir código: **antes de escribir una utilidad, `grep` en `src/lib/`**. Si no
 existe pero huele a compartida, se entrega como propuesta aparte en vez de enterrarla en
 la carpeta de una pantalla.
+
+## Los spreads de props van PRIMERO
+
+> **JSX aplica los atributos en orden y el último gana ENTERO.** No los mezcla.
+> Así que lo que el componente garantiza va DETRÁS del spread, y lo que el
+> llamador puede elegir, delante.
+
+```tsx
+MAL   <input className={cn(CONTROL, …)} {...resto} />
+BIEN  <input {...resto} className={cn(CONTROL, …)} />
+```
+
+### El fallo, y por qué ninguna otra puerta lo para
+
+El campo «Portada» del modal salió **en producción** con 198 × 26 px y sin
+poder escribir en él. `resto` traía un `className` del llamador y sustituía
+entera la receta del control.
+
+Sobrevivió a todo lo que hay montado:
+
+| Nivel | Por qué no lo vio |
+|---|---|
+| `tsc` | pasar `className` a algo que acepta `className` es correcto |
+| ESLint | no es una cuestión de estilo |
+| La suite de unidad | **no renderiza**: no existe atributo que mirar |
+| Quien lee el código | ve un `cn(...)` justo encima y da por hecho que gana |
+
+Lo encontró un navegador. Como el registro sin nombre, como la CSP, como el
+404 que respondía 200.
+
+### Y no era un caso: era una clase
+
+Un barrido de 23 componentes con verificadores independientes encontró **ocho
+agujeros más de la misma forma**, en cuatro primitivas, y **ninguno tenía
+síntoma todavía** —nadie pasaba aún la prop que los dispara—. Eran bugs con
+fecha de caducidad futura:
+
+| Dónde | Prop pisada | Qué se perdía |
+|---|---|---|
+| `campo.tsx` (input y textarea) | `aria-describedby`, `aria-invalid` | el enlace con el error y con la ayuda: **la razón de existir del componente**. El `<p>` seguía pintado sin que nadie lo apuntara |
+| `selector.tsx` | `aria-describedby` | la ayuda, muda para un lector de pantalla |
+| `chip.tsx` | `type` | el `type="button"`: un chip de filtro dentro de un `<form>` volvía a ser el botón de envío |
+| `enlace.tsx` | `rel`, `target` | **`rel="noopener noreferrer"`** (security.md §6), sobre URLs que pega el usuario |
+
+El de `enlace.tsx` es el que más enseña: el comentario de esa misma línea
+decía «No es configurable A PROPÓSITO», y era configurable. **Un comentario
+que afirma una garantía no la implementa.**
+
+### El `ref` es el caso aparte, y se COMPONE
+
+Desde React 19 el `ref` de un componente de función viaja como una prop
+normal, así que entra en `...resto` con todo lo demás. Dos agravantes:
+
+1. El compilador rechaza `<Casilla ref={…} />` escrito a mano, pero **no**
+   `<Casilla {...register("recordarme")} />` —un spread no pasa la comprobación
+   de propiedades excedentes—. La forma peligrosa es justo la que compila.
+2. **Los dos refs son legítimos**: la primitiva necesita el nodo (`indeterminate`
+   no es un atributo de HTML, sólo se puede escribir en la propiedad) y
+   react-hook-form también (sin él, el control deja de registrarse). Aquí no
+   gana ninguno: se componen, con `fijarRef` de `src/lib/ui/refs.ts`.
+
+### Cómo se comprueba
+
+- **`npm run lint:spread`** (encadenado en `lint:todo`) parsea los `.tsx` con
+  el compilador de TypeScript y falla si un spread va detrás de un atributo.
+  Aquí **no hay techo**: son 0 y se quedan en 0. Cuando el llamador deba pisar
+  a propósito, se escribe el motivo y se sigue:
+  `{...resto} // lint-spread-ok: <por qué>`.
+- **`src/components/ui/spread-de-props.test.tsx`** renderiza y **mira el
+  atributo que sale**, que es lo único que ve esta clase de fallo. Los
+  `.test.tsx` quedan fuera del lint: atacar al componente con un spread hostil
+  es lo que hacen a propósito.
+
+Las dos hacen falta. El lint cubre las props que nadie ha escrito todavía; el
+test cubre que la garantía siga siendo cierta cuando alguien las escriba.

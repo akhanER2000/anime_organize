@@ -52,7 +52,10 @@ export type OpcionSelector = {
   readonly deshabilitada?: boolean;
 };
 
-export type PropsSelector = Omit<SelectHTMLAttributes<HTMLSelectElement>, "id" | "children"> & {
+export type PropsSelector = Omit<
+  SelectHTMLAttributes<HTMLSelectElement>,
+  "id" | "children" | "aria-describedby"
+> & {
   etiqueta: string;
   opciones: readonly OpcionSelector[];
   /** Oculta la etiqueta visualmente pero la mantiene para lectores. */
@@ -104,10 +107,14 @@ export function Selector({
 
       <div className="relative">
         <select
+          // El spread PRIMERO: JSX aplica en orden y el último gana entero, así
+          // que con `{...resto}` aquí abajo un `aria-describedby` del llamador
+          // desconectaba el <p> de ayuda —que se seguía pintando— del control
+          // que lo describe. Invisible en pantalla y mudo para un lector.
+          {...resto}
           id={id}
           aria-describedby={ayuda !== undefined ? idAyuda : undefined}
           className={CONTROL}
-          {...resto}
         >
           {vacia !== undefined && <option value="">{vacia}</option>}
           {opciones.map((opcion) => (

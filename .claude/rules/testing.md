@@ -385,9 +385,12 @@ Son dos preguntas distintas y hacen falta las dos.
 | **404 y nunca 403 en la ficha** (`security.md` §1) | `e2e/ficha-anime.spec.ts` mira `response.status()` de un uuid inexistente, de un uuid ajeno y de tres cadenas que no son uuid | **REAL** ✓ |
 | **Contrato de datos alcanzable** | el control positivo de `lint:contrato` OBTIENE el contexto con `exigirSesionParaLeer()`, no lo recibe como parámetro | **REAL** ✓ |
 | **El limitador contra Postgres** (`registrarIntento`) | 8 casos contra la base real: cuenta, atomicidad con 12 llamadas concurrentes, ventana deslizante, aislamiento de claves | **REAL** ✓ |
-| **CSRF** | `Headers` montadas a mano; nunca un Route Handler arrancado | **RECONSTRUIDO** |
+| **CSRF** | `e2e/importar.spec.ts` sube un `.xlsx` por `multipart/form-data` a `POST /api/import` en la app arrancada, y la guarda decide sobre el `Origin` que pone Chromium | **REAL** ✓ |
 | **Vinculación OAuth** | lógica pura. Aceptable: el proveedor está apagado y no hay camino real todavía | **RECONSTRUIDO** (justificado) |
-| **SSRF en `/api/covers`** | — | **NO IMPLEMENTADO** (FASE 2) |
+| **SSRF en `/api/covers`** | `descargar.integracion.test.ts`: servidor local, DNS real, sockets reales, y redirecciones al metadata de la nube y a la red privada | **REAL** ✓ |
+| **SSRF en «comprobar espejos»** | `comprobar-espejo.integracion.test.ts`, sobre el MISMO validador que las portadas | **REAL** ✓ |
+| **La hoja subida se valida por magic bytes** | el mismo spec sube un PNG con nombre `.csv` | **REAL** ✓ |
+| **La importación no escribe lo que el cliente diga** | el plan vive en `import_job.report`; el navegador sólo manda números de fila | **REAL** ✓ |
 
 ### Lo que encontró cada nivel de verificación · 2026-08-24
 
@@ -417,12 +420,57 @@ cabeceras eran impecables, el HTML llegaba entero— y dejaba la aplicación ins
   `INSERT … ON CONFLICT DO UPDATE`, y ese no se había ejecutado jamás en un test.
   La distinción es exactamente la de esta sección: la unidad medía la decisión, no el
   recuento.
-- **Rate limit antes del hash** y **CSRF** pasan a REAL cuando existan las rutas: el test
-  hará login contra el endpoint de verdad y comprobará el 429 y el rechazo por origen.
+- ~~**Rate limit antes del hash** y **CSRF**~~ — **HECHOS**. El primero desde
+  `revocacion.camino-real.test.ts`; el segundo desde `e2e/importar.spec.ts`, que
+  es el primer Route Handler que muta y por tanto el primero que pasa por la
+  guarda. Al hacerlo se descubrió que la suite entraba por `127.0.0.1` mientras
+  la app se llama `localhost`: **la guarda rechazaba correctamente** y nadie lo
+  había notado porque hasta entonces ninguna ruta mutaba.
 - **Aislamiento** sube a REAL completo cuando el test entre por una Server Action en vez
   de por `vaultDe` directamente.
 - **SSRF** nace ya con test del camino real: un servidor local que redirige a `127.0.0.1`,
   no un mock de `fetch`.
+
+### Lo que encontró el navegador en los lotes B2, C1 y C2 · 2026-08-28
+
+Cinco fallos, y **ninguno de los cinco lo podía ver la suite de unidad**. Los
+cinco tenían todos los indicadores en verde:
+
+| Qué se veía | Qué era de verdad |
+|---|---|
+| El botón «Añadir sitio» no recibía el clic | el formulario llevaba `MARCO_DORADO`, que es `absolute` + `pointer-events-none`: era un overlay, no una caja |
+| `npm run enrich` decía «3 sin resultado» | se mandaba `id: null` a AniList y **404 con `Media: null`** es indistinguible de «no existe» |
+| La importación decía «Petición rechazada por su origen» | la suite entraba por `127.0.0.1` y la app se llama `localhost`: **orígenes distintos**, y la guarda CSRF hacía lo correcto |
+| El restablecimiento devolvía 500 | una guarda que yo mismo acababa de añadir era demasiado estricta y rompía un cubo legítimo |
+| «la portada se pidió sin `?v=`» | basura de otro test: animes importados sin el prefijo `[e2e]` se colaban los primeros en la biblioteca |
+
+Los dos últimos merecen subrayarse porque son de la misma familia y salen
+caros: **un rojo que señala el sitio equivocado**. Ninguno de los dos tenía que
+ver con lo que su mensaje decía.
+
+### Y uno que ningún nivel podía ver, ni siquiera el navegador
+
+`registrarIntento(nombre, clave)` recibió `sesion.userId` pelado como clave en
+tres rutas nuevas. El primer parámetro elige la POLÍTICA y el segundo identifica
+el CUBO; con el id desnudo, **los tres límites `*:user` de la misma persona
+cuentan en el mismo contador**: importar una hoja le gastaba el presupuesto de
+enriquecer y el de comprobar espejos.
+
+El efecto observable de cada ruta por separado es **idéntico** al correcto: se
+registra un intento, se permite, se deniega al pasarse. Ningún test de esas
+rutas podía distinguirlo, y un navegador tampoco. Lo destapó **un helper de la
+suite**: el que vacía el cubo de importación buscaba claves `import:%` y la
+tabla sólo tenía uuids pelados.
+
+Arreglado con una guarda en `registrarIntento` que exige la forma
+`<accion>:<email|ip|user>:<valor>`. **La primera versión de esa guarda estaba
+mal** —exigía que la clave empezara por el nombre del límite, y `/recuperar/nueva`
+aplica la política `recuperar:ip` a un cubo propio, `recuperar-nueva:ip:…`, que
+es correcto y deliberado—. La rompió el recorrido del restablecimiento con un
+500 antes de que llegara a ninguna parte.
+
+La lección doble: **una comprobación nueva también hay que verificarla**, y el
+nivel que la verifica es el mismo que verifica todo lo demás.
 
 ## Ninguna pantalla está terminada sin un RECORRIDO EN NAVEGADOR · OBLIGATORIO
 

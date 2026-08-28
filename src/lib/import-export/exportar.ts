@@ -138,6 +138,63 @@ export function componerExport(datos: {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * EL PRESUPUESTO DEL EXPORT, Y POR QUÉ ESTA PARTE VIVE AHORA AQUÍ.
+ *
+ * Había un segundo módulo —`export.ts`— con su propio `AnimeExportado`, su
+ * propio `_leeme` y este medidor. **No lo importaba nadie**: sólo su test.
+ * Era el caso exacto de `code-style.md` § «Conceptos con un solo dueño»: dos
+ * ficheros describiendo la misma decisión, con dos formas distintas del mismo
+ * tipo, y la conclusión de uno citada en el docblock del otro.
+ *
+ * Ganó `exportar.ts` porque es el que corre: lo usan la Server Action del
+ * borrado de cuenta y el vault. De `export.ts` se rescató **lo único que el
+ * vivo no tenía**, que es esto — y no era decorativo:
+ *
+ * ── EL HUECO QUE TAPABA, Y NADIE COMPROBABA ─────────────────────────────
+ *
+ * El export viaja por el valor de retorno de una Server Action, y el
+ * presupuesto de payload en Vercel es **1 MiB**. Con 83 animes sobra de largo;
+ * con unos miles de filas y notas largas, no. Y el momento en que se descubre
+ * es el peor posible: el export se entrega **justo antes de borrar la cuenta**
+ * (`security.md` §3), así que un fallo ahí deja al usuario sin sus datos y con
+ * la cuenta a medio camino.
+ *
+ * Medir no arregla el caso grande por sí solo —para eso hace falta trocear—,
+ * pero convierte «se rompió» en «no cabe, y aquí está por qué».
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/** Presupuesto del export que viaja por una Server Action. */
+export const LIMITE_EXPORT_BYTES = 1_048_576; // 1 MiB
+
+/** A partir de aquí conviene avisar, antes de llegar al límite duro. */
+export const UMBRAL_AVISO_BYTES = 786_432; // 0,75 MiB
+
+/** Tamaño REAL del JSON serializado, en bytes UTF-8. No una estimación. */
+export function tamanoEnBytes(datos: unknown): number {
+  return Buffer.byteLength(JSON.stringify(datos), "utf8");
+}
+
+export type VeredictoTamano = {
+  readonly bytes: number;
+  readonly cabe: boolean;
+  readonly convieneAvisar: boolean;
+  /** Porcentaje del presupuesto consumido, redondeado. */
+  readonly porcentaje: number;
+};
+
+export function medirExport(datos: unknown): VeredictoTamano {
+  const bytes = tamanoEnBytes(datos);
+  return {
+    bytes,
+    cabe: bytes <= LIMITE_EXPORT_BYTES,
+    convieneAvisar: bytes >= UMBRAL_AVISO_BYTES,
+    porcentaje: Math.round((bytes / LIMITE_EXPORT_BYTES) * 100),
+  };
+}
+
+/**
  * El nombre del fichero que se descarga.
  *
  * Lleva la fecha porque quien exporta dos veces quiere poder distinguirlos, y

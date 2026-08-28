@@ -199,3 +199,32 @@ export const HOVER_DORADO = cn("hover:border-[var(--gold-borde)] hover:text-[var
 export const SUPERFICIE_PELIGRO = cn(
   "border-[var(--estado-abandonado-borde)] bg-[var(--estado-abandonado-wash)]",
 );
+
+/**
+ * LA PANTALLA SUELTA — la que se sirve sin el marco del vault.
+ *
+ * El 404 global y la pantalla de error no cuelgan de `app/app/layout.tsx`: no
+ * hay barra superior ni contenedor, porque a las dos puede llegar alguien sin
+ * sesión. Necesitan su propio ancho, su propio aire y ocupar el alto entero
+ * —`min-h-dvh`, que en móvil es el alto REAL del viewport y no el teórico, así
+ * que la barra del navegador no deja el contenido a medias—.
+ *
+ * Escrita dos veces la cazó `lint:duplicados` en el mismo commit que las creó.
+ */
+export const PANTALLA_SUELTA = cn(
+  "mx-auto flex min-h-dvh max-w-[var(--contenedor-max)] flex-col",
+  "px-[var(--e-2-5)] tablet:px-[var(--gutter-s)]",
+);
+
+/**
+ * EL PÁRRAFO QUE EXPLICA UN ESTADO DE PANTALLA COMPLETA.
+ *
+ * El de debajo del titular en un 404, en un error o en un vacío grande. Los
+ * 46 ch no son decorativos: es el ancho de línea legible que pide
+ * `DESIGN-SPEC` para el cuerpo, y sin él una explicación de dos frases se
+ * estira hasta los 1440 px del contenedor y deja de leerse.
+ */
+export const PARRAFO_DE_ESTADO = cn(
+  "mt-[var(--e-1-5)] max-w-[46ch] font-ui text-cuerpo-s leading-cuerpo",
+  "text-[var(--porcelain-200)]",
+);

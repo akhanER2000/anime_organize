@@ -194,14 +194,14 @@ export function FormularioRecuperar() {
       className="flex flex-col gap-[var(--e-2)]"
     >
       <Campo
+        {...(errors.email?.message !== undefined ? { error: errors.email.message } : {})}
+        {...register("email")}
         etiqueta="Correo"
         type="email"
         autoComplete="email"
         inputMode="email"
         spellCheck={false}
         autoCapitalize="none"
-        {...(errors.email?.message !== undefined ? { error: errors.email.message } : {})}
-        {...register("email")}
       />
 
       {errorDelServidor !== null && <MensajeError>{errorDelServidor}</MensajeError>}

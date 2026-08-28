@@ -1,9 +1,8 @@
 import "server-only";
 
-import { lookup as dnsLookup } from "node:dns/promises";
-import type { request as peticionHttpNativa } from "node:http";
+import { peticionFijada, validarDestino } from "@/lib/red/peticion-segura";
 
-import { esIpPrivada } from "./ip-privada";
+import type { FalloDeDestino, RespuestaCruda } from "@/lib/red/peticion-segura";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -49,11 +48,15 @@ import { esIpPrivada } from "./ip-privada";
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+/**
+ * Los motivos propios de una DESCARGA, más los que puede dar el destino.
+ *
+ * Se componen en vez de repetirse: `FalloDeDestino` lo produce la validación
+ * compartida —la misma que usa «comprobar espejos»— y volver a escribir sus
+ * cuatro etiquetas aquí garantizaría que un día digan cosas distintas.
+ */
 export type FalloDescarga =
-  | "ESQUEMA_NO_PERMITIDO"
-  | "URL_INVALIDA"
-  | "CREDENCIALES_EN_URL"
-  | "DESTINO_INTERNO"
+  | FalloDeDestino
   | "DEMASIADAS_REDIRECCIONES"
   | "RESPUESTA_NO_OK"
   | "TIPO_NO_SOPORTADO"
@@ -63,12 +66,6 @@ export type FalloDescarga =
 export type ResultadoDescarga =
   | { ok: true; bytes: Buffer; contentType: string; urlFinal: string }
   | { ok: false; motivo: FalloDescarga };
-
-/** ¿Es una dirección de la propia máquina? Solo loopback, nada más. */
-function esLoopback(ip: string): boolean {
-  const limpia = ip.trim().toLowerCase();
-  return limpia === "::1" || limpia.startsWith("127.") || limpia === "::ffff:127.0.0.1";
-}
 
 export type OpcionesDescarga = {
   /**
@@ -98,62 +95,6 @@ const MAXIMO_SALTOS = 3;
 
 /** Lo único que aceptamos. El `Content-Type` se comprueba además por magic bytes. */
 const TIPOS_ACEPTADOS = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
-
-/**
- * Valida una URL y devuelve la IP a la que se conectará.
- *
- * Se ejecuta en la URL original **y en cada redirección**.
- */
-async function validarDestino(
-  bruta: string,
-  permitirLoopback: boolean,
-): Promise<
-  { ok: true; url: URL; ip: string; familia: number } | { ok: false; motivo: FalloDescarga }
-> {
-  let url: URL;
-  try {
-    url = new URL(bruta);
-  } catch {
-    return { ok: false, motivo: "URL_INVALIDA" };
-  }
-
-  // 1. Solo http y https. `file:`, `data:`, `gopher:`, `blob:` fuera.
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    return { ok: false, motivo: "ESQUEMA_NO_PERMITIDO" };
-  }
-
-  // 2. Credenciales embebidas: `http://usuario:clave@interno/`. Algunos
-  //    proxies las interpretan de forma sorprendente y no aportan nada aquí.
-  if (url.username !== "" || url.password !== "") {
-    return { ok: false, motivo: "CREDENCIALES_EN_URL" };
-  }
-
-  // 3. Resolución explícita. `all: true` porque un host puede devolver varias
-  //    direcciones y basta con que UNA sea interna para que el ataque funcione.
-  let direcciones: { address: string; family: number }[];
-  try {
-    direcciones = await dnsLookup(url.hostname, { all: true });
-  } catch {
-    return { ok: false, motivo: "URL_INVALIDA" };
-  }
-
-  if (direcciones.length === 0) return { ok: false, motivo: "URL_INVALIDA" };
-
-  // 4. TODAS, no solo la primera.
-  const bloqueada = (ip: string): boolean => {
-    if (permitirLoopback && esLoopback(ip)) return false;
-    return esIpPrivada(ip);
-  };
-
-  if (direcciones.some((d) => bloqueada(d.address))) {
-    return { ok: false, motivo: "DESTINO_INTERNO" };
-  }
-
-  const primera = direcciones[0];
-  if (primera === undefined) return { ok: false, motivo: "URL_INVALIDA" };
-
-  return { ok: true, url, ip: primera.address, familia: primera.family };
-}
 
 /**
  * Descarga una imagen de una URL que escribió el usuario.
@@ -186,11 +127,17 @@ export async function descargarImagen(
     // `http.request` acepta `lookup` de forma nativa. Devuelve la IP YA
     // VALIDADA, así que entre la comprobación y el socket no hay ventana por la
     // que colar un DNS rebinding.
-    const pedir = destino.url.protocol === "https:" ? peticionHttps : peticionHttp;
-
     let respuesta: RespuestaCruda;
     try {
-      respuesta = await pedir(destino.url, destino.ip, destino.familia);
+      respuesta = await peticionFijada(destino, {
+        metodo: "GET",
+        cabeceras: {
+          accept: "image/avif,image/webp,image/png,image/jpeg;q=0.9,*/*;q=0.1",
+          "user-agent": "AnimeVault/1.0 (portadas)",
+        },
+        maximoBytes: MAXIMO_BYTES,
+        timeoutMs: TIMEOUT_MS,
+      });
     } catch {
       // Timeout, conexión rechazada, DNS caído… todo lo mismo de cara afuera.
       return { ok: false, motivo: "SIN_RESPUESTA" };
@@ -229,112 +176,4 @@ export async function descargarImagen(
   }
 
   return { ok: false, motivo: "DEMASIADAS_REDIRECCIONES" };
-}
-
-/**
- * `node:http` y `node:https` exponen el mismo `request` para lo que aquí se
- * usa. Se tipa así en vez de con `typeof import(...)` porque el lint del
- * proyecto prohíbe las anotaciones `import()` — y con razón: esconden una
- * dependencia donde nadie la busca.
- */
-type ModuloHttp = { request: typeof peticionHttpNativa };
-
-type RespuestaCruda = {
-  estado: number;
-  cabeceras: Record<string, string | undefined>;
-  cuerpo: Buffer;
-  /** `true` si se cortó por pasarse del tamaño máximo. */
-  excedido: boolean;
-};
-
-/**
- * Una petición con la IP FIJADA y el tamaño contado.
- *
- * El `lookup` devuelve siempre la dirección ya validada, ignorando el hostname:
- * eso es lo que cierra el DNS rebinding. Y el cuerpo se acumula contando bytes,
- * abortando en cuanto se pasa — sin creerse `Content-Length`, que lo escribe el
- * servidor remoto, que es justo quien no es de fiar.
- */
-function peticionCon(
-  modulo: ModuloHttp,
-  url: URL,
-  ip: string,
-  familia: number,
-): Promise<RespuestaCruda> {
-  return new Promise((resolver, rechazar) => {
-    const req = modulo.request(
-      url,
-      {
-        method: "GET",
-        headers: {
-          accept: "image/avif,image/webp,image/png,image/jpeg;q=0.9,*/*;q=0.1",
-          "user-agent": "AnimeVault/1.0 (portadas)",
-        },
-        lookup: ((_hostname: string, opciones: unknown, cb: unknown) => {
-          const devolver = (typeof opciones === "function" ? opciones : cb) as (
-            err: Error | null,
-            address: string | { address: string; family: number }[],
-            family?: number,
-          ) => void;
-          // `all: true` espera un array; sin él, dirección y familia sueltas.
-          const pideTodas =
-            typeof opciones === "object" && opciones !== null && "all" in opciones
-              ? (opciones as { all?: boolean }).all === true
-              : false;
-          if (pideTodas) devolver(null, [{ address: ip, family: familia }]);
-          else devolver(null, ip, familia);
-        }) as never,
-      },
-      (res) => {
-        const trozos: Buffer[] = [];
-        let total = 0;
-        let excedido = false;
-
-        res.on("data", (trozo: Buffer) => {
-          if (excedido) return;
-          total += trozo.byteLength;
-          if (total > MAXIMO_BYTES) {
-            excedido = true;
-            res.destroy();
-            return;
-          }
-          trozos.push(trozo);
-        });
-
-        const terminar = (): void => {
-          resolver({
-            estado: res.statusCode ?? 0,
-            cabeceras: res.headers as Record<string, string | undefined>,
-            cuerpo: Buffer.concat(trozos),
-            excedido,
-          });
-        };
-
-        res.on("end", terminar);
-        // `destroy()` por pasarse de tamaño cierra sin `end`: se resuelve igual,
-        // con la marca puesta, en vez de quedarse colgado hasta el timeout.
-        res.on("close", terminar);
-        res.on("error", () => {
-          if (excedido) terminar();
-          else rechazar(new Error("respuesta interrumpida"));
-        });
-      },
-    );
-
-    req.setTimeout(TIMEOUT_MS, () => {
-      req.destroy(new Error("timeout"));
-    });
-    req.on("error", rechazar);
-    req.end();
-  });
-}
-
-async function peticionHttp(url: URL, ip: string, familia: number): Promise<RespuestaCruda> {
-  const http = await import("node:http");
-  return peticionCon(http, url, ip, familia);
-}
-
-async function peticionHttps(url: URL, ip: string, familia: number): Promise<RespuestaCruda> {
-  const https = await import("node:https");
-  return peticionCon(https, url, ip, familia);
 }

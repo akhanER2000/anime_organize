@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AccionAnadir } from "@/components/layout/barra-superior";
 import { Toast } from "@/components/ui/toast";
+import { alPedirAbrirAnadir } from "@/lib/ui/eventos";
 
 import { ModalAnadir } from "./modal-anadir";
 
@@ -34,6 +35,17 @@ export function AccionAnadirConModal() {
   const [abierto, setAbierto] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const router = useRouter();
+
+  // La navegación inferior de móvil también abre este modal, y vive en otra
+  // rama del árbol (ver `@/lib/ui/eventos`). El botón de la barra superior
+  // sigue funcionando igual: son dos entradas al mismo estado.
+  useEffect(
+    () =>
+      alPedirAbrirAnadir(() => {
+        setAbierto(true);
+      }),
+    [],
+  );
 
   return (
     <>

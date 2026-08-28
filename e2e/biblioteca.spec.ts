@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { entrarComoPropietario } from "./sesion-propietario";
+
+import config from "../playwright.config";
 import { config as cargarEnv } from "dotenv";
 
 import type { BrowserContext, Page } from "@playwright/test";
@@ -60,8 +62,18 @@ cargarEnv({ path: resolve(process.cwd(), ".env.local"), quiet: true });
 const EMAIL_PROPIETARIO = process.env.SEED_OWNER_EMAIL ?? "";
 const PASSWORD_PROPIETARIO = process.env.SEED_OWNER_PASSWORD ?? "";
 
-/** El origen del servidor bajo prueba. Fijado en `playwright.config.ts`. */
-const ORIGEN = "http://127.0.0.1:3000";
+/**
+ * El origen del servidor bajo prueba.
+ *
+ * Sale de `baseURL` en vez de estar escrito a mano. Estuvo fijado a
+ * `127.0.0.1` y, al cambiar la suite a `localhost` —porque es como se
+ * identifica la app y la guarda CSRF rechazaba lo demás—, este test empezó a
+ * marcar **nuestras propias portadas** como «pedidas a otro dominio».
+ *
+ * Un test que sabe la dirección del servidor por su cuenta miente en cuanto la
+ * dirección cambia, y encima lo hace en la forma más alarmante posible.
+ */
+const ORIGEN = new URL(config.use?.baseURL ?? "http://localhost:3000").origin;
 
 /** Las cinco etiquetas de estado, tal cual se leen en los chips. */
 const ETIQUETAS_DE_ESTADO = ["Visto", "Viendo", "En espera", "Abandonado", "Pendiente"] as const;

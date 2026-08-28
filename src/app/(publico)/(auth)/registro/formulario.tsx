@@ -109,26 +109,28 @@ export function FormularioRegistro() {
       className="flex flex-col gap-[var(--e-2)]"
     >
       <Campo
+        {...propsError(errorDe("nombre"))}
+        {...register("nombre")}
         etiqueta="Nombre"
         placeholder={PLACEHOLDER_NOMBRE}
         autoComplete="name"
-        {...propsError(errorDe("nombre"))}
-        {...register("nombre")}
       />
 
       <Campo
+        {...propsError(errorDe("email"))}
+        {...register("email")}
         etiqueta="Correo"
         type="email"
         // `inputMode="email"` saca el teclado con @ en móvil; `autoComplete`
         // deja que el gestor de contraseñas rellene y, sobre todo, que GUARDE.
         inputMode="email"
         autoComplete="email"
-        {...propsError(errorDe("email"))}
-        {...register("email")}
       />
 
       <div className="flex flex-col gap-[var(--e-1)]">
         <Campo
+          {...propsError(errorDe("password"))}
+          {...register("password")}
           etiqueta="Contraseña"
           type="password"
           placeholder={PLACEHOLDER_PASSWORD}
@@ -136,8 +138,6 @@ export function FormularioRegistro() {
           // `new-password` es lo que hace que el navegador OFREZCA generar una
           // y no rellene la del login. Con `current-password` haría lo contrario.
           autoComplete="new-password"
-          {...propsError(errorDe("password"))}
-          {...register("password")}
         />
 
         {/* Los cuatro segmentos de 2 px del artboard. El cálculo es puro y vive

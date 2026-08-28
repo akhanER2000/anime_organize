@@ -109,36 +109,36 @@ export function FormularioLogin() {
   return (
     <form onSubmit={enviar} noValidate className="flex flex-col gap-[var(--e-2)]">
       <Campo
+        {...(errors.email?.message !== undefined ? { error: errors.email.message } : {})}
+        {...register("email")}
         etiqueta="Correo"
         type="email"
         autoComplete="email"
         inputMode="email"
         spellCheck={false}
         autoCapitalize="none"
-        {...(errors.email?.message !== undefined ? { error: errors.email.message } : {})}
-        {...register("email")}
       />
 
       <Campo
+        {...(errors.password?.message !== undefined ? { error: errors.password.message } : {})}
+        {...register("password")}
         etiqueta="Contraseña"
         // El único efecto del conmutador: cambiar el `type`. Nada de duplicar
         // el input, que perdería el foco y el texto escrito al alternar.
         type={contrasenaVisible ? "text" : "password"}
         autoComplete="current-password"
-        {...(errors.password?.message !== undefined ? { error: errors.password.message } : {})}
         adorno={
           <ConmutadorContrasena
             visible={contrasenaVisible}
             alPulsar={() => setContrasenaVisible((previo) => !previo)}
           />
         }
-        {...register("password")}
       />
 
       {errorDelServidor !== null && <MensajeError>{errorDelServidor}</MensajeError>}
 
       <div className="flex items-center justify-between gap-[var(--e-2)]">
-        <Casilla etiqueta="Recordarme" {...register("recordarme")} />
+        <Casilla {...register("recordarme")} etiqueta="Recordarme" />
         <Enlace href="/recuperar" className="text-ui-s">
           ¿Olvidaste?
         </Enlace>

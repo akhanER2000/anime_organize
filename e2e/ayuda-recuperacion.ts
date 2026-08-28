@@ -145,3 +145,27 @@ export async function liberarLimiteDeLogin(): Promise<void> {
   const sql = neon(url);
   await sql`delete from rate_limit_bucket where clave like 'login:%'`;
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * VACIAR EL CUBO DE **IMPORTACIÓN**.
+ *
+ * `import:user` son **5 por hora** (`security.md` §5), y el recorrido de
+ * importación gasta dos por ejecución: el fichero que se rechaza por no ser
+ * una hoja y el que sí lo es. A la tercera pasada seguida —depurando, que es
+ * cuando más se ejecuta— el spec falla con «Has importado demasiadas veces»,
+ * que se lee como un fallo de la importación y no lo es.
+ *
+ * Misma lógica que los otros dos: una suite que prueba PANTALLAS no debe estar
+ * probando el limitador de paso. El límite de importación **no** tiene un spec
+ * que lo compruebe a propósito; el día que lo tenga, ese spec no debe llamar a
+ * esta función.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export async function liberarLimiteDeImportacion(): Promise<void> {
+  const url = cadenaDeConexion();
+  if (url === null) return;
+
+  const sql = neon(url);
+  await sql`delete from rate_limit_bucket where clave like 'import:%'`;
+}

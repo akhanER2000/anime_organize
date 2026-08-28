@@ -32,6 +32,7 @@ import { eq } from "drizzle-orm";
 import { hashearPassword } from "../src/lib/auth/password";
 import { marcaDeRevocacion } from "../src/lib/auth/sesion";
 import { descargarImagen } from "../src/lib/covers/descargar";
+import { subirAlEspejo } from "../src/lib/covers/drive";
 import { procesarPortada } from "../src/lib/covers/procesar";
 import { contextoDeScript } from "../src/lib/db/contexto-fuera-de-sesion";
 import { dbInterna } from "../src/lib/db/interno";
@@ -40,6 +41,8 @@ import { users } from "../src/lib/db/schema";
 import { vaultDe } from "../src/lib/db/vault";
 import { ESTADOS } from "../src/lib/domain/enums";
 import { mapearProgresoDelSeed } from "../src/lib/domain/progreso";
+import { SITIOS_DE_SEMILLA } from "@/lib/domain/sitios";
+import { contarSitiosGlobales, sembrarSitiosGlobales } from "@/lib/db/sitios";
 import { normalizarTitulo } from "../src/lib/domain/normalizar";
 
 import { cargarEntorno, vinoDelEntorno } from "./cargar-entorno";
@@ -243,6 +246,22 @@ async function principal(): Promise<void> {
   const rellenados = await rellenarProgresoQueFalte(filas, vault, problemas);
   if (rellenados > 0) console.log(`  progreso rellenado en ${String(rellenados)} ya existentes`);
 
+  // ── LOS SITIOS DE LA SEMILLA (encargo §8) ────────────────────────────────
+  // Van en el seed y no en una migración porque son DATOS, no esquema: una
+  // migración que inserte filas convierte cada despliegue en una carga de datos
+  // y deja de poder revertirse limpiamente.
+  //
+  // `sembrarSitiosGlobales` es idempotente por `slug`: correr el seed dos veces
+  // no duplica ninguno ni pisa un nombre corregido a mano. Y **no lleva
+  // dominios**: los espejos caducan (skill §8) y sembrar los de hoy sería
+  // inventarse datos que el dueño no escribió.
+  const sitiosNuevos = await sembrarSitiosGlobales(SITIOS_DE_SEMILLA);
+  const sitiosTotales = await contarSitiosGlobales();
+  console.log(
+    `
+  sitios: ${String(sitiosNuevos)} sembrados · ${String(sitiosTotales)} globales en total`,
+  );
+
   if (!SIN_PORTADAS) {
     await cargarPortadas(filas, vault, problemas);
   }
@@ -270,6 +289,8 @@ async function cargarPortadas(
 ): Promise<void> {
   const conPortada = filas.filter((f) => typeof f.portada?.directUrl === "string");
   console.log(`\n  portadas: ${String(conPortada.length)} por descargar`);
+
+  let espejadas = 0;
 
   const existentes = await vault.listar({ limite: 1000 });
   const porTitulo = new Map(existentes.map((a) => [normalizarTitulo(a.titulo), a]));
@@ -312,6 +333,25 @@ async function cargarPortadas(
           urlOrigen: descarga.urlFinal,
         });
         hechas += 1;
+
+        // ── EL ESPEJO, DESPUÉS Y SIN PODER TUMBAR NADA ──────────────────────
+        // Los bytes ya están en Postgres, que es la fuente de verdad (skill
+        // §5). Si Drive no está configurado —el caso normal— no se hace nada y
+        // no se dice nada: no es una avería.
+        const espejo = await subirAlEspejo(
+          `${fila.titulo.slice(0, 80)} · ${procesada.portada.checksum.slice(0, 8)}.webp`,
+          procesada.portada.bytes,
+          procesada.portada.mime,
+        );
+
+        if (espejo.ok) {
+          await vault.anotarEspejoDrive(anime.id, espejo.driveFileId);
+          espejadas += 1;
+        } else if (espejo.motivo === "INCOMPLETO") {
+          problemas.push(`espejo de Drive a medias; faltan: ${espejo.faltan.join(", ")}`);
+        } else if (espejo.motivo === "FALLO") {
+          problemas.push(`${fila.titulo}: no subió al espejo (${espejo.detalle})`);
+        }
       }),
     );
 
@@ -320,7 +360,13 @@ async function cargarPortadas(
     );
   }
 
-  console.log(`\n  portadas: ${String(hechas)} descargadas · ${String(saltadas)} ya estaban`);
+  console.log(
+    `\n  portadas: ${String(hechas)} descargadas · ${String(saltadas)} ya estaban` +
+      // Se dice SIEMPRE, también cuando son cero: «0 en el espejo» explica
+      // por qué `drive_file_id` está vacío. Callarlo dejaría al dueño
+      // creyendo que el espejo funcionó.
+      ` · ${String(espejadas)} en el espejo de Drive`,
+  );
 }
 
 function extraerFilas(bruto: unknown): FilaSeed[] {

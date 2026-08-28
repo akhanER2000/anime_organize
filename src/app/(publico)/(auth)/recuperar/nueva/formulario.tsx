@@ -78,18 +78,18 @@ export function FormularioNuevaPassword({ token }: { token: string }) {
     >
       {/* El token no se enseña: va oculto. Pintarlo lo dejaría en capturas de
        * pantalla y en el historial del portapapeles sin ninguna ventaja. */}
-      <input type="hidden" {...register("token")} />
+      <input {...register("token")} type="hidden" />
 
       <div className="flex flex-col gap-[var(--e-1)]">
         <Campo
+          {...(errors.password?.message !== undefined ? { error: errors.password.message } : {})}
+          {...register("password")}
           etiqueta="Contraseña nueva"
           type="password"
           autoComplete="new-password"
           autoFocus
           placeholder={`Mínimo ${String(minimoDeCaracteres())} caracteres`}
           ayuda="Una frase larga es más segura que un críptico corto."
-          {...(errors.password?.message !== undefined ? { error: errors.password.message } : {})}
-          {...register("password")}
         />
         <MedidorPassword password={password} />
       </div>

@@ -10,11 +10,13 @@ import { BadgeEstado } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Enlace } from "@/components/ui/enlace";
 import { vaultDe } from "@/lib/db";
+import { enriquecimientoDe } from "@/lib/db/enriquecimiento";
 import { ESTADOS } from "@/lib/domain/enums";
 import { cn } from "@/lib/ui/cn";
 import { fechaCorta } from "@/lib/ui/fecha";
 
 import { AccionContinuar } from "./accion-continuar";
+import { BotonEnriquecer } from "./boton-enriquecer";
 import { ChipGenero, type GeneroDeFicha } from "./chip-genero";
 import {
   esIdentificadorDeAnime,
@@ -73,6 +75,8 @@ type AnimeDeLaFicha = NonNullable<Awaited<ReturnType<Vault["obtener"]>>>;
 
 type Ficha = {
   anime: AnimeDeLaFicha;
+  /** Oficiales de AniList y etiquetas de IA, ya filtrados por propiedad. */
+  generos: readonly GeneroDeFicha[];
   /**
    * TODOS los enlaces, ya serializados y en su orden.
    *
@@ -131,12 +135,19 @@ const cargarFicha = cache(async (animeId: string): Promise<Ficha | null> => {
    */
   // Los enlaces COMPLETOS, no solo el más reciente: la ficha ya no solo los
   // enseña, deja añadirlos, abrirlos y quitarlos.
-  const [listado, enlaces] = await Promise.all([vault.listar(), vault.enlaces(animeId)]);
+  const [listado, enlaces, generos] = await Promise.all([
+    vault.listar(),
+    vault.enlaces(animeId),
+    // Va en el mismo `Promise.all`: es una consulta más de la misma pantalla y
+    // encadenarla añadiría una ida y vuelta entera al primer pintado.
+    enriquecimientoDe(ctx).generosDeFicha(animeId),
+  ]);
   const enlace = enlaces[0] ?? null;
   const enElListado = listado.find((fila) => fila.id === animeId) ?? null;
 
   return {
     anime,
+    generos,
     checksumPortada: enElListado?.checksumPortada ?? null,
     progresoEtiqueta: enElListado?.progresoEtiqueta ?? null,
     relleno: enElListado === null ? null : rellenoDeFila(enElListado),
@@ -268,13 +279,15 @@ export default async function PaginaFichaAnime({ params }: { params: Promise<{ i
   const textoDeProgreso = etiquetaDeProgreso(progresoEtiqueta, relleno);
 
   /**
-   * ── LOS GÉNEROS TAMPOCO, Y NO SE INVENTAN ────────────────────────────────
-   * `anime_genre` está vacía: el enriquecimiento es otra fase, y el vault no
-   * expone los géneros. La lista sale vacía y la sección pinta su estado vacío
-   * honesto. `ChipGenero` ya distingue OFICIAL de IA (§05 y la skill §6) y
-   * entra en funcionamiento en cuanto haya datos que pasarle.
+   * ── LOS GÉNEROS YA SALEN DE LA BASE (lote C1) ───────────────────────────
+   * Los oficiales los trae AniList y las etiquetas `✦` las propone Claude.
+   * `generosDeFicha` filtra por propiedad con el mismo `EXISTS` que el resto
+   * del módulo: para un anime ajeno devuelve `[]`, no un 403.
+   *
+   * Sigue sin inventarse nada: si nadie ha pulsado «Enriquecer», la lista está
+   * vacía y la sección pinta su estado vacío honesto.
    */
-  const generos: GeneroDeFicha[] = [];
+  const generos: readonly GeneroDeFicha[] = ficha.generos;
 
   const tieneSinopsis = anime.synopsis !== null && anime.synopsis.trim().length > 0;
 
@@ -381,6 +394,10 @@ export default async function PaginaFichaAnime({ params }: { params: Promise<{ i
             <h2 id="ficha-generos" className={ETIQUETA_SECCION}>
               Géneros y etiquetas
             </h2>
+
+            <div className="mt-[var(--e-1-5)]">
+              <BotonEnriquecer animeId={anime.id} yaEnriquecido={anime.anilistId !== null} />
+            </div>
 
             {generos.length === 0 ? (
               <p className="mt-[var(--e-1)] max-w-[60ch] font-ui text-ui-s leading-ui text-[var(--porcelain-200)]">

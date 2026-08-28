@@ -81,9 +81,19 @@ jobs:
       - name: Tokens de diseño (ningún hex fuera de globals.css)
         run: npm run lint:tokens
 
-      # Intenta saltarse el contrato de datos de siete formas y exige que las
-      # siete sean rechazadas. Ver src/lib/db/contexto.ts.
-      - name: Contrato de datos (7 intentos de salto)
+      # Una receta de clases escrita dos veces acaba siendo dos recetas
+      # distintas. Falla si el número SUBE, no si hay duplicados.
+      - name: Recetas de clases duplicadas
+        run: npm run lint:duplicados
+
+      # Un {...spread} detrás de lo que el componente calcula lo pisa ENTERO, y
+      # no lo ve ningún test que no renderice. Ver code-style.md.
+      - name: Spreads de props por detrás
+        run: npm run lint:spread
+
+      # Intenta saltarse el contrato de datos y exige que todos los intentos
+      # sean rechazados. Ver src/lib/db/contexto.ts.
+      - name: Contrato de datos (intentos de salto)
         run: npm run lint:contrato
 
       - name: Formato

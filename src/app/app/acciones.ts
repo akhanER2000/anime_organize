@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { exigirSesionParaMutar } from "@/auth";
 import { exito, fallo, falloDeValidacion, type Respuesta } from "@/lib/api/respuesta";
 import { descargarImagen, MAXIMO_BYTES } from "@/lib/covers/descargar";
+import { subirAlEspejo } from "@/lib/covers/drive";
 import { checksumDe, procesarPortada } from "@/lib/covers/procesar";
 import { vaultDe } from "@/lib/db";
 import {
@@ -241,8 +242,14 @@ export async function crearAnime(
 
   if (datos.urlPortada !== null) {
     const portada = await traerPortada(datos.urlPortada);
-    if (portada.ok) await vault.guardarPortada(creado.id, portada.datos);
-    else avisoPortada = portada.respuesta.ok ? null : portada.respuesta.error.mensaje;
+    if (portada.ok) {
+      await vault.guardarPortada(creado.id, portada.datos);
+      // El espejo va DESPUÉS y no puede tumbar nada: los bytes ya están en
+      // Postgres y la portada ya se sirve. Ver `covers/drive.ts`.
+      await espejarEnDrive(vault, creado.id, datos.titulo, portada.datos);
+    } else {
+      avisoPortada = portada.respuesta.ok ? null : portada.respuesta.error.mensaje;
+    }
   }
 
   if (datos.etiquetaProgreso !== null) {
@@ -252,6 +259,61 @@ export async function crearAnime(
   revalidarVault();
 
   return exito({ clase: "CREADO", id: creado.id, avisoPortada });
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * EL ESPEJO EN DRIVE — lote C4, y la parte que NO puede romper nada.
+ *
+ * Skill §5: «si Drive falla, la app sigue funcionando: se registra el aviso y
+ * se continúa». Aquí eso significa tres cosas concretas:
+ *
+ * 1. Se llama **después** de guardar los bytes, nunca antes.
+ * 2. No se propaga ningún fallo: la portada ya está guardada y servible.
+ * 3. Sin configurar **no es un error** y no se registra nada: es el estado
+ *    normal de este proyecto, no una avería.
+ *
+ * Lo que sí se registra es una configuración **a medias**, porque eso sí es un
+ * fallo: el dueño puso dos de las tres variables y sin el aviso no volvería a
+ * enterarse nunca.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+async function espejarEnDrive(
+  vault: Vault,
+  animeId: string,
+  titulo: string,
+  portada: Parameters<Vault["guardarPortada"]>[1],
+): Promise<void> {
+  const resultado = await subirAlEspejo(
+    // Un nombre legible en la carpeta de Drive: el uuid solo no dice nada a
+    // quien la abra, y el checksum distingue dos versiones de la misma portada.
+    `${titulo.slice(0, 80)} · ${portada.checksum.slice(0, 8)}.webp`,
+    portada.bytes,
+    portada.mime,
+  );
+
+  if (resultado.ok) {
+    await vault.anotarEspejoDrive(animeId, resultado.driveFileId);
+    return;
+  }
+
+  if (resultado.motivo === "APAGADO") return;
+
+  if (resultado.motivo === "INCOMPLETO") {
+    // `console.warn` y no un logger propio: es lo que usan los otros ocho
+    // sitios de esta aplicación que registran algo. `code-style.md` menciona un
+    // `src/lib/log.ts` que **nunca se construyó**; crearlo aquí para una línea
+    // dejaría dos convenciones conviviendo, que es peor que una imperfecta.
+    console.warn(
+      "[portadas] el espejo de Drive está configurado a medias y no se ha usado; faltan:",
+      resultado.faltan.join(", "),
+    );
+    return;
+  }
+
+  // El detalle NO lleva la respuesta del proveedor: puede traer cabeceras y el
+  // token. Sólo el código de estado, que es lo que sirve para diagnosticar.
+  console.warn("[portadas] no se pudo subir al espejo de Drive:", resultado.detalle);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

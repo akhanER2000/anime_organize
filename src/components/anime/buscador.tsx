@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { CAJA_DE_CONTROL } from "@/lib/ui/clases";
+import { ID_BUSCADOR } from "@/lib/ui/eventos";
 import { PARAMETRO_BUSQUEDA } from "@/lib/validation/busqueda";
 import { cn } from "@/lib/ui/cn";
 
@@ -127,7 +128,7 @@ export function Buscador({ placeholder = "Buscar por título, género o etiqueta
       </label>
 
       <input
-        id="buscador-global"
+        id={ID_BUSCADOR}
         ref={campo}
         type="search"
         role="searchbox"

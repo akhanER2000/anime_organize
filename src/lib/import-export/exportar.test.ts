@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { componerExport, nombreDeFichero, VERSION_EXPORT, type FilaParaExportar } from "./exportar";
+import {
+  LIMITE_EXPORT_BYTES,
+  UMBRAL_AVISO_BYTES,
+  VERSION_EXPORT,
+  componerExport,
+  medirExport,
+  nombreDeFichero,
+  tamanoEnBytes,
+  type FilaParaExportar,
+} from "./exportar";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -145,5 +154,53 @@ describe("nombreDeFichero", () => {
     // `anime-vault.json` a secas se sobrescribe en la carpeta de descargas sin
     // avisar, y quien exporta dos veces quiere poder distinguirlos.
     expect(nombreDeFichero(AHORA)).toBe("anime-vault-2026-08-27.json");
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * EL PRESUPUESTO DEL EXPORT.
+ *
+ * Vino de `export.ts`, un módulo que **no importaba nadie** y que duplicaba
+ * este concepto con otra forma del mismo tipo. Se consolidó aquí, que es el
+ * que corre. Los tests que siguen son los que justificaban su parte útil.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe("medirExport", () => {
+  it("mide el JSON de verdad, en bytes UTF-8", () => {
+    // Un acento ocupa dos bytes: `length` de la cadena mentiría.
+    expect(tamanoEnBytes({ a: "ñ" })).toBe(Buffer.byteLength(JSON.stringify({ a: "ñ" }), "utf8"));
+  });
+
+  it("un export normal cabe de sobra", () => {
+    const veredicto = medirExport({ animes: [] });
+
+    expect(veredicto.cabe).toBe(true);
+    expect(veredicto.convieneAvisar).toBe(false);
+  });
+
+  it("avisa ANTES de pasarse, no cuando ya no cabe", () => {
+    // El aviso existe para poder ofrecer una descarga por partes mientras
+    // todavía funciona. Un aviso que llega con el fallo no sirve de nada.
+    const casi = medirExport({ relleno: "a".repeat(UMBRAL_AVISO_BYTES) });
+
+    expect(casi.convieneAvisar).toBe(true);
+    expect(casi.cabe).toBe(true);
+  });
+
+  it("dice que NO cabe cuando pasa del presupuesto de la Server Action", () => {
+    const enorme = medirExport({ relleno: "a".repeat(LIMITE_EXPORT_BYTES + 1) });
+
+    expect(enorme.cabe).toBe(false);
+    // Un byte de más redondea a 100 %, así que **quien decide es `cabe`, no el
+    // porcentaje**. El porcentaje es para enseñarlo; ramificar por él dejaría
+    // pasar justo el caso del borde.
+    expect(enorme.porcentaje).toBeGreaterThanOrEqual(100);
+  });
+
+  it("y el porcentaje sube por encima de 100 cuando se pasa de verdad", () => {
+    const doble = medirExport({ relleno: "a".repeat(LIMITE_EXPORT_BYTES * 2) });
+
+    expect(doble.porcentaje).toBeGreaterThan(150);
   });
 });

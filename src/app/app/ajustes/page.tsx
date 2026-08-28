@@ -2,10 +2,13 @@ import { redirect } from "next/navigation";
 
 import { ErrorSesionInvalida, exigirSesionParaLeer } from "@/auth";
 import { Pestanas } from "@/components/ui/pestanas";
-import { ETIQUETA_SECCION, NOTA_SECUNDARIA, TITULAR_PANTALLA } from "@/lib/ui/clases";
-import { cn } from "@/lib/ui/cn";
+import { ETIQUETA_SECCION, TITULAR_PANTALLA } from "@/lib/ui/clases";
+
+import { sitiosDe } from "@/lib/db/sitios";
 
 import { FormularioPassword } from "./formulario-password";
+import { Importar } from "./importar";
+import { Sitios } from "./sitios";
 import { ZonaPeligro } from "./zona-peligro";
 
 import type { Metadata } from "next";
@@ -19,11 +22,13 @@ import type { Metadata } from "next";
  * Está la pestaña **Perfil** con el cambio de contraseña, que es lo que el
  * dueño necesita para dejar de depender del enlace de recuperación.
  *
- * **Importar** y **Sitios** son los lotes C y B2 del encargo y todavía no
- * existen. No se pintan como pestañas vacías ni con botones
- * apagados: se dice qué falta y cuándo llega. Una pestaña que se abre y no
- * hace nada es peor que una pestaña que no está — la primera parece rota, la
- * segunda parece pendiente.
+ * Está la pestaña **Sitios** (lote B2): los trece sitios de la semilla más
+ * los propios, con sus espejos y el botón de comprobarlos.
+ *
+ * **Importar** es el lote C y todavía no existe. No se pinta como una pestaña
+ * vacía ni con botones apagados: se dice qué falta y cuándo llega. Una pestaña
+ * que se abre y no hace nada es peor que una pestaña que no está — la primera
+ * parece rota, la segunda parece pendiente.
  *
  * ── `force-dynamic` ───────────────────────────────────────────────────────
  *
@@ -47,6 +52,8 @@ export default async function PaginaAjustes() {
     if (error instanceof ErrorSesionInvalida) redirect("/login");
     throw error;
   }
+
+  const sitios = await sitiosDe(sesion.ctx).listar();
 
   return (
     <div className="px-[var(--e-2-5)] py-[var(--e-6)] tablet:px-[var(--gutter-s)] laptop:px-[var(--gutter)] desktop:px-[var(--gutter-l)]">
@@ -72,12 +79,12 @@ export default async function PaginaAjustes() {
             {
               id: "importar",
               etiqueta: "Importar",
-              contenido: <Pendiente que="La importación de .xlsx y .csv" lote="C" />,
+              contenido: <Importar />,
             },
             {
               id: "sitios",
               etiqueta: "Sitios",
-              contenido: <Pendiente que="El hub de sitios y sus espejos" lote="B" />,
+              contenido: <Sitios sitios={sitios} />,
             },
             {
               id: "peligro",
@@ -99,19 +106,6 @@ export default async function PaginaAjustes() {
  * coinciden en que un control inerte es peor que su ausencia, porque el
  * primero parece roto y el segundo parece pendiente.
  */
-function Pendiente({ que, lote }: { que: string; lote: string }) {
-  return (
-    <p
-      className={cn(
-        "rounded-card border border-dashed border-[var(--slate-600)]",
-        "px-[var(--e-2-5)] py-[var(--e-3)]",
-        "font-ui text-cuerpo-s leading-cuerpo text-[var(--porcelain-200)]",
-      )}
-    >
-      {que} todavía no está construida.
-      <span className={NOTA_SECUNDARIA}>
-        Llega en el lote {lote}. Esta pestaña no tiene controles porque ninguno funcionaría todavía.
-      </span>
-    </p>
-  );
-}
+// El componente que anunciaba una pestaña «todavía no construida» vivía
+// aquí. Ya no queda ninguna: Sitios (lote B2) e Importar (lote C2) están
+// hechas, así que se va. Sin código muerto — para eso está git.

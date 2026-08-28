@@ -8,8 +8,9 @@ import { useId } from "react";
 import { TRANSICION_RAPIDA } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
+import { fijarRef } from "@/lib/ui/refs";
 
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode, Ref } from "react";
 
 /**
  * CASILLA — DESIGN-SPEC §6, fila «Faceta», y §08 (Buscador y filtros).
@@ -33,6 +34,16 @@ import type { InputHTMLAttributes, ReactNode } from "react";
 
 export type PropsCasilla = Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type"> & {
   etiqueta: ReactNode;
+  /**
+   * Se declara AUNQUE NO SE PIDA, porque en React 19 ya llegaba igual.
+   *
+   * Sin nombrarlo aquí, `ref` entraba escondido en `...resto` —el compilador
+   * rechaza `<Casilla ref={…} />` escrito a mano, pero no
+   * `<Casilla {...register("recordarme")} />`, que es la forma que usa el
+   * login— y el spread pisaba el ref propio de la casilla. Declarado, se
+   * desestructura, y los dos usos del nodo se componen en vez de competir.
+   */
+  ref?: Ref<HTMLInputElement>;
   /**
    * Recuento a la derecha, en mono 11. `0` se apaga.
    * Ver `Chip` para el mismo criterio.
@@ -76,6 +87,7 @@ export function Casilla({
   indeterminado = false,
   className,
   disabled,
+  ref,
   ...resto
 }: PropsCasilla) {
   const id = useId();
@@ -93,6 +105,10 @@ export function Casilla({
       )}
     >
       <input
+        // El spread delante, como en el resto de primitivas: lo que la casilla
+        // garantiza se escribe encima. `ref` es la excepción —va aquí abajo
+        // porque NO se pisa, se COMPONE—.
+        {...resto}
         id={id}
         type="checkbox"
         disabled={disabled}
@@ -100,9 +116,15 @@ export function Casilla({
         // foco ni se envía, y el lector de pantalla deja de verlo.
         className="peer sr-only"
         ref={(nodo) => {
+          // `indeterminate` NO es un atributo de HTML: no existe forma de
+          // pintarlo en el marcado. Sólo se puede escribir en la propiedad del
+          // nodo, y para eso hace falta el nodo — de ahí este ref.
           if (nodo !== null) nodo.indeterminate = indeterminado;
+          // Y a continuación se le entrega a quien nos lo pasó. Sin esta línea,
+          // `{...register("recordarme")}` se quedaría sin nodo y la casilla
+          // dejaría de registrarse en el formulario.
+          fijarRef(ref, nodo);
         }}
-        {...resto}
       />
 
       <span className={CAJA} aria-hidden="true">

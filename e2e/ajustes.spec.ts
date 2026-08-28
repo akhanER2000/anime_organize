@@ -132,18 +132,31 @@ test.describe("ajustes", () => {
     );
   });
 
-  test("LO QUE NO ESTÁ CONSTRUIDO NO TIENE BOTONES INERTES", async ({ page }) => {
-    // El encargo: un control que no hace nada es peor que su ausencia, porque
-    // parece roto en vez de pendiente.
+  test("NINGUNA PESTAÑA ES UN HUECO: las cuatro hacen algo", async ({ page }) => {
+    /**
+     * Este test comprobaba lo contrario: que «Importar» y «Sitios» NO tuvieran
+     * controles, porque no estaban construidas y un control inerte parece roto
+     * en vez de pendiente.
+     *
+     * Ya lo están (lotes B2 y C2), así que la comprobación se invierte
+     * conservando su intención: **no puede quedar un panel que anuncie algo que
+     * no existe**. Borrarlo habría dejado el hueco sin vigilar; dejarlo como
+     * estaba habría convertido en rojo el haber terminado el trabajo.
+     */
     await entrarComoPropietario(page);
     await page.goto("/app/ajustes");
 
-    await page.getByRole("tab", { name: "Importar" }).click();
-    const panel = page.getByRole("tabpanel");
+    for (const nombre of ["Perfil", "Importar", "Sitios", "Peligro"]) {
+      await page.getByRole("tab", { name: nombre }).click();
+      const panel = page.getByRole("tabpanel");
 
-    await expect(panel).toContainText(/todavía no está construida/i);
-    await expect(panel.getByRole("button")).toHaveCount(0);
-    await expect(panel.getByRole("textbox")).toHaveCount(0);
+      await expect(panel, `la pestaña ${nombre} anuncia algo que no existe`).not.toContainText(
+        /todavía no está construida/i,
+      );
+      // Y tiene con qué trabajar: un panel sin un solo control es un hueco con
+      // otro nombre.
+      await expect(panel.getByRole("button").or(panel.getByRole("textbox")).first()).toBeVisible();
+    }
   });
 
   test("CAMBIAR LA CONTRASEÑA, Y ENTRAR DESPUÉS CON LA NUEVA", async ({ page, browser }) => {

@@ -98,6 +98,7 @@ export function FormularioPassword() {
       )}
 
       <Campo
+        {...errorDeCampo("actual")}
         etiqueta="Contraseña actual"
         type="password"
         autoComplete="current-password"
@@ -105,11 +106,11 @@ export function FormularioPassword() {
         onChange={(evento) => {
           setActual(evento.target.value);
         }}
-        {...errorDeCampo("actual")}
       />
 
       <div className="flex flex-col gap-[var(--e-1)]">
         <Campo
+          {...errorDeCampo("nueva")}
           etiqueta="Contraseña nueva"
           type="password"
           autoComplete="new-password"
@@ -118,7 +119,6 @@ export function FormularioPassword() {
             setNueva(evento.target.value);
           }}
           ayuda="Mínimo 12 caracteres. Una frase larga es más segura que un críptico corto."
-          {...errorDeCampo("nueva")}
         />
 
         <MedidorPassword password={nueva} />

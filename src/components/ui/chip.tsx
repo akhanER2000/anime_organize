@@ -57,7 +57,16 @@ export type PropsChip = {
    */
   estado?: Estado;
   children: ReactNode;
-} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-pressed">;
+  /**
+   * `type` NO se puede pasar: lo fija el componente en `"button"`.
+   *
+   * Un `<button>` sin `type` DENTRO de un `<form>` es `submit` por
+   * definición del HTML, y estos chips son el control de filtrado. Un
+   * `type="submit"` colado convertía el chip en el botón de envío del
+   * formulario que lo contenga —y, si era el primero, en el envío por defecto
+   * al pulsar Enter en cualquier input—.
+   */
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-pressed" | "type">;
 
 /**
  * El punto de color de cada estado. Los mismos tokens que usa `BadgeEstado`:
@@ -88,6 +97,10 @@ export function Chip({
 
   return (
     <Elemento
+      // El spread del llamador va DELANTE de lo que el chip garantiza: JSX
+      // aplica los atributos en orden y el último gana entero. Con `{...resto}`
+      // al final, pisaba el `type="button"` de `propiosDeBoton`.
+      {...resto}
       {...propiosDeBoton}
       className={cn(
         // ── 32 px DE ALTO VISIBLE, 44 px DE ÁREA PULSABLE ──────────────────
@@ -119,7 +132,6 @@ export function Chip({
         como === "span" && disabled === true && "cursor-not-allowed opacity-50",
         className,
       )}
-      {...resto}
     >
       {estado !== undefined && (
         <span

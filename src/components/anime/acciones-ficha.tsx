@@ -201,11 +201,14 @@ export function AccionesFicha(props: PropsAccionesFicha) {
       </div>
 
       <ModalEditar
+        // El spread delante: `abierto` y `alCerrar` los manda ESTE componente,
+        // que es quien tiene el estado. Detrás, `props` podía dejar el modal
+        // abierto o secuestrar el cierre.
+        {...props}
         abierto={editando}
         alCerrar={() => {
           setEditando(false);
         }}
-        {...props}
       />
 
       <DialogoConfirmacion

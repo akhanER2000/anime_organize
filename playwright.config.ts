@@ -68,7 +68,24 @@ export default defineConfig({
   reporter: process.env.CI !== undefined ? "github" : "list",
 
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    /**
+     * ── `localhost`, NO `127.0.0.1`, Y NO ES UN DETALLE ───────────────────
+     *
+     * Son ORÍGENES DISTINTOS para el navegador, y la app se identifica a sí
+     * misma con `AUTH_URL` = `http://localhost:3000`. Entrando por
+     * `127.0.0.1`, toda petición que MUTE desde un Route Handler la rechaza la
+     * guarda CSRF —correctamente: para la app, ese origen es un tercero—.
+     *
+     * Lo destapó el recorrido de importación, que es el primer Route Handler
+     * que muta: subir la hoja devolvía «Petición rechazada por su origen» y la
+     * pantalla no llegaba a leer el fichero nunca. Con la ruta de portadas
+     * —`GET`, que no pasa por la guarda— no se notaba.
+     *
+     * Cambiarlo aquí no debilita nada: hace que el navegador de pruebas llegue
+     * por la misma puerta por la que llega el navegador de verdad, que es lo
+     * único que hace que este nivel valga para algo.
+     */
+    baseURL: "http://localhost:3000",
     trace: "on-first-retry",
     // Sin capturas por defecto: el diseño se verifica con `ui-fidelity-checker`
     // contra design/screens/, no con un diff de píxeles frágil.
@@ -102,7 +119,8 @@ export default defineConfig({
    */
   webServer: {
     command: "npm run build && npm run start",
-    url: "http://127.0.0.1:3000",
+    // El mismo origen que `baseURL`: ver la nota de arriba.
+    url: "http://localhost:3000",
     reuseExistingServer: process.env.CI === undefined,
     timeout: 180_000,
   },

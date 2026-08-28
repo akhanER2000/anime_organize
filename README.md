@@ -7,9 +7,13 @@ portadas, su progreso y sus enlaces para continuar viendo donde lo dejó.
 
 Obsidiana y oro: una losa de laja negra partida y reparada con kintsugi.
 
-> **Estado: FASE 1 en curso.** Esquema, migraciones y autenticación. Las fases 2–6
-> (CRUD y portadas, búsqueda, IA, importación, landing) están pendientes.
-> Ver `CHANGELOG.md`.
+> **Estado: en producción, con el vault del propietario cargado.** Landing, registro y
+> recuperación, biblioteca en rejilla y en lista, ficha, buscador global, alta con
+> portada, sitios y espejos, enriquecimiento con AniList y Claude, importación de
+> `.xlsx`/`.csv`, exportación, borrado de cuenta y móvil.
+>
+> Lo que falta —y qué hace falta para cada cosa— está en **[Lo que falta](#lo-que-falta-y-qué-hace-falta-para-cada-cosa)**,
+> más abajo. Para desplegar paso a paso, `DESPLIEGUE.md`.
 
 ---
 
@@ -109,20 +113,20 @@ cp .env.example .env.local
 `.env.local` está en `.gitignore` y **nunca se commitea**. El `.gitignore` usa denegación
 total sobre `.env*` con una única excepción para `.env.example`.
 
-| Variable                                | ¿Obligatoria?          | De dónde sale                                          |
-| --------------------------------------- | ---------------------- | ------------------------------------------------------ |
-| `DATABASE_URL`                          | **sí**                 | Neon → Connection Details → cadena _pooled_            |
-| `DATABASE_URL_UNPOOLED`                 | **sí**                 | Neon → la misma sin `-pooler`                          |
-| `AUTH_SECRET`                           | **sí**                 | `npx auth secret` (uno distinto por entorno)           |
-| `AUTH_URL`                              | en producción          | la URL real del despliegue                             |
-| `AUTH_REQUIRE_EMAIL_VERIFICATION`       | no (`false`)           | ponla a `true` al abrir el registro                    |
-| `RESEND_API_KEY`                        | no                     | [resend.com/api-keys](https://resend.com/api-keys)     |
-| `EMAIL_FROM`                            | si usas Resend         | una dirección de tu dominio verificado                 |
-| `ANTHROPIC_API_KEY`                     | no                     | [console.anthropic.com](https://console.anthropic.com) |
-| `ANTHROPIC_MODEL`                       | no (`claude-sonnet-5`) | —                                                      |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | no                     | Google Cloud Console                                   |
-| `GOOGLE_DRIVE_*`                        | no                     | espejo opcional de portadas                            |
-| `SEED_OWNER_EMAIL`                      | para el seed           | tu email                                               |
+| Variable                                | ¿Obligatoria?          | De dónde sale                                                                                                                                                                    |
+| --------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                          | **sí**                 | Neon → Connection Details → cadena _pooled_                                                                                                                                      |
+| `DATABASE_URL_UNPOOLED`                 | **sí**                 | Neon → la misma sin `-pooler`                                                                                                                                                    |
+| `AUTH_SECRET`                           | **sí**                 | `npx auth secret` (uno distinto por entorno)                                                                                                                                     |
+| `AUTH_URL`                              | en producción          | la URL real del despliegue                                                                                                                                                       |
+| `AUTH_REQUIRE_EMAIL_VERIFICATION`       | no (`false`)           | ponla a `true` al abrir el registro                                                                                                                                              |
+| `RESEND_API_KEY`                        | no                     | [resend.com/api-keys](https://resend.com/api-keys)                                                                                                                               |
+| `EMAIL_FROM`                            | si usas Resend         | una dirección de tu dominio verificado                                                                                                                                           |
+| `ANTHROPIC_API_KEY`                     | no                     | [console.anthropic.com](https://console.anthropic.com)                                                                                                                           |
+| `ANTHROPIC_MODEL`                       | no (`claude-sonnet-5`) | —                                                                                                                                                                                |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | **no las lee nadie**   | reservadas: el proveedor de Google **no está cableado**, así que rellenarlas hoy no habilita nada. La política de vinculación ya está decidida y testeada (`security.md` §2 bis) |
+| `GOOGLE_DRIVE_*`                        | no                     | espejo opcional de portadas                                                                                                                                                      |
+| `SEED_OWNER_EMAIL`                      | para el seed           | tu email                                                                                                                                                                         |
 
 **La cadena de producción no vive en tu disco.** Ni en `.env.local` ni «un momento para
 probar algo». Va solo en las variables de Vercel del entorno _Production_. Ver
@@ -177,13 +181,22 @@ omitidos y fallidos, con el motivo de cada fallo.
 ## 5 · Enriquecer con AniList y Claude
 
 ```bash
-npm run enrich -- --dry-run --todos   # alcance y estimación de tokens
-npm run enrich -- --todos             # solo los que faltan (idempotente)
+npm run enrich -- --dry-run        # ensayo: dice a cuántos afectaría y no escribe
+npm run enrich                     # solo los que aún no tienen anilist_id (idempotente)
+npm run enrich -- --limite 10      # los diez primeros
+npm run enrich -- --reanalizar     # también los ya enriquecidos
+npm run enrich -- --sin-ia         # solo metadatos, sin gastar en Claude
 ```
 
-**Paso 1 (AniList)** es público y gratuito: no necesita clave.
+**Paso 1 (AniList)** es público y gratuito: no necesita clave. Concurrencia 3 y espera con
+jitter, que es el límite que pide AniList (90 peticiones/minuto).
+
 **Paso 2 (Claude)** necesita `ANTHROPIC_API_KEY`; si falta, **se salta con un aviso** y el
-paso 1 sigue funcionando. Eso es comportamiento correcto, no un fallo.
+paso 1 sigue funcionando. Eso es comportamiento correcto, no un fallo — la salida lo dice:
+`paso 2 (IA): OMITIDO — falta ANTHROPIC_API_KEY (no es un fallo)`.
+
+Y desde la interfaz: cada ficha tiene su botón **«Enriquecer»**, con **«Volver a analizar»**
+cuando ya lo está.
 
 ---
 
@@ -202,8 +215,63 @@ paso 1 sigue funcionando. Eso es comportamiento correcto, no un fallo.
 O usa `/project:deploy`, que hace el checklist previo (typecheck, lint, tokens, tests,
 build, escaneo de secretos, extensiones y migraciones) antes de subir nada.
 
-> `design/` está excluido del despliegue en `.vercelignore`: son ~85 MB de PNG originales
-> que la aplicación no sirve nunca.
+> **Lo pesado de `design/` está excluido** en `.vercelignore`: `assets/`, `screens/`,
+> `scripts/` y el `.dc.html` — unos 85 MB de PNG originales que la aplicación no sirve
+> nunca. Lo que sí viaja son los cinco ficheros de texto (`tokens.css`, `tokens.json`,
+> `DESIGN-SPEC.md` y dos más, ~110 KB): son la fuente de verdad visual y pesan lo que
+> pesa un icono.
+
+---
+
+## Lo que falta, y qué hace falta para cada cosa
+
+> **Nada de esto está simulado.** El código de las cuatro cosas está escrito, tipado y con
+> tests de todo lo que se puede probar sin credenciales; lo que no está es **ejecutado**,
+> porque depende de algo que tiene que aportar el dueño. Se listan aquí y no en un fichero
+> de bloqueo aparte: un documento que sólo describe pendientes envejece solo y acaba
+> mintiendo; éste se lee.
+
+### 1 · Enriquecimiento masivo desde la interfaz
+
+|                                 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Qué funciona hoy**            | El botón «Enriquecer» de cada ficha, y `npm run enrich` para el lote entero desde la línea de comandos.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| **Qué falta**                   | `POST /api/enrich/batch` con `{ loteId }` y su _polling_, tal como lo describe `.claude/rules/api-conventions.md` § «Procesos largos».                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Por qué no está**             | **No es cuestión de credenciales, es de infraestructura.** En Vercel una función termina cuando devuelve la respuesta: un bucle lanzado en segundo plano muere con ella. Y 83 animes × 2 llamadas a terceros no caben en el tiempo de una sola invocación. Hacerlo «como si» —arrancar el bucle y devolver `{ loteId }`— daría un lote que se corta a la mitad sin decirlo, que es peor que no tenerlo.                                                                                                                                                                                      |
+| **Qué hace falta de ti**        | Elegir el mecanismo, porque los tres cuestan cosas distintas: <br>· **Vercel Cron** golpeando un endpoint que procesa un trozo por ejecución. En Hobby son 2 crons y **una ejecución al día**; en Pro, cada minuto. <br>· **Una cola** (Upstash QStash, Inngest). Funciona en Hobby, pero es **otro proveedor que registrar, otro secreto que rotar y otra superficie que auditar** — el mismo criterio con el que se descartó Upstash para el limitador (`security.md` §5). <br>· **Dejarlo en el CLI**, que es lo que hay, y es una respuesta legítima: el lote completo se corre una vez. |
+| **Cómo comprobar que funciona** | Con los ojos, no con el recuento: la ficha de un anime enriquecido enseña sus chips `✦`, y `select status, count(*) from ai_job group by status` dice cuántos salieron bien.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+
+### 2 · Espejo de portadas en Google Drive
+
+|                                 |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Qué funciona hoy**            | Que no configurarlo **no rompe nada**: la fuente de verdad son los bytes en Postgres y el espejo va _después_ de guardarlos. Sin las variables no se hace nada y no se dice nada — no es una avería.                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Qué falta**                   | La subida real **no se ha ejecutado nunca**: no hay cuenta de servicio en este entorno. Está probado todo lo que se decide antes de tocar la red —la configuración, la clave PEM, las reclamaciones del JWT y el cuerpo multiparte—; la llamada viva, cero veces.                                                                                                                                                                                                                                                                                                                        |
+| **Qué hace falta de ti**        | 1. Un proyecto en Google Cloud con la **Drive API** habilitada. <br>2. Una **cuenta de servicio** y su clave JSON. <br>3. **Compartir la carpeta de Drive con el correo de esa cuenta de servicio**, con permiso de editor. Éste es el paso que se olvida siempre: una cuenta de servicio tiene su propio Drive, y sin compartir la carpeta la subida falla o el fichero aterriza donde nadie lo ve. <br>4. Las tres variables: `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_DRIVE_CLIENT_EMAIL` y `GOOGLE_DRIVE_PRIVATE_KEY` (con los saltos de línea escapados como `\n`; el código los deshace). |
+| **Detalle de seguridad**        | El permiso que se pide es `drive.file`, que da acceso **sólo a los ficheros que crea esta aplicación**. Con `drive` a secas, una credencial filtrada abriría tu Drive entero. No lo cambies.                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Si pones dos de las tres**    | La aplicación **lo dice** en vez de callarse: «el espejo de Drive está configurado a medias». Media configuración es un fallo, no una preferencia.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Cómo comprobar que funciona** | `npm run seed` termina con `· N en el espejo de Drive`, y `select count(*) from anime_cover where drive_file_id is not null` debe dar ese mismo N. Y después, **abre la carpeta de Drive y míralo**.                                                                                                                                                                                                                                                                                                                                                                                     |
+
+### 3 · Paso 2 del enriquecimiento (Claude)
+
+|                                 |                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Qué funciona hoy**            | El prompt, el vocabulario cerrado de 26 etiquetas y la validación estricta de la respuesta, con 21 tests: JSON con prosa alrededor, JSON inválido, etiqueta fuera del vocabulario, más de dos propuestas, confianza fuera de `[0,1]`, tono o público inventados, y una respuesta que obedece a una inyección escrita en la sinopsis. Si no valida, **se descarta entera**. |
+| **Qué falta**                   | La llamada real. Sin `ANTHROPIC_API_KEY` el paso se omite con aviso y queda registrado en `ai_job` como `OMITIDO`, para que dentro de meses «mi ficha no tiene etiquetas» tenga explicación en alguna parte.                                                                                                                                                               |
+| **Qué hace falta de ti**        | `ANTHROPIC_API_KEY` de [console.anthropic.com](https://console.anthropic.com). `ANTHROPIC_MODEL` es opcional y por defecto vale `claude-sonnet-5`.                                                                                                                                                                                                                         |
+| **Coste aproximado**            | Una llamada por anime, con la sinopsis dentro: del orden de 1.500 tokens de entrada y 300 de salida. Para los 83, una vez.                                                                                                                                                                                                                                                 |
+| **Cómo comprobar que funciona** | `npm run enrich -- --limite 3` debe imprimir `paso 2 (IA): claude-sonnet-5` en lugar de `OMITIDO`, y la ficha debe enseñar chips con el prefijo `✦` y borde punteado. En `ai_job`, filas con `provider = 'ANTHROPIC'`, `status = 'OK'` y sus contadores de tokens.                                                                                                         |
+
+### 4 · Envío de correo (recuperación y verificación)
+
+|                                                    |                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Qué funciona hoy**                               | El ciclo entero de recuperación, verificado en navegador: pedir el enlace, restablecer **y entrar después** con la contraseña nueva. Lo único que no ocurre es el envío.                                                                                             |
+| **Qué falta**                                      | `RESEND_API_KEY` y `EMAIL_FROM`. Sin ellas actúa el _driver de consola_: el correo **se imprime en el log del servidor**, en un recuadro que empieza por `CORREO NO ENVIADO — driver de consola` y lleva el destinatario, el asunto y el texto con el enlace dentro. |
+| **Cómo recuperar la cuenta HOY, si te hace falta** | Pide el enlace en `/recuperar` y sácalo de **Vercel → tu proyecto → Logs**, buscando `CORREO NO ENVIADO`. Caduca en **1 hora** y es de un solo uso.                                                                                                                  |
+| **Qué hace falta de ti**                           | Una clave de [resend.com/api-keys](https://resend.com/api-keys) y una dirección `EMAIL_FROM` de un dominio verificado allí.                                                                                                                                          |
+| **La trampa del plan gratuito**                    | Hasta que verifiques un dominio propio, Resend **sólo te deja enviar a tu propia dirección**. Basta para un vault de una persona; si algún día abres el registro, verifica el dominio antes.                                                                         |
+| **Cómo comprobar que funciona**                    | No con «el formulario responde 200». **Completa el ciclo**: pide el enlace, ábrelo desde tu buzón, cambia la contraseña **y entra con la nueva**. Comprobar sólo la primera mitad es exactamente el fallo que llegó a producción una vez en este proyecto.           |
 
 ---
 
@@ -212,22 +280,38 @@ build, escaneo de secretos, extensiones y migraciones) antes de subir nada.
 ```bash
 npm run dev · build · start
 
+# ── Las siete puertas de calidad, encadenadas en `lint:todo` ──────────────
+npm run lint:scripts     # cada script de package.json apunta a un fichero que existe
 npm run typecheck        # tsc --noEmit
 npm run lint             # eslint
 npm run lint:tokens      # falla si hay un hex fuera de globals.css
-npm run format           # prettier
+npm run lint:duplicados  # cuenta recetas de clases repetidas; falla si el número SUBE
+npm run lint:spread      # falla si un {...spread} va detrás de lo que el componente calcula
+npm run lint:contrato    # escribe 12 intentos de saltarse el contrato de datos y exige que fallen
+npm run lint:todo        # los siete de arriba, en orden
 
-npm run test             # vitest
+npm run test             # vitest, SIN los de integración (no necesita base)
+npm run test:integracion # solo los de integración: exigen Postgres real
+npm run test:todo        # los dos anteriores juntos
 npm run test:cov         # con cobertura
-npm run test:e2e         # playwright
+npm run test:e2e         # playwright, contra `build` + `start`
 
 npm run db:generate      # genera la migración desde el esquema TS
-npm run db:migrate       # aplica migraciones
+npm run db:migrate       # aplica migraciones (anuncia su destino antes de escribir)
 npm run db:push          # SOLO desarrollo local. Jamás contra producción.
 npm run db:studio        # drizzle-studio
+npm run db:verificar     # compara el esquema real contra el declarado
 
-npm run verificar        # typecheck + lint + lint:tokens + test + build
+# ── Lo que se ejecuta antes de decir «terminado» ──────────────────────────
+npm run verificar:rapido # lint:todo + test:unit
+npm run verificar        # lint:todo + test:unit + build + test:integracion
+npm run verificar:todo   # lo anterior + test:e2e
 ```
+
+> **El exit code es el resultado.** No se encadenan con `echo`, no se enmascaran con
+> `|| true` y no se lee sólo la última línea: en una tubería el estado es el del último
+> comando, así que un `| tail -5 && echo OK` imprime «OK» sobre un `tsc` que falló. Pasó.
+> La regla completa está en `.claude/rules/testing.md`.
 
 ---
 

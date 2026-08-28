@@ -88,8 +88,23 @@ No se toca tu contraseña, no se borra tu cuenta, y no se borra ningún anime.
 Nada de lo de abajo escribe en `production`. Se construye y se verifica contra
 `development`, que tiene los mismos 83 y el mismo esquema.
 
-- FASE 1.1 — las nueve primitivas que faltan en `/dev/primitivas`.
-- FASE 1.2 — los 26 conceptos duplicados restantes. Los **dos que eran
-  comportamiento** ya están hechos: ver `.claude/rules/code-style.md`.
-- FASE 1.3 — el barrido de agregados en JavaScript. **HECHO.**
-- FASE 2 — los cuatro lotes.
+|                                                        |                                                                                                                            |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| FASE 1.1 · las primitivas que faltaban                 | **HECHA** — siete nuevas, más las dos que ya estaban                                                                       |
+| FASE 1.2 · los conceptos duplicados                    | **HECHA** — de 26 recetas repetidas a 12, y el barrido es ahora `npm run lint:duplicados`, que **falla si el número sube** |
+| FASE 1.3 · agregados en JavaScript                     | **HECHA**                                                                                                                  |
+| LOTE A · el modal, editar, borrar, progreso y enlaces  | **HECHO**, con sus recorridos en navegador                                                                                 |
+| LOTE B1 · el buscador global                           | **HECHO**                                                                                                                  |
+| Ajustes · cambiar la contraseña con sesión iniciada    | **HECHO**, ciclo completo verificado: cambiar, entrar con la nueva, y que la vieja falle                                   |
+| LOTE B2 · sitios de streaming                          | pendiente                                                                                                                  |
+| LOTE C · IA, importar, exportar, espejo en Drive       | pendiente                                                                                                                  |
+| LOTE D · borrado de cuenta, estados del sistema, móvil | pendiente                                                                                                                  |
+
+**De tu criterio de «listo», lo único que sigue bloqueado es ver tus 83.** Todo
+lo demás —añadir por URL de imagen con la portada guardada en la base, editar el
+progreso, guardar un enlace y abrirlo, buscar, filtrar, ordenar, conmutar de
+vista, y cambiar la contraseña con sesión iniciada— está construido y recorrido
+con un navegador de verdad.
+
+Puedes comprobarlo ya en producción **añadiendo un anime a mano**: el modal
+funciona y la portada se guarda. Lo que falta es que tus 83 vuelvan.

@@ -184,3 +184,18 @@ export const NOTA_SECUNDARIA = cn(
  * peso reaccionen distinto.
  */
 export const HOVER_DORADO = cn("hover:border-[var(--gold-borde)] hover:text-[var(--gold-200)]");
+
+/**
+ * LA SUPERFICIE DE PELIGRO — borde y fondo granate.
+ *
+ * `design-tokens.md`: el granate aparece **solo** en la pestaña Peligro y en
+ * los errores de validación. No es un color de marca, y por eso conviene que
+ * esté en un sitio: si un día alguien lo usa para «destacar» algo, el diff
+ * enseña que importó esta constante y la conversación es inmediata.
+ *
+ * Los dos usos de hoy son un aviso de enlace roto en la ficha y la caja de
+ * borrado de cuenta.
+ */
+export const SUPERFICIE_PELIGRO = cn(
+  "border-[var(--estado-abandonado-borde)] bg-[var(--estado-abandonado-wash)]",
+);

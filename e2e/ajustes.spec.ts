@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { liberarLimiteDeRegistro } from "./ayuda-recuperacion";
+import { liberarLimiteDeRegistro, liberarLimiteDeLogin } from "./ayuda-recuperacion";
 
 import { expect, test } from "@playwright/test";
 
@@ -91,6 +91,8 @@ test.describe("ajustes", () => {
    */
   test.beforeEach(async () => {
     await liberarLimiteDeRegistro();
+    await liberarLimiteDeLogin();
+    await liberarLimiteDeLogin();
   });
 
   test("SE LLEGA DESDE LA BARRA: la pantalla no está huérfana", async ({ page }) => {

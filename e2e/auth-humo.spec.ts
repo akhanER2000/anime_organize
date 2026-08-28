@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { liberarLimiteDeRegistro } from "./ayuda-recuperacion";
+import { liberarLimiteDeRegistro, liberarLimiteDeLogin } from "./ayuda-recuperacion";
 
 import { expect, test } from "@playwright/test";
 
@@ -46,6 +46,8 @@ test.describe("el navegador puede usar la aplicación de verdad", () => {
    */
   test.beforeEach(async () => {
     await liberarLimiteDeRegistro();
+    await liberarLimiteDeLogin();
+    await liberarLimiteDeLogin();
   });
 
   test("las pantallas públicas se PINTAN con la CSP de producción puesta", async ({ page }) => {

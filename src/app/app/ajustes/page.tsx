@@ -6,6 +6,7 @@ import { ETIQUETA_SECCION, NOTA_SECUNDARIA, TITULAR_PANTALLA } from "@/lib/ui/cl
 import { cn } from "@/lib/ui/cn";
 
 import { FormularioPassword } from "./formulario-password";
+import { ZonaPeligro } from "./zona-peligro";
 
 import type { Metadata } from "next";
 
@@ -18,8 +19,8 @@ import type { Metadata } from "next";
  * Está la pestaña **Perfil** con el cambio de contraseña, que es lo que el
  * dueño necesita para dejar de depender del enlace de recuperación.
  *
- * **Importar**, **Sitios** y **Peligro** son los lotes C y D del encargo y
- * todavía no existen. No se pintan como pestañas vacías ni con botones
+ * **Importar** y **Sitios** son los lotes C y B2 del encargo y todavía no
+ * existen. No se pintan como pestañas vacías ni con botones
  * apagados: se dice qué falta y cuándo llega. Una pestaña que se abre y no
  * hace nada es peor que una pestaña que no está — la primera parece rota, la
  * segunda parece pendiente.
@@ -82,7 +83,7 @@ export default async function PaginaAjustes() {
               id: "peligro",
               etiqueta: "Peligro",
               tono: "peligro",
-              contenido: <Pendiente que="El borrado de la cuenta con su export" lote="D" />,
+              contenido: <ZonaPeligro email={sesion.email} />,
             },
           ]}
         />

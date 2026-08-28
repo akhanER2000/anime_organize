@@ -1,5 +1,5 @@
 import { Boton } from "@/components/ui/boton";
-import { NOTA_SECUNDARIA } from "@/lib/ui/clases";
+import { NOTA_SECUNDARIA, SUPERFICIE_PELIGRO } from "@/lib/ui/clases";
 import { cn } from "@/lib/ui/cn";
 import { esHrefSeguro } from "@/lib/ui/href";
 
@@ -73,7 +73,7 @@ export function AccionContinuar({ enlace }: { enlace: EnlaceDeContinuacion | nul
         role="alert"
         className={cn(
           "rounded-boton border px-[var(--e-2)] py-[var(--e-1-5)] text-center",
-          "border-[var(--estado-abandonado-borde)] bg-[var(--estado-abandonado-wash)]",
+          SUPERFICIE_PELIGRO,
           "font-ui text-ui-s leading-ui text-[var(--estado-abandonado-texto)]",
         )}
       >

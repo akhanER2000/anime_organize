@@ -427,3 +427,44 @@ export async function cambiarPasswordConSesion(datos: {
 
   return fila !== undefined;
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * BORRAR UNA CUENTA. DE VERDAD.
+ *
+ * ── NO ES `deleted_at` ────────────────────────────────────────────────────
+ *
+ * `security.md` §3, con todas las letras: «borrado real en cascada, no borrado
+ * lógico. No se deja papelera ni copia de sombra. `users.deleted_at` existe para
+ * desactivaciones administrativas, **no** para simular el borrado que el usuario
+ * pidió».
+ *
+ * La diferencia importa: quien pide que borren su cuenta está pidiendo que sus
+ * datos dejen de existir, no que dejen de mostrarse. Un `deleted_at` que se
+ * presenta como borrado es una mentira con consecuencias legales.
+ *
+ * ── LA CASCADA LA HACE EL ESQUEMA, NO ESTA FUNCIÓN ───────────────────────
+ *
+ * Un solo `DELETE FROM users`. Las cinco tablas que cuelgan —`anime` y con él
+ * portadas, géneros, progreso y enlaces, más `import_job`, `ai_job` y
+ * `streaming_site` propios— se van por `ON DELETE CASCADE`.
+ *
+ * Escribir aquí los borrados a mano parecería más explícito y sería peor: una
+ * tabla nueva que alguien añadiera mañana quedaría fuera de la lista y sus
+ * filas sobrevivirían al borrado. La cascada del esquema no se olvida de nada,
+ * y está fijada en `enlaces.integracion.test.ts`.
+ *
+ * ── DEVUELVE SI BORRÓ ALGO ───────────────────────────────────────────────
+ *
+ * `false` significa «esa cuenta ya no estaba», que puede pasar con dos
+ * pestañas. Quien llama decide qué decir; aquí no se lanza, porque no es un
+ * error del sistema.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export async function borrarCuenta(userId: string): Promise<boolean> {
+  const [fila] = await dbInterna().delete(users).where(eq(users.id, userId)).returning({
+    id: users.id,
+  });
+
+  return fila !== undefined;
+}

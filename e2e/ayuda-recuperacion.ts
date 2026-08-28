@@ -109,3 +109,39 @@ export async function liberarLimiteDeRegistro(): Promise<void> {
   const sql = neon(url);
   await sql`delete from rate_limit_bucket where clave like 'registro:%'`;
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * VACIAR TAMBIÉN EL CUBO DE **LOGIN**, para los specs que solo necesitan entrar.
+ *
+ * ── POR QUÉ HIZO FALTA ────────────────────────────────────────────────────
+ *
+ * `login:ip` son 20 cada 15 minutos, y **todos los specs salen de la misma
+ * máquina**, así que comparten cubo. La suite creció —el recorrido de Ajustes
+ * hace tres autenticaciones y el de borrado hace cinco— y el que corre último
+ * se queda sin.
+ *
+ * El fallo no se lee como lo que es: `vista-lista` decía «un vault recién creado
+ * no carga» y `recuperar-y-entrar` decía «sigues bloqueado después de
+ * restablecer: el callejón sin salida ha vuelto», que es un mensaje de alarma
+ * sobre un fallo que no había ocurrido.
+ *
+ * ── QUIÉN DEBE USARLA Y QUIÉN NO ──────────────────────────────────────────
+ *
+ * Los specs que **solo necesitan estar dentro** para probar otra cosa. Es la
+ * misma lógica que ya está escrita arriba: una suite que prueba PANTALLAS no
+ * debe estar probando el limitador de paso.
+ *
+ * **`recuperar-y-entrar.spec.ts` la usa al EMPEZAR cada test y no después**:
+ * ese sí prueba el limitador, y lo que necesita es partir de un cubo limpio para
+ * agotarlo a propósito. Vaciarlo a mitad de su recorrido invalidaría lo que
+ * comprueba.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export async function liberarLimiteDeLogin(): Promise<void> {
+  const url = cadenaDeConexion();
+  if (url === null) return;
+
+  const sql = neon(url);
+  await sql`delete from rate_limit_bucket where clave like 'login:%'`;
+}

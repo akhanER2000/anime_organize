@@ -10,6 +10,8 @@ import { ContextoUsuario, ErrorContextoFalsificado } from "./contexto";
 import { conTransaccion, dbInterna, type ClienteInterno } from "./interno";
 import { anime, animeCover, continueLink, progress } from "./schema";
 
+import type { FilaParaExportar } from "@/lib/import-export/exportar";
+
 /**
  * El umbral de similitud trigram. **0.55, y no se toca sin actualizar los
  * tests** (skill de dominio §2c).
@@ -320,6 +322,15 @@ export interface Vault {
    * que es el fallo que ya se arregló en los contadores de las dos pantallas.
    */
   contarBusqueda(consulta: string): Promise<number>;
+  /**
+   * Todo lo que hace falta para el export, en UNA consulta más una.
+   *
+   * No reutiliza `listar()` porque el export necesita cosas que un listado no
+   * lleva —las notas y la URL de origen de la portada— y **no** necesita otras
+   * que sí lleva. Ampliar `listar()` para esto haría más caras las dos pantallas
+   * que lo usan ochenta y tres veces, por un caso que ocurre una vez.
+   */
+  paraExportar(): Promise<FilaParaExportar[]>;
   porTituloNormalizado(tituloNormalizado: string): Promise<{ id: string; titulo: string } | null>;
   /**
    * El progreso guardado de un anime PROPIO, o `null`.
@@ -591,6 +602,70 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
         .where(donde.condicion);
 
       return fila?.n ?? 0;
+    },
+
+    /**
+     * ═════════════════════════════════════════════════════════════════════
+     * TODO EL VAULT, PARA EL EXPORT.
+     *
+     * ── SIN TOPE, Y AQUÍ SÍ ES CORRECTO ─────────────────────────────────
+     *
+     * `listar()` lo tiene porque pinta una pantalla y nadie mira 600 tarjetas.
+     * Un export con tope sería un export **incompleto que no lo dice**, que es
+     * la peor forma de perder datos: el fichero existe, pesa, se abre, y le
+     * faltan cosas.
+     *
+     * ── LOS BYTES DE LA PORTADA NO SE SELECCIONAN ───────────────────────
+     *
+     * Ni aquí ni en ningún listado. Van el `checksum` y la `source_url`, que es
+     * lo que el export lleva. Traer 3 MB de binario para tirarlo después sería
+     * pagarlo dos veces.
+     *
+     * ── DOS CONSULTAS, NO UNA CON JOIN ──────────────────────────────────
+     *
+     * Los enlaces son 0..N por anime: un `JOIN` multiplicaría las filas del
+     * anime por sus enlaces y habría que volver a agruparlas en JavaScript. Se
+     * traen aparte y se reparten por `anime_id`, que es una pasada sobre un
+     * array pequeño.
+     * ═════════════════════════════════════════════════════════════════════
+     */
+    async paraExportar() {
+      const [filas, enlaces] = await Promise.all([
+        cliente
+          .select({
+            ...COLUMNAS_DEL_LISTADO,
+            notas: anime.notes,
+            urlOrigenPortada: animeCover.sourceUrl,
+          })
+          .from(anime)
+          .leftJoin(animeCover, eq(animeCover.animeId, anime.id))
+          .leftJoin(progress, eq(progress.animeId, anime.id))
+          .where(mias())
+          .orderBy(desc(anime.updatedAt)),
+        cliente
+          .select({
+            animeId: continueLink.animeId,
+            url: continueLink.url,
+            etiqueta: continueLink.label,
+            ultimoUso: continueLink.lastUsedAt,
+          })
+          .from(continueLink)
+          .innerJoin(anime, eq(anime.id, continueLink.animeId))
+          .where(mias())
+          .orderBy(sql`${continueLink.lastUsedAt} desc nulls last`),
+      ]);
+
+      const porAnime = new Map<
+        string,
+        { url: string; etiqueta: string | null; ultimoUso: Date | null }[]
+      >();
+      for (const enlace of enlaces) {
+        const lista = porAnime.get(enlace.animeId) ?? [];
+        lista.push({ url: enlace.url, etiqueta: enlace.etiqueta, ultimoUso: enlace.ultimoUso });
+        porAnime.set(enlace.animeId, lista);
+      }
+
+      return filas.map((fila) => ({ ...fila, enlaces: porAnime.get(fila.id) ?? [] }));
     },
 
     /** Un anime por id. `null` si no existe **o no es suyo** (indistinguible). */

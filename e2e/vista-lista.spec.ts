@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { liberarLimiteDeRegistro } from "./ayuda-recuperacion";
+import { liberarLimiteDeRegistro, liberarLimiteDeLogin } from "./ayuda-recuperacion";
 import { fileURLToPath } from "node:url";
 
 import { expect, test } from "@playwright/test";
@@ -111,6 +111,8 @@ test.describe("la vista lista, usada como la usaría una persona", () => {
    */
   test.beforeEach(async () => {
     await liberarLimiteDeRegistro();
+    await liberarLimiteDeLogin();
+    await liberarLimiteDeLogin();
   });
 
   test("sin sesión, /app/lista manda al login", async ({ page }) => {

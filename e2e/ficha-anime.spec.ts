@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { liberarLimiteDeRegistro } from "./ayuda-recuperacion";
+import { liberarLimiteDeRegistro, liberarLimiteDeLogin } from "./ayuda-recuperacion";
 import { resolve } from "node:path";
 
 import { expect, test } from "@playwright/test";
@@ -159,6 +159,8 @@ test.describe("la ficha de un anime, usada por una persona", () => {
    */
   test.beforeEach(async () => {
     await liberarLimiteDeRegistro();
+    await liberarLimiteDeLogin();
+    await liberarLimiteDeLogin();
   });
 
   let contexto: BrowserContext;

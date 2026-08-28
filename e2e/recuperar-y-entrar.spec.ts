@@ -7,6 +7,7 @@ import {
   esperarSinBase,
   hayBase,
   liberarLimiteDeRegistro,
+  liberarLimiteDeLogin,
 } from "./ayuda-recuperacion";
 
 import type { Page } from "@playwright/test";
@@ -99,11 +100,15 @@ test.skip(!hayBase(), esperarSinBase());
 // segundo. Con `beforeAll` fallaba justo así: el primero pasaba y el segundo no
 // llegaba a crear su cuenta.
 //
-// Ver `liberarLimiteDeRegistro`: lo que se libera es el límite de REGISTRO,
-// nunca el de LOGIN —que el segundo test agota a propósito, porque es lo que
-// está probando—.
+// Los dos cubos se vacían AL EMPEZAR cada test, y esa precisión importa: el
+// segundo recorrido **agota el de login a propósito**, porque es justo lo que
+// está probando. Partir de un cubo limpio es lo que hace que ese agotamiento
+// sea suyo y no herencia de los ochenta y tantos inicios de sesión que hace el
+// resto de la suite desde esta misma IP. Vaciarlo a MITAD invalidaría el test;
+// vaciarlo al empezar es lo que lo hace repetible.
 test.beforeEach(async () => {
   await liberarLimiteDeRegistro();
+  await liberarLimiteDeLogin();
 });
 
 test("EL CICLO ENTERO: registrarse, olvidarla, restablecer y VOLVER A ENTRAR", async ({ page }) => {

@@ -1,110 +1,66 @@
-# BLOQUEO · falta la cadena de `production` para ESCRIBIR
+# DESBLOQUEADO · 2026-08-28
 
-> Escrito el 2026-08-27, reescrito el mismo día al cerrarse el diagnóstico.
-> **Solo bloquea el arreglo de la FASE 0.** Todo lo demás sigue en marcha.
+> Este fichero documentó un bloqueo real durante horas. Se conserva **con el
+> diagnóstico entero** en vez de borrarse: el fallo que describe es de una
+> familia que este proyecto ha repetido seis veces, y el registro vale más que
+> la limpieza.
 
-## El diagnóstico ya NO necesita la cadena. Está cerrado.
+## Resuelto
 
-**`production` tiene tu cuenta y no tiene ni un anime.** No es una hipótesis:
-sale de tres hechos medidos y de una restricción del esquema.
+`production` tiene los **83 animes** del dueño, colgados de su cuenta
+(`5d984d2f-d4b2-4022-9541-7f596961b033`), con sus 83 portadas y su progreso.
 
-| Hecho                                                         | Cómo se midió                                                   |
-| ------------------------------------------------------------- | --------------------------------------------------------------- |
-| En `production` hay **exactamente un** `users`                | tu consulta 1 en la consola de Neon                             |
-| `anime.user_id` tiene `FOREIGN KEY … REFERENCES users(id)`    | `drizzle/0001_esquema_inicial.sql:214`                          |
-| → luego **todo** anime de `production` es de esa única cuenta | por la restricción: no cabe un `user_id` que no esté en `users` |
-| `/app`, con esa cuenta iniciada, dice «0 de 0»                | lo viste tú en el navegador                                     |
-| → **`production` tiene 0 filas en `anime`**                   | se sigue de los tres anteriores                                 |
+Verificado en tres niveles, en este orden:
 
-El `GROUP BY user_id` que faltaba ya no hace falta: con una sola cuenta y la
-clave foránea puesta, «cuántos ve esa cuenta» y «cuántos hay» son el mismo
-número, y ese número lo enseñó la pantalla.
+| nivel | qué dijo |
+|---|---|
+| `GROUP BY user_id` sobre `anime` | `5d984d2f… → 83`, y **una sola fila** en `users` |
+| `anime_cover` | 83 portadas · 3,05 MB |
+| **un navegador de verdad, con sesión** | la rejilla los pinta, el contador dice «83 de 83 series», buscar «higurashi» devuelve **tres**, y `/api/covers/…` responde `200 image/webp` con el `ETag` = su checksum |
 
-## Qué pasó, y por qué el seed pareció funcionar
+El tercero no es ceremonia: **el recuento ya mintió una vez**, y la única
+comprobación que no puede mentir sobre «¿lo ve el dueño?» es mirarlo.
 
-Tu cuenta de `production` se creó **a las 02:48:46 del 25**, y el `created_at`
-coincide al segundo con uno de tus `POST /registro`. La creó el registro.
+## Qué había pasado
 
-Eso es lo que lo delata: el seed crea al propietario buscándolo por
-`SEED_OWNER_EMAIL`. Si el seed hubiera corrido contra `production` **antes** de
-ese registro, la cuenta ya habría existido y tu registro habría fallado por el
-`UNIQUE` de email. Y si hubiera corrido **después**, habría encontrado tu cuenta
-y colgado de ella los 83. Ninguna de las dos pasó. **El seed nunca escribió en
-`production`.**
+`production` tenía la cuenta y **cero animes**. El seed nunca escribió ahí: la
+cuenta la creó el registro de las 02:48:46, y el seed la habría encontrado —o
+chocado con ella— si hubiera corrido contra esa rama.
 
-Los 83 que sí existen están en `development`, sembrados el **24 a las 18:50** —
-el seed local de la FASE 1, no el del despliegue. Medido directamente:
+Los 83 estaban en `development`, sembrados el 24 a las 18:50, y el recuento de
+«83 animes, 83 portadas» que se dio por bueno como de producción salió de allí:
+en línea solo viajó `DATABASE_URL`, mientras `db:verificar` y las transacciones
+prefieren `DATABASE_URL_UNPOOLED`, que seguía valiendo lo de `.env.local`.
 
-```
-DESTINO: ep-green-recipe-ay3kbq97-pooler…          (development)
-users:   72314c6d… castrolorenzosegundo@gmail.com  2026-08-24T18:49:10Z
-anime:   72314c6d… n=83   18:50:19 → 18:50:31
-portadas: 83, 3,05 MB
-```
+**Media operación en cada rama, y el anuncio de destino decía la verdad** sobre
+la variable que anunciaba. Ése es el fallo, y es el número 6 de la tabla de
+`testing.md` § «La operación tuvo éxito. ¿SOBRE QUÉ?».
 
-Y el recuento de «83 animes, 83 portadas» que se dio por bueno como si fuera de
-`production` salió **de ahí**. Es la sexta repetición del mismo fallo:
-`db:verificar` y las transacciones prefieren `DATABASE_URL_UNPOOLED`, que seguía
-valiendo lo de `.env.local` —`development`— porque en línea solo viajó
-`DATABASE_URL`. Media operación en cada rama, y el resumen final impecable.
+## Lo que impide que vuelva
 
-**Eso ya no puede volver a pasar**: `scripts/rama-destino.ts` tiene ahora
-`exigirMismaRama()`, que **para antes de escribir nada** si las dos variables
-apuntan a ramas distintas. Cableada en `seed`, `migrate` y `verificar-esquema`,
-con 7 tests y verificada por mutación.
+1. **`exigirMismaRama()`** en `scripts/rama-destino.ts` — **para antes de
+   escribir nada** si `DATABASE_URL` y `DATABASE_URL_UNPOOLED` apuntan a ramas
+   distintas. Cableada en `seed`, `migrate` y `verificar-esquema`, con 7 tests y
+   verificada por mutación.
 
-## Lo único que necesito de ti
+2. **El anuncio declara LAS DOS variables** y de dónde salió cada una. No es
+   redundante con lo anterior: la guarda cubre «apuntan a sitios distintos» y
+   esto cubre «una vino de un fichero cuando creías haberla pasado en línea».
 
-Dejar el fichero **`J:\Code\Anime_Organize\neon-prod.txt`** con las dos cadenas
-de la rama `production`, **las dos**:
+Y funcionó a la primera, sobre mí: el primer intento de migrar contra producción
+cayó en `development`, porque una extracción de la cadena falló y las dos
+variables salieron vacías. La salida lo dijo en tres líneas —`ep-green-recipe`,
+`leída de un fichero .env`, `DATABASE_URL sin definir`— y ahí se paró.
 
-```
-POOLED=postgresql://…-pooler.…
-DIRECTA=postgresql://…            (la misma sin "-pooler")
-```
+## Lo que queda, y no bloquea
 
-Lo busqué en `J:\Code\Anime_Organize\`, `J:\Code\`, y en tu carpeta de usuario,
-Escritorio, Descargas y Documentos. No está en ninguna. **Lo borro en cuanto
-termine**, como la otra vez.
+Lotes del `PROMPT_MAESTRO_FINAL.md` sin construir: **B2** (sitios y espejos),
+**C1** (enriquecimiento con AniList y Claude), **C2** (importar `.xlsx`), **C4**
+(espejo en Drive) y **D3** (estados del sistema y móvil).
 
-## Qué haré con ella, exactamente
+Las pestañas de Ajustes que dependen de ellos **no tienen controles inertes**:
+dicen qué falta y de qué lote llega.
 
-Nada que borre datos. El arreglo es **volver a sembrar `production`**:
-
-1. `exigirMismaRama()` comprueba que las dos cadenas son de la misma rama.
-2. Se anuncia el destino y se confirma el host `ep-broad-water-aym5x71z`.
-3. `npm run db:migrate` — idempotente.
-4. `npm run seed` — idempotente: `crear()` devuelve `null` ante el `UNIQUE`, así
-   que correrlo dos veces no duplica nada. Encuentra tu cuenta por
-   `SEED_OWNER_EMAIL` y le cuelga los 83 con sus portadas.
-5. Se cuenta **agrupando por `user_id`**, no con un `count(*)` suelto — que es
-   lo que escondió el problema la primera vez.
-6. Se borra `neon-prod.txt`.
-
-No se toca tu contraseña, no se borra tu cuenta, y no se borra ningún anime.
-
-## Mientras tanto, esto sigue
-
-Nada de lo de abajo escribe en `production`. Se construye y se verifica contra
-`development`, que tiene los mismos 83 y el mismo esquema.
-
-|                                                        |                                                                                                                            |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| FASE 1.1 · las primitivas que faltaban                 | **HECHA** — siete nuevas, más las dos que ya estaban                                                                       |
-| FASE 1.2 · los conceptos duplicados                    | **HECHA** — de 26 recetas repetidas a 12, y el barrido es ahora `npm run lint:duplicados`, que **falla si el número sube** |
-| FASE 1.3 · agregados en JavaScript                     | **HECHA**                                                                                                                  |
-| LOTE A · el modal, editar, borrar, progreso y enlaces  | **HECHO**, con sus recorridos en navegador                                                                                 |
-| LOTE B1 · el buscador global                           | **HECHO**                                                                                                                  |
-| Ajustes · cambiar la contraseña con sesión iniciada    | **HECHO**, ciclo completo verificado: cambiar, entrar con la nueva, y que la vieja falle                                   |
-| LOTE B2 · sitios de streaming                          | pendiente                                                                                                                  |
-| LOTE C · IA, importar, exportar, espejo en Drive       | pendiente                                                                                                                  |
-| LOTE D · borrado de cuenta, estados del sistema, móvil | pendiente                                                                                                                  |
-
-**De tu criterio de «listo», lo único que sigue bloqueado es ver tus 83.** Todo
-lo demás —añadir por URL de imagen con la portada guardada en la base, editar el
-progreso, guardar un enlace y abrirlo, buscar, filtrar, ordenar, conmutar de
-vista, y cambiar la contraseña con sesión iniciada— está construido y recorrido
-con un navegador de verdad.
-
-Puedes comprobarlo ya en producción **añadiendo un anime a mano**: el modal
-funciona y la portada se guarda. Lo que falta es que tus 83 vuelvan.
+Y una variable sin configurar: `RESEND_API_KEY` / `EMAIL_FROM`. Sin ellas el
+enlace de recuperación **se genera pero no se envía por correo**, así que hoy
+hay que sacarlo de la base a mano.

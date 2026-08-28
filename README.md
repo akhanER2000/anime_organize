@@ -262,71 +262,37 @@ build, escaneo de secretos, extensiones y migraciones) antes de subir nada.
 | **Coste aproximado**            | Una llamada por anime, con la sinopsis dentro: del orden de 1.500 tokens de entrada y 300 de salida. Para los 83, una vez.                                                                                                                                                                                                                                                 |
 | **Cómo comprobar que funciona** | `npm run enrich -- --limite 3` debe imprimir `paso 2 (IA): claude-sonnet-5` en lugar de `OMITIDO`, y la ficha debe enseñar chips con el prefijo `✦` y borde punteado. En `ai_job`, filas con `provider = 'ANTHROPIC'`, `status = 'OK'` y sus contadores de tokens.                                                                                                         |
 
-### 4 · Que CI llegue hasta el final
+### 4 · ~~Que CI llegue hasta el final~~ · **HECHO**
 
-**Dos causas, las dos encontradas leyendo el log entero. Ninguna era la que dije antes.**
+**El workflow pasa entero.** Dieciséis pasos, ninguno omitido, incluido el camino real.
+Es la primera vez desde que se creó, el 23 de agosto.
 
-> **Este apartado ha mentido dos veces, y las dos las escribí yo.** Primero culpó al
-> orden de los pasos; después inventó un dilema de infraestructura con tres opciones.
-> Las dos veces **inferí la causa sin leer el error real**. Lo dejo escrito porque el
-> error de método vale más que la conclusión: una captura de la anotación de Actions
-> valió más que mis dos diagnósticos juntos.
+Costó **cinco causas encadenadas**, y lo que las mantuvo escondidas fue siempre lo mismo:
+_el fallo no se veía_. Vale la pena dejarlo escrito, porque el patrón se repite.
 
-**Causa 1 — un test unitario con base escondida.** `limitador.test.ts` comprobaba que la
-guarda ACEPTA `recuperar-nueva:ip:<ip>` llamando a `registrarIntento`, y aceptar
-significa seguir hasta el `insert`. Verde en local (Neon real), rojo en CI
-(`postgres:18`). **Arreglado:** la comprobación se extrajo a `claveBienFormada()`, pura.
-El caso rechazado sigue yendo por `registrarIntento` a propósito — lanza antes de tocar
-nada, y así queda cubierto que la guarda está cableada y no solo exportada.
+| #   | Qué era                                                  | Cómo se tapaba                                       |
+| --- | -------------------------------------------------------- | ---------------------------------------------------- |
+| 1   | Migraciones hablando WebSocket a un Postgres normal      | los pasos corrían en un orden que fallaba antes      |
+| 2   | `limitador.test.ts`: un test unitario con base escondida | verde en local, donde `DATABASE_URL` es un Neon real |
+| 3   | Los tests de integración contra el driver HTTP de Neon   | diez errores tapados por el fallo anterior           |
+| 4   | Auth.js rechazando todo sin saber en qué host vive       | 60 s de sondeo y un error que nadie imprimía         |
+| 5   | **El test se mataba a sí mismo en el `afterAll`**        | los diez tests PASABAN y el paso salía con código 1  |
 
-**Causa 2 — un test que desaparecía del recuento.** Con lo anterior arreglado, el paso
-seguía saliendo con código 1 mientras el resumen decía «57 passes · 57 total». El log
-completo decía otra cosa:
+La quinta es la que más enseña. `lsof -ti tcp:3994` casa cualquier socket con ese puerto
+**en cualquiera de los dos extremos**, y el test es quien hace las peticiones: sus propias
+conexiones salientes entraban en la lista y el `kill -9` se llevaba al worker de vitest.
+En Windows no pasó nunca, porque la rama de PowerShell ya filtraba `-State Listen`. Dos
+ramas del mismo concepto, y solo una estaba bien.
 
-    Test Files  57 passed (58)
-    Unhandled Error: [vitest-pool]: Worker forks emitted error.
-    Caused by: Error: Worker exited unexpectedly
+**Y las tres primeras hipótesis fueron falsas.** Culpé al orden de los pasos, luego al
+driver de la aplicación, luego al `next build` dentro del worker. Las tres veces inferí la
+causa sin leer el error real. Lo que rompió la racha no fue pensar mejor: fue **abrir el
+log entero** y quitar los tres sitios donde la información se perdía —`stdio: "ignore"` en
+la compilación, un fichero que desaparecía del recuento, y la salida del servidor que solo
+se veía dentro de un error que nunca llegaba a contarse—.
 
-**Cincuenta y ocho ficheros, cincuenta y siete terminados.** El que faltaba,
-`revocacion.camino-real.test.ts`, ni siquiera aparecía en la lista: su worker moría
-durante el arranque. Y como vitest no lo contaba ni como pasa ni como falla, **el
-resumen se leía igual que un éxito**. Ese es el fallo más peligroso de los tres que han
-salido en este proyecto: no un rojo mal explicado, sino un verde que no cubría lo que
-parecía cubrir.
-
-**Por qué moría.** Ese test arranca la aplicación de verdad (`next build` +
-`next start`), y la aplicación usa el driver HTTP de Neon —`src/lib/db/interno.ts`, no
-configurable— que necesita un endpoint `https://<host>/sql` que un contenedor no tiene.
-Los demás tests contra base no sufren esto porque van por `cliente-test.ts`, que elige
-`pg` cuando el destino no es Neon.
-
-**Arreglado declarando el requisito.** El fichero ya sabía omitirse en voz alta cuando le
-faltaba la base; ahora también cuando la base existe pero **la aplicación no puede
-usarla**, con el mismo aviso de siempre: _«omitirlo NO es aprobarlo»_. La pregunta tiene
-un solo dueño, `src/lib/db/motor.ts`, que además retiró las **cuatro copias** de
-`esNeon` que andaban sueltas.
-
-**Causa 3 — la misma, un piso más arriba.** Con el camino real ya declarado, el paso
-siguiente falló con **diez** errores `NeonHttpPreparedQuery`: los tests de integración
-ejercitan código real de la app —`src/lib/db/cuentas.ts`— y ese código va por el mismo
-driver HTTP. No era un test mal escrito: **la capa de datos de la aplicación estaba
-clavada a Neon**, y cualquier test que ejercite código real contra una base lo notaba.
-
-**Resuelto poniendo un traductor, no cambiando de driver.** CI levanta ahora un segundo
-servicio, un proxy que habla el protocolo HTTP de Neon por delante y Postgres por detrás.
-`NEON_HTTP_PROXY` manda el driver hacia él; en producción esa variable no existe y no se
-ejecuta ni una línea nueva.
-
-Se eligió frente a la alternativa —que `dbInterna()` cambiara a `pg` contra un Postgres
-normal— por una razón concreta: así CI ejecuta **el mismo driver que producción**, en vez
-de verificar una variante. Y porque `batch()` no tiene equivalente fiel en `pg`: las
-consultas de drizzle vienen atadas a su cliente, meterlas en un `transaction()` no las
-reata, y se perdería la atomicidad justo en la capa donde importa. Habría sido, otra vez,
-un verde que no cubre lo que parece cubrir.
-
-La imagen va **fijada por digest** y no por etiqueta: es de terceros y esto es un
-repositorio público, así que con etiqueta móvil quien controle ese registro decidiría qué
-corre aquí. Con digest, actualizarla es un commit visible. Solo vive dentro del runner.
+> Con esto, la frase de `.githooks/pre-commit` —«lo cubre `verificar.yml`, que corre en
+> cada push y no se puede saltar»— **ya es cierta**. Hasta hoy no lo era.
 
 ### 5 · Envío de correo (recuperación y verificación)
 

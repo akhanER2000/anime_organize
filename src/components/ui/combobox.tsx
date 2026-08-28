@@ -206,6 +206,7 @@ export function Combobox({
           onKeyDown={alPulsarTecla}
           className={cn(
             CAJA_DE_CONTROL,
+            "h-[var(--tactil-min)]",
             // lint-tokens-ok: `--ash-inactivo` es el token del placeholder
             "placeholder:text-[var(--ash-inactivo)]",
           )}

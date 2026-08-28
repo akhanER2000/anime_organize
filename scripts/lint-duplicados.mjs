@@ -37,11 +37,22 @@ import { join } from "node:path";
  */
 
 /**
- * Techo actual. Bajó de 26 a 14 al unificar el mensaje de error, el anillo de
- * foco, la transición, el titular, la caja de control, el marco dorado y la
- * etiqueta de sección. Ver `code-style.md` § «Conceptos con un solo dueño».
+ * Techo actual.
+ *
+ * 26 → 14 al unificar el mensaje de error, el anillo de foco, la transición, el
+ * titular, la caja de control, el marco dorado y la etiqueta de sección.
+ *
+ * 14 → 12 cuando **este script paró un commit**: la pantalla de Ajustes trajo
+ * dos recetas nuevas —la segunda línea de una nota y el hover dorado de un
+ * control secundario— y el techo saltó a 16. Se les dio dueño en vez de subirlo,
+ * y de paso `campo.tsx` pasó a usar `CAJA_DE_CONTROL` en vez de repetirla.
+ *
+ * Cada vez que baje, se baja aquí: un techo que se queda por encima de la
+ * realidad deja de proteger la parte que ya se limpió.
+ *
+ * Ver `code-style.md` § «Conceptos con un solo dueño».
  */
-const TECHO = 14;
+const TECHO = 12;
 
 const RAIZ = "src";
 const LONGITUD_MINIMA = 45;

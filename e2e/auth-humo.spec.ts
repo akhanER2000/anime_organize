@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { liberarLimiteDeRegistro } from "./ayuda-recuperacion";
 
 import { expect, test } from "@playwright/test";
 
@@ -28,6 +29,25 @@ import { expect, test } from "@playwright/test";
 const PASSWORD = "una frase larga y tranquila para el vault";
 
 test.describe("el navegador puede usar la aplicación de verdad", () => {
+  /**
+   * ── EL LÍMITE DE REGISTRO SE LIBERA ANTES DE CADA TEST ─────────────────
+   *
+   * `registro:ip` son **5 por hora** y todos los specs salen de la misma
+   * máquina, así que comparten cubo. La suite crea más cuentas desechables que
+   * eso, y el que corre último se queda sin: el fallo aparece como «no sale
+   * “Cuenta creada”», que se lee como un fallo de la pantalla de registro y no
+   * lo es.
+   *
+   * Es el mismo razonamiento que ya está escrito en `preparar-suite.ts`: una
+   * suite que prueba PANTALLAS no debe estar probando el limitador de paso. El
+   * limitador tiene sus propios tests —ocho contra Postgres real, más los del
+   * camino real que martillean el endpoint— y son mejores que este uso
+   * accidental.
+   */
+  test.beforeEach(async () => {
+    await liberarLimiteDeRegistro();
+  });
+
   test("las pantallas públicas se PINTAN con la CSP de producción puesta", async ({ page }) => {
     // Si la CSP bloquea los scripts de Next, React monta y vacía el árbol: el
     // `<h1>` desaparece y `body.innerText` queda vacío. Eso es exactamente lo

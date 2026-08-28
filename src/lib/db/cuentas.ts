@@ -345,3 +345,85 @@ async function señueloDeEscritura(): Promise<void> {
       .where(eq(passwordResetTokens.userId, nadie)),
   ]);
 }
+
+/**
+ * El hash de una cuenta, por su `id`. **Solo para re-autenticar.**
+ *
+ * ── POR QUÉ NO LO DEVUELVE `buscarCuentaPorEmail` ─────────────────────────
+ *
+ * Aquella función existe para la política anti-enumeración y devuelve
+ * `tienePassword: boolean` en vez del hash, a propósito: quien pregunta «¿existe
+ * este correo?» no necesita el secreto, y no dárselo hace imposible que se le
+ * escape a una respuesta. Cambiar su forma para reutilizarla aquí ampliaría lo
+ * que expone a **todos** sus usos, que son tres, por conveniencia de uno.
+ *
+ * ── Y VA POR `id`, NO POR CORREO ──────────────────────────────────────────
+ *
+ * El `id` sale de la sesión ya verificada. El correo también podría, pero el
+ * `id` no tiene forma de llegar desde un formulario sin que se note: es un uuid
+ * que nadie escribe. Es la versión estrecha del mismo dato.
+ */
+export async function hashDeCuenta(userId: string): Promise<string | null> {
+  const [fila] = await dbInterna()
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .limit(1);
+
+  return fila?.passwordHash ?? null;
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CAMBIAR LA CONTRASEÑA CON SESIÓN INICIADA.
+ *
+ * ── NO ES `consumirTokenDeReset` CON OTRO NOMBRE ──────────────────────────
+ *
+ * Aquel prueba **control del buzón** y por eso puede levantar el bloqueo de
+ * intentos. Éste prueba **saber la contraseña actual**, que es lo que
+ * `security.md` §2 exige: «al cambiar contraseña o email, re-autenticación
+ * obligatoria». Y no toca el limitador: quien está dentro no está bloqueado.
+ *
+ * ── LA COMPROBACIÓN Y LA ESCRITURA VAN EN LA MISMA SENTENCIA ──────────────
+ *
+ * El `WHERE password_hash = <el que se leyó>` es lo que cierra la ventana: si
+ * entre leer y escribir alguien cambió la contraseña por otra vía —el enlace de
+ * recuperación, otra pestaña—, esta escritura casa con cero filas y devuelve
+ * `false` en vez de pisar el cambio de la otra.
+ *
+ * Comparar el hash como cadena aquí NO es comparar contraseñas: Argon2id ya se
+ * verificó en Node contra la actual, y esto solo comprueba que la fila **sigue
+ * siendo la que se verificó**. Es un test de versión, no de secreto.
+ *
+ * ── Y REVOCA LAS DEMÁS SESIONES ──────────────────────────────────────────
+ *
+ * `sessions_valid_from` se adelanta, así que todos los tokens emitidos antes
+ * dejan de valer. Es lo que hace útil el cambio de contraseña cuando el motivo
+ * es «creo que alguien ha entrado»: si las sesiones viejas sobrevivieran, el
+ * intruso seguiría dentro con la contraseña cambiada.
+ *
+ * La consecuencia hay que decirla en la interfaz: **cambiar la contraseña te
+ * cierra la sesión en los demás dispositivos**.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export async function cambiarPasswordConSesion(datos: {
+  userId: string;
+  /** El hash que se acaba de verificar. Es el testigo de versión. */
+  hashActual: string;
+  hashNuevo: string;
+  ahora?: Date;
+}): Promise<boolean> {
+  const ahora = datos.ahora ?? new Date();
+
+  const [fila] = await dbInterna()
+    .update(users)
+    .set({
+      passwordHash: datos.hashNuevo,
+      sessionsValidFrom: marcaDeRevocacion(ahora),
+      updatedAt: ahora,
+    })
+    .where(and(eq(users.id, datos.userId), eq(users.passwordHash, datos.hashActual)))
+    .returning({ id: users.id });
+
+  return fila !== undefined;
+}

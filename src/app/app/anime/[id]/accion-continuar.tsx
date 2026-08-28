@@ -1,4 +1,5 @@
 import { Boton } from "@/components/ui/boton";
+import { NOTA_SECUNDARIA } from "@/lib/ui/clases";
 import { cn } from "@/lib/ui/cn";
 import { esHrefSeguro } from "@/lib/ui/href";
 
@@ -57,7 +58,7 @@ export function AccionContinuar({ enlace }: { enlace: EnlaceDeContinuacion | nul
         )}
       >
         Sin enlaces para continuar.
-        <span className="mt-[var(--e-05)] block font-mono text-mono-s text-[var(--ash-400)]">
+        <span className={NOTA_SECUNDARIA}>
           Cuando guardes el capítulo por el que vas, aparecerá aquí.
         </span>
       </p>

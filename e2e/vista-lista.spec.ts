@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { liberarLimiteDeRegistro } from "./ayuda-recuperacion";
 import { fileURLToPath } from "node:url";
 
 import { expect, test } from "@playwright/test";
@@ -93,6 +94,25 @@ function titulosDeLaTabla(pagina: Page): Promise<string[]> {
 }
 
 test.describe("la vista lista, usada como la usaría una persona", () => {
+  /**
+   * ── EL LÍMITE DE REGISTRO SE LIBERA ANTES DE CADA TEST ─────────────────
+   *
+   * `registro:ip` son **5 por hora** y todos los specs salen de la misma
+   * máquina, así que comparten cubo. La suite crea más cuentas desechables que
+   * eso, y el que corre último se queda sin: el fallo aparece como «no sale
+   * “Cuenta creada”», que se lee como un fallo de la pantalla de registro y no
+   * lo es.
+   *
+   * Es el mismo razonamiento que ya está escrito en `preparar-suite.ts`: una
+   * suite que prueba PANTALLAS no debe estar probando el limitador de paso. El
+   * limitador tiene sus propios tests —ocho contra Postgres real, más los del
+   * camino real que martillean el endpoint— y son mejores que este uso
+   * accidental.
+   */
+  test.beforeEach(async () => {
+    await liberarLimiteDeRegistro();
+  });
+
   test("sin sesión, /app/lista manda al login", async ({ page }) => {
     await page.goto("/app/lista");
 

@@ -130,3 +130,40 @@ export type DatosNuevaPassword = z.infer<typeof EsquemaNuevaPassword>;
  * Y `mensajeLoginFallido(seExigeVerificacion)` en vez de `MENSAJES.loginFallidoBase`
  * a pelo: la pista de verificación solo debe aparecer si esa verificación existe.
  */
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CAMBIAR LA CONTRASEÑA CON SESIÓN INICIADA — Ajustes, artboard 09.
+ *
+ * ── LA ACTUAL **NO** PASA POR `EsquemaPassword`, Y ES A PROPÓSITO ─────────
+ *
+ * Es el mismo motivo por el que el login tampoco lo aplica: una contraseña
+ * antigua puede ser más corta que el mínimo de hoy. Exigirle 12 caracteres a
+ * la que ya tiene el usuario le impediría **cambiarla**, que es justo lo que
+ * está intentando hacer, y con un mensaje que le diría que su contraseña actual
+ * es inválida.
+ *
+ * La nueva sí lo pasa: para eso existe el mínimo.
+ *
+ * ── Y NO PUEDE SER LA MISMA ──────────────────────────────────────────────
+ *
+ * No es una regla de higiene: cambiar la contraseña **revoca las demás
+ * sesiones**, así que alguien que la «cambie» por la misma creería haber echado
+ * al intruso cuando lo único que ha hecho es renovar el reloj. La comprobación
+ * es de igualdad exacta, sin normalizar: si difieren en un espacio, son
+ * distintas para el hash y también aquí.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export const EsquemaCambiarPassword = z
+  .object({
+    actual: z
+      .string({ error: "Escribe tu contraseña actual" })
+      .min(1, "Escribe tu contraseña actual"),
+    nueva: EsquemaPassword,
+  })
+  .refine((datos) => datos.actual !== datos.nueva, {
+    error: "La nueva tiene que ser distinta de la actual.",
+    path: ["nueva"],
+  });
+
+export type DatosCambiarPassword = z.output<typeof EsquemaCambiarPassword>;

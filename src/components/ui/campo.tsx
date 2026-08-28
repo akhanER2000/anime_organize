@@ -5,7 +5,7 @@
 // Se declara aquí, en la primitiva, y ninguna pantalla tiene que acordarse.
 
 import { useId } from "react";
-import { ETIQUETA_UPPERCASE, FOCO_DORADO_SUAVE, TRANSICION } from "@/lib/ui/clases";
+import { CAJA_DE_CONTROL, ETIQUETA_UPPERCASE } from "@/lib/ui/clases";
 import { MensajeError } from "./mensaje-error";
 
 import { cn } from "@/lib/ui/cn";
@@ -66,17 +66,16 @@ export type PropsAreaTexto = Comunes & Omit<TextareaHTMLAttributes<HTMLTextAreaE
  * ───────────────────────────────────────────────────────────────────────────
  */
 const CONTROL = cn(
-  "w-full rounded-input border bg-[var(--slate-800)]",
-  "px-[var(--e-2)] font-ui text-ui text-[var(--porcelain-100)]",
+  // La caja del sistema: fondo, borde, tipografía, hover, foco y deshabilitado.
+  // Vive en `lib/ui/clases.ts` porque la comparten el selector y el combobox.
+  CAJA_DE_CONTROL,
+  // La ALTURA no viene de la caja: cada uso la pone —el input,
+  // `--tactil-min`; el área de texto, su `rows`—. Ver `CAJA_DE_CONTROL`.
   "placeholder:text-[var(--ash-inactivo)]",
   // DESIGN-SPEC §6, estado `active` del input: «cursor visible en --gold-400».
   // Faltaba: no había un solo `caret-color` en todo el proyecto, así que el
   // cursor salía del color del texto y el estado activo no se distinguía.
   "caret-[var(--gold-400)]",
-  TRANSICION,
-  // Foco: borde dorado + anillo suave con 2 px de offset.
-  FOCO_DORADO_SUAVE,
-  "disabled:cursor-not-allowed disabled:bg-[var(--slate-900)] disabled:text-[var(--ash-inactivo)]",
 );
 
 /**

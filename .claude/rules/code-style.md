@@ -199,7 +199,7 @@ importas de ahí. Si necesitas que cambie, cambias ese fichero.
 | Recorrer una lista con las flechas, circular | `src/lib/ui/navegacion-circular.ts` |
 | El logotipo | `src/components/ui/marca.tsx` |
 | El mensaje de error de un campo | `src/components/ui/mensaje-error.tsx` |
-| El anillo de foco, la transición, el titular, la caja de un control, el marco dorado, la etiqueta de sección | `src/lib/ui/clases.ts` |
+| El anillo de foco, la transición, el titular, la caja de un control, el marco dorado, la etiqueta de sección, la nota secundaria, el hover dorado | `src/lib/ui/clases.ts` |
 | La card de un anime | `src/components/anime/anime-card.tsx` |
 | La barra de filtros y el conmutador de vista | `src/components/anime/barra-filtros.tsx` |
 
@@ -240,7 +240,7 @@ es que haya duplicados: es que **aparezcan sin que nadie lo decida**.
 Si uno nuevo está justificado, se sube el techo A MANO en el mismo commit. Ese
 diff es la conversación.
 
-Bajó de 26 a 14 al dar dueño a: el mensaje de error (seis copias, **dos
+Bajó de 26 a 14, y luego a 12 —**cuando el propio script paró un commit** que traía dos recetas nuevas de la pantalla de Ajustes—, al dar dueño a: el mensaje de error (seis copias, **dos
 interlineados distintos**, y una séptima en `font-ui` cuando la spec dice mono),
 el anillo de foco (seis), la transición (once), el titular de pantalla (tres), la
 caja de un control (tres), el marco dorado (tres) y la etiqueta de sección (dos).

@@ -116,7 +116,16 @@ export const TITULAR_PANTALLA = cn(
  */
 export const CAJA_DE_CONTROL = cn(
   "w-full rounded-input border bg-[var(--slate-800)]",
-  "h-[var(--tactil-min)] px-[var(--e-2)]",
+  // ── LA ALTURA **NO** VA AQUÍ ─────────────────────────────────────────────
+  //
+  // Esta receta la comparte un `<textarea>`, cuya altura la fija su `rows`. Con
+  // `h-[var(--tactil-min)]` incluida, el área de texto se aplastaría a 44 px
+  // ignorando el `rows` que le pasen — y sería un fallo silencioso, porque el
+  // campo seguiría funcionando y solo se vería mal.
+  //
+  // Cada control pone la suya: el input y el selector, `--tactil-min`; el área
+  // de texto, su `rows`.
+  "px-[var(--e-2)]",
   "font-ui text-ui text-[var(--porcelain-100)]",
   "border-[var(--slate-600)]",
   TRANSICION,
@@ -153,3 +162,25 @@ export const MARCO_DORADO = cn(
  * las de la ficha.
  */
 export const ETIQUETA_SECCION = cn(ETIQUETA_UPPERCASE, "text-[var(--gold-300)]");
+
+/**
+ * LA SEGUNDA LÍNEA DE UNA NOTA — mono 11 en `--ash-400`, con su aire.
+ *
+ * Los estados vacíos del sistema tienen dos alturas: la frase que dice qué
+ * pasa, y debajo la que dice qué hacer o cuándo llega. La segunda va siempre en
+ * mono pequeño y apagado, y estaba escrita a mano en cada sitio.
+ */
+export const NOTA_SECUNDARIA = cn(
+  "mt-[var(--e-05)] block font-mono text-mono-s text-[var(--ash-400)]",
+);
+
+/**
+ * EL HOVER DORADO DE UN CONTROL SECUNDARIO — borde `--gold-borde`, texto
+ * `--gold-200`.
+ *
+ * DESIGN-SPEC §6: es lo que hace un chip o un botón de obsidiana al pasar por
+ * encima. No es el `borde-pan-de-oro` del botón primario, que es un gradiente:
+ * éste es el escalón de abajo, y confundirlos hace que dos controles del mismo
+ * peso reaccionen distinto.
+ */
+export const HOVER_DORADO = cn("hover:border-[var(--gold-borde)] hover:text-[var(--gold-200)]");

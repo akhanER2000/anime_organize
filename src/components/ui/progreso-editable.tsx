@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { FOCO_DORADO, TRANSICION } from "@/lib/ui/clases";
+import { FOCO_DORADO, HOVER_DORADO, TRANSICION } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -108,7 +108,7 @@ export function ProgresoEditable({
                 "font-ui text-ui-s",
                 "border-[var(--slate-700)] bg-[var(--slate-900)] text-[var(--porcelain-200)]",
                 TRANSICION,
-                "hover:border-[var(--gold-borde)] hover:text-[var(--gold-200)]",
+                HOVER_DORADO,
                 FOCO_DORADO,
                 // lint-tokens-ok: estado deshabilitado
                 "disabled:cursor-not-allowed disabled:text-[var(--ash-inactivo)]",

@@ -74,6 +74,7 @@ const CONTROL = cn(
   // aquí es solo lo que este control necesita de más: quitar la apariencia
   // nativa y dejar hueco a la derecha para la punta.
   CAJA_DE_CONTROL,
+  "h-[var(--tactil-min)]",
   "appearance-none pr-[var(--e-5)]",
 );
 

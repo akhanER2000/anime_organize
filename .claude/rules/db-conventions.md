@@ -36,7 +36,9 @@ export const anime = pgTable("anime", {
   `streaming_site.id` pueden ser `serial` por ser catálogo compartido, pero por coherencia
   también van en `uuid`.
 - **Fechas: `timestamptz`**, nunca `timestamp` sin zona. `defaultNow()` en `created_at`.
-  `updated_at` lo mantiene un trigger o la capa de repositorio, de forma consistente.
+  `updated_at` lo escribe **la capa de repositorio**, no un trigger: `grep -rn TRIGGER
+  drizzle/` no devuelve nada y no hay ninguno en el esquema. Las columnas se declaran
+  `.notNull().defaultNow()` y cada `update` del vault pone `updatedAt: new Date()` a mano.
 - **Email: `citext`** con `UNIQUE`. Requiere `CREATE EXTENSION citext`.
 - **Dinero / puntuación: `numeric`**, nunca `float`. `score numeric(3,1)` (0.0–10.0).
 - **Binarios: `bytea`.** Las portadas viven en la BD (ver `api-conventions.md` y la skill de
@@ -111,8 +113,14 @@ ajenos en cada ejecución precisamente para que estén a la vista.
 
 ## Dos relojes, y no coinciden
 
-`users.sessions_valid_from` es la única columna del esquema **sin `DEFAULT`**, y
-es a propósito.
+`users.sessions_valid_from` es la única columna del esquema a la que se le
+**quitó** el `DEFAULT`, y es a propósito. Que otras columnas `NOT NULL` tampoco
+lo tengan —`users.email`, `anime.title`, `sessions.expires`,
+`password_reset_tokens.expires_at` y unas cuantas más— es lo normal: ninguna
+llegó a tenerlo nunca. Aquí el default **existía** —lo puso
+`0002_sesiones_y_rate_limit.sql`—, escribía la marca con el reloj equivocado, y
+`0003_corte_de_sesion_sin_default.sql` lo eliminó. Es el único `DROP DEFAULT` de
+toda la carpeta `drizzle/`.
 
 Esa marca se compara contra la marca de emisión del JWT, que escribe la
 **aplicación**. Un `DEFAULT now()` la escribiría con el reloj de **Postgres**, y
@@ -192,13 +200,25 @@ Se crea índice cuando hay un `WHERE`, un `ORDER BY` o un `JOIN` que lo usa. Ni 
 |---|---|
 | `uq_anime_user_title_norm` UNIQUE (`user_id`,`title_normalized`) | deduplicación exacta |
 | `idx_anime_title_norm_trgm` GIN (`title_normalized` gin_trgm_ops) | similitud > 0.55 |
-| `idx_anime_search_trgm` GIN sobre `unaccent(title)` + alternativos | buscador global |
+| `idx_anime_search_trgm` GIN sobre `unaccent(title)` + alternativos | buscador global — **previsto, NO creado** (ver nota) |
 | `idx_anime_user_status` (`user_id`,`status`) | faceta de estado |
 | `idx_anime_user_updated` (`user_id`,`updated_at` DESC) | orden «actualizado» |
 | `idx_anime_user_anilist` (`user_id`,`anilist_id`) WHERE `anilist_id` IS NOT NULL | dedup por AniList |
 | `idx_anime_genre_genre` (`genre_id`) | faceta de género |
 | `idx_continue_link_anime_used` (`anime_id`,`last_used_at` DESC) | enlace más reciente |
 | `idx_anime_cover_checksum` (`checksum`) | reutilizar bytes ya descargados |
+
+De los nueve, ocho existen en `drizzle/`. **El buscador global no tiene índice propio, y es
+una decisión, no un olvido.** `vault.buscar` resuelve por dos vías: `title_normalized LIKE`,
+y `unaccent(…) ILIKE` sobre `title`, `title_english`, `title_native`, los sinónimos y las
+notas, que va sin índice. `idx_anime_search_trgm` no se crea por dos motivos comprobables: el
+vault tiene 83 filas y la regla de arriba dice «ni antes, que cuesta escrituras, ni después
+de que duela» —a 83 filas el recorrido secuencial es instantáneo—; y `unaccent()` es
+`STABLE`, no `IMMUTABLE`, así que **Postgres rechaza indexarla** tal como está escrita aquí.
+Haría falta una función envoltorio marcada `IMMUTABLE`, que es una migración con su propia
+decisión detrás, y marcar `IMMUTABLE` algo que no lo es corrompe el índice en silencio. Está
+escrito también en `src/lib/db/vault.ts`, junto a la consulta, para que dentro de un año no
+se tome por olvido.
 
 `title_normalized` **siempre** se compara en minúsculas y ya normalizado desde la app: el
 índice trigram no sirve si la query aplica funciones encima de la columna.
@@ -268,10 +288,17 @@ diff y no pasa la revisión.
 
 ### Verificado en cada ejecución de CI
 
-`npm run lint:contrato` escribe **siete** ficheros que intentan saltarse el contrato,
-comprueba que los siete son rechazados, y los borra. Incluye un **control positivo** —el uso
+`npm run lint:contrato` escribe **doce** ficheros que intentan saltarse el contrato,
+comprueba que los doce son rechazados, y los borra. Incluye un **control positivo** —el uso
 correcto, que SÍ debe compilar— para que un `tsconfig` roto no dé verde por el motivo
 equivocado.
+
+Siete son los originales; los **cinco** restantes los encontró el ataque adversarial del
+2026-08-23, y son los que entonces pasaban: fabricar un contexto con el helper de pruebas,
+conectar al driver a pelo, usar el cliente de pruebas desde la aplicación, esquivar el lint
+con un `import()` dinámico y alcanzar el módulo de propiedad con un `userId` suelto. El
+número que manda es `INTENTOS.length` de `scripts/verificar-contrato.mjs`, que el script
+imprime al terminar; su comentario de cabecera todavía dice «siete» y va por detrás.
 
 Está verificado a su vez por mutación: al quitar la regla del casteo, el script se pone en
 rojo señalando exactamente ese hueco.
@@ -314,8 +341,38 @@ Cualquier otro sitio es un error de lint con un mensaje que explica qué hacer e
 
 - `@neondatabase/serverless`. En Route Handlers y Server Actions se usa el driver HTTP
   (`neon(...)`) que no mantiene socket: es lo correcto en funciones serverless.
-- Para el seed, la importación masiva y los scripts CLI se usa `Pool` (WebSocket), que sí
-  soporta transacciones largas.
-- **Una sola instancia** exportada desde `src/lib/db/index.ts`. Nada de crear clientes sueltos.
-- `DATABASE_URL` con `?sslmode=require`. En Neon, la cadena *pooled* para la app y la
-  *unpooled* (`DATABASE_URL_UNPOOLED`) para migraciones y scripts.
+- `Pool` (WebSocket) es **solo** para las migraciones y la verificación de esquema
+  (`scripts/migrate.ts`, `scripts/verificar-esquema.ts`): el DDL va en transacción y el
+  pooler no es el sitio para eso.
+- El **seed**, el **enriquecimiento** y la **importación** van por el mismo driver HTTP que
+  la aplicación: `scripts/seed.ts` y `scripts/enrich.ts` llaman a `dbInterna()`, y
+  `POST /api/import` entra por `vaultDe(...)`. No hay una vía privilegiada para los scripts,
+  y es deliberado. Cuando hace falta atomicidad sobre HTTP se usa `batch()`, que Neon ejecuta
+  como **una** transacción: es lo que hacen los dos sitios de `src/lib/db/cuentas.ts`.
+- **`conTransaccion()` no se usa desde la aplicación, y el motivo está medido.** Abre un
+  `Pool` por WebSocket, y `ws` empaquetado dentro del servidor de Next revienta con
+  `TypeError: b.mask is not a function`; además abrirlo y cerrarlo costaba ~1.180 ms contra
+  los ~9 ms del camino señuelo, lo que convertía el formulario de recuperación en un oráculo
+  de tiempo (`security.md` §2). `enTransaccion()` —su envoltorio con contexto— sigue
+  exportado desde `src/lib/db/index.ts` y documentado arriba, pero **hoy no lo llama nadie**:
+  en `src/` y `scripts/` solo están su definición en `src/lib/db/vault.ts` y el reexport. Si
+  vuelve a hacer falta, que sea desde un script CLI, nunca desde una Server Action ni un
+  Route Handler.
+- **Una sola instancia** del cliente HTTP, memoizada en `src/lib/db/interno.ts` (`dbInterna()`)
+  y marcada `@internal`. `src/lib/db/index.ts` **no** exporta el cliente: exporta `vaultDe`,
+  `enTransaccion`, `ContextoUsuario` y los tipos, y eso es todo lo que la aplicación toca —lo
+  que no se puede importar no se puede usar sin filtro—. ESLint prohíbe `@/lib/db/interno` en
+  todo `src/**` salvo las tres excepciones de § «Quién puede tocar la capa cruda», y también
+  su `import()` dinámico; `scripts/**` queda fuera de esa regla, que es por donde lo alcanzan
+  `seed` y `enrich`. El cliente por WebSocket no se comparte: `conTransaccion()` crea su
+  `Pool` bajo demanda y lo cierra en el `finally`, porque un socket abierto en una función
+  serverless es una fuga. Nada de crear clientes sueltos.
+- `DATABASE_URL` con `?sslmode=require`. En Neon, la cadena *pooled* para la app **y también
+  para el seed y `enrich`**, que van por `dbInterna()` → `textoObligatorio("DATABASE_URL")`.
+  La *unpooled* (`DATABASE_URL_UNPOOLED`) la prefieren **solo** `db:migrate`, `db:verificar`,
+  `drizzle.config.ts` y `conTransaccion()`.
+- **Al operar contra producción se pasan las DOS en la línea de comandos.** Si se pasa una
+  sola, la otra sigue valiendo lo de `.env.local` y media operación acaba en la rama
+  equivocada mientras el anuncio de destino dice la verdad sobre la que anuncia. Es el fallo
+  número 6 de `testing.md`, y lo que `exigirMismaRama()` de `scripts/rama-destino.ts` está
+  ahí para parar antes de escribir nada.

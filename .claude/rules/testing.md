@@ -31,7 +31,13 @@ Lo que rompe datos o filtra información entre usuarios:
 3. **Aislamiento por `user_id`.** Test de integración con dos usuarios sembrados: cada
    repositorio y cada Server Action se prueba pidiendo el recurso del *otro* usuario y
    debe devolver `NO_ENCONTRADO` (404), nunca los datos y nunca un 403.
-4. **SSRF de `/api/covers`** (`src/lib/covers/fetch-remote.ts`). Un test por bypass:
+4. **SSRF de `/api/covers`** (`src/lib/red/peticion-segura.ts` — `validarDestino` y
+   `peticionFijada` —, con la clasificación de rangos en `src/lib/covers/ip-privada.ts`;
+   quien lo consume es `src/lib/covers/descargar.ts`). Esta línea decía
+   `src/lib/covers/fetch-remote.ts`, que **nunca existió**: el validador vive en `lib/red/`
+   porque lo usan dos sitios —las portadas y «comprobar espejos»
+   (`src/lib/red/comprobar-espejo.ts`)—, y un validador por consumidor son dos validadores
+   que divergen. Un test por bypass:
    `http://127.0.0.1`, `http://localhost`, `http://[::1]`, `http://169.254.169.254`
    (metadata de nube), `http://10.0.0.1`, `http://192.168.1.1`, IPv4 mapeada en IPv6,
    decimal/octal (`http://2130706433`), `file://`, `data:`, credenciales embebidas,
@@ -62,13 +68,44 @@ Lo que rompe datos o filtra información entre usuarios:
 
 ## Umbral mínimo
 
-- **`src/lib/domain/` → 95 % de líneas y ramas.** Es lógica pura: no hay excusa.
-- **`src/lib/covers/`, `src/lib/enrich/`, `src/lib/import-export/` → 85 %.**
-- **Global → 70 %.**
+**Umbral hay uno, y es el único que rompe algo.** Está en `coverage.thresholds` de
+`vitest.config.ts`:
+
+- **`src/lib/domain/` → 95 % de líneas, ramas, funciones y sentencias.** Es lógica pura: no
+  hay excusa. Y **hoy está en rojo**: 92,9 % sentencias · 89,58 % ramas · 91,42 % funciones ·
+  93,38 % líneas. Quien lo baja es `progreso.ts` (75 % sentencias, 70,83 % líneas), que es el
+  único fichero de `domain/` sin su `progreso.test.ts` al lado.
+
+Los tres de abajo son **objetivo, no umbral**: no están en `vitest.config.ts`, así que nada
+los mide y nada falla por incumplirlos. Se dejan escritos porque siguen siendo la meta, pero
+se etiquetan por lo que son para que nadie los lea como una barrera que no existe.
+
+- **`src/lib/import-export/` → 85 %.** Cumplido: 92,91 % sentencias · 85,71 % ramas ·
+  96,15 % líneas. Por mérito de sus tests, no porque nada lo obligue.
+- **`src/lib/covers/` → 85 %. SIN CUMPLIR:** 63,63 % sentencias · 60,2 % ramas.
+  `procesar.ts` está al **0 %** —no tiene ni un test— y `drive.ts` al 39,34 %.
+- **`src/lib/enrich/` → 85 %. SIN CUMPLIR:** 43,61 % sentencias · 46,49 % ramas.
+  `orquestar.ts` al **0 %** —tampoco tiene test— y `consultas.ts` al 7,89 %.
+- **Global → 70 %.** Con la suite entera: 74,4 % sentencias. Sólo con los unitarios, que es
+  lo que corre CI: 56,35 %.
 - La cobertura de UI no cuenta para el umbral: para eso está el e2e.
 
-CI falla por debajo del umbral. La cobertura es un suelo, no un objetivo: 100 % de líneas
-con asserts flojos no vale nada.
+(Medido el 2026-08-28 con `npx vitest run --coverage`, suite completa contra la base real:
+69 ficheros, 1243 tests en verde y los cuatro `ERROR` del umbral de `domain/`.)
+
+**CI NO mide la cobertura.** Esta línea decía «CI falla por debajo del umbral» y es falso:
+`.github/workflows/verificar.yml` corre `lint:scripts`, `typecheck`, `lint`, `lint:tokens`,
+`lint:duplicados`, `lint:spread`, `lint:contrato`, `format:check`, `test:unit`, `db:migrate`,
+`verificar-esquema`, `test:integracion` y `build` — ninguno con `--coverage`. El hook
+`.githooks/pre-commit` corre `verificar:rapido`, que tampoco. `test:cov` existe en
+`package.json` y **no lo invoca nadie**: hay que escribirlo a mano. Si CI lo ejecutara, `main`
+estaría en rojo hoy mismo por `src/lib/domain/`.
+
+Esto es literalmente la sección «La operación tuvo éxito. ¿SOBRE QUÉ?» aplicada a esta misma
+regla: un umbral escrito en un documento y no cableado a ningún comando no protege de nada, y
+el verde de CI no dice lo que parece decir. Mientras la cobertura no entre en `verificar`,
+estos números son una foto, no una puerta. La cobertura es un suelo, no un objetivo: 100 % de
+líneas con asserts flojos no vale nada.
 
 ## Cómo se escriben
 
@@ -98,21 +135,44 @@ Para UI y para *plumbing* de framework, TDD no aporta: se implementa y se cubre 
 
 ## E2E — el flujo crítico
 
-Un único `spec` de Playwright que no puede romperse nunca
-(`e2e/vault-critico.spec.ts`), exactamente el que pidió el enunciado:
+El flujo crítico **no vive en un único `spec`**, y esta sección decía que sí: apuntaba a un
+`e2e/vault-critico.spec.ts` que **no existe ni existió**. Lo que hay son **16 `spec`** en
+`e2e/`, uno por recorrido, y ninguno de ellos puede romperse. Los cinco pasos que pidió el
+enunciado se cubren así:
 
-1. Registro de un usuario nuevo con email desechable.
-2. Añadir un anime **pegando una URL de imagen**.
+1. Registro de un usuario nuevo con email desechable → `e2e/auth-humo.spec.ts`
+   («REGISTRO → LOGIN → VAULT, el camino del primer día»). El ciclo con la contraseña
+   olvidada de por medio está en `e2e/recuperar-y-entrar.spec.ts` («EL CICLO ENTERO:
+   registrarse, olvidarla, restablecer y VOLVER A ENTRAR»).
+2. Añadir un anime **pegando una URL de imagen** → `e2e/anadir-anime.spec.ts`
+   («LA PORTADA SE GUARDA EN LA BASE, NO SE ENLAZA»).
 3. **Verificar que la portada se sirve desde `/api/covers/<id>` y NO desde el dominio
    original.** Se comprueba interceptando la red: no puede haber ninguna petición de imagen
-   al host de origen, y el `src` del `<img>` debe empezar por `/api/covers/`.
+   al host de origen, y el `src` del `<img>` debe empezar por `/api/covers/`. Se comprueba en
+   **cuatro** specs, porque son cuatro las pantallas que pintan portadas: `anadir-anime`,
+   `biblioteca` («LAS PORTADAS SALEN DE /api/covers, y NINGUNA imagen sale a otro dominio»),
+   `ficha-anime` y `vista-lista`.
 4. Filtrar la biblioteca (por estado y por texto) y comprobar que el resultado y la URL
-   (`searchParams`) cambian de forma coherente.
+   (`searchParams`) cambian de forma coherente → `e2e/biblioteca.spec.ts` («FILTRAR con un
+   chip cambia el resultado Y la URL»), y el buscador global en `e2e/buscador.spec.ts`.
 5. **Eliminar la cuenta**: re-autenticación, escribir el email, recibir el `.json` de export
-   y comprobar que después de borrar no queda nada (login con esas credenciales falla).
+   y comprobar que después de borrar no queda nada (login con esas credenciales falla) →
+   `e2e/borrar-cuenta.spec.ts` («BORRA DE VERDAD, Y EL TOKEN QUEDA INVÁLIDO»).
 
-Además, tres specs cortos: duplicado exacto bloqueado, sugerencia de similar, y navegación
-por teclado (`/` enfoca el buscador, `Esc` limpia, foco visible).
+**Partirlo así es a propósito, no un descuido.** Un fichero que encadena registro → alta →
+filtro → borrado se cae entero cuando se rompe el segundo paso, y el rojo no dice cuál de los
+cinco fue. Un `spec` por recorrido da un rojo que ya señala la pantalla.
+
+Los demás cubren lo que fue llegando: `ajustes`, `enlaces-continuar`, `enriquecer`,
+`estados-sistema`, `importar`, `landing`, `movil` y `sitios`.
+
+El duplicado exacto bloqueado y la sugerencia de similar **no son specs aparte**: son dos
+tests dentro de `e2e/anadir-anime.spec.ts` («EL DUPLICADO EXACTO SÍ BLOQUEA, y dice cuál» y
+«EL PARECIDO PREGUNTA Y DEJA SEGUIR: no bloquea»), donde está la pantalla que los provoca. La
+navegación por teclado vive en `e2e/buscador.spec.ts` («`/` ENFOCA EL BUSCADOR», «`/` NO ROBA
+EL FOCO si ya se está escribiendo», «`Esc` LIMPIA, y otra vez suelta el foco»). **El anillo de
+foco visible NO se comprueba en e2e** —esta sección decía que sí—: es estética, y su dueño es
+`src/lib/ui/clases.ts` (`code-style.md` § «Conceptos con un solo dueño»).
 
 Reglas del e2e:
 
@@ -149,7 +209,7 @@ volver a comprobarlo.
 | Límite | Mutación con la que se verifica |
 |---|---|
 | **Aislamiento por `user_id`** | quitar `eq(anime.userId, …)` del `WHERE` |
-| **Propiedad antes de mutar** | quitar la llamada a `exigirAnimePropio` |
+| **Propiedad antes de mutar** | en `src/lib/db/vault.ts`, quitar `mias()` de `mio()`: `and(eq(anime.id, animeId), mias())` → `eq(anime.id, animeId)` |
 | **Rate limiting** | devolver siempre `permitido: true` |
 | **Revocación de sesión** | devolver siempre `{ valida: true }` en `evaluarSesion` |
 | **Validación SSRF** | permitir cualquier IP en el validador |
@@ -157,15 +217,28 @@ volver a comprobarlo.
 | **Vinculación OAuth** | poner `allowDangerousEmailAccountLinking: true` |
 | **Hash de contraseña** | comparar en claro |
 
+> **No hay ningún `exigirAnimePropio` que quitar, y esta tabla mandaba a quitarlo.** No es
+> que el nombre cambiara: `src/lib/db/ownership.ts` **se eliminó a propósito** porque
+> recibía el `userId` como string suelto —quien llamara podía pasar el de otro—. Su trabajo
+> lo hace ahora el vault, donde el filtro es un cierre sobre el contexto y no se puede
+> omitir, y `scripts/verificar-contrato.mjs` conserva ese import como uno de sus **12**
+> intentos de salto —el último de la lista, de los que para el compilador—. La propiedad
+> antes de mutar se rompe donde vive de verdad: en `mio()`.
+
 ### Forma de la anotación
 
 ```ts
 /**
  * VERIFICADO POR MUTACIÓN (2026-08-23):
- *   Se quitó `eq(anime.userId, parametros.userId)` de `exigirAnimePropio`
+ *   Se quitó `mias()` de `mio(animeId)` en `src/lib/db/vault.ts`
+ *     and(eq(anime.id, animeId), mias())   →   eq(anime.id, animeId)
  *   → 3 tests en rojo. Restaurado.
  */
 ```
+
+Ése es el ejemplo porque es literal: está en la cabecera de
+`src/lib/db/aislamiento.integracion.test.ts`, con los nombres de los tres tests que se
+pusieron en rojo y una segunda mutación —vaciar `mias()`— que pone cinco.
 
 Con la fecha, porque una verificación de hace dos años sobre un código que ha
 cambiado veinte veces no dice gran cosa. Si tocas la protección, la vuelves a
@@ -538,7 +611,9 @@ podía verlo, porque el HTML era el correcto.
 
 Arreglado moviendo la biblioteca al grupo de ruta `(biblioteca)` —conserva su esqueleto,
 que es donde hace falta— y dejando la ficha sin `loading.tsx`. Fijado por
-`src/app/app/anime/[id]/sin-loading.test.ts`, verificado por mutación.
+`src/app/app/sin-loading.test.ts`, verificado por mutación. (Vive en `app/app/` y no
+en el segmento de la ficha a propósito: lo que vigila es que **NINGÚN** `loading.tsx` cuelgue
+bajo `src/app/app/`, no solo el de la ficha.)
 
 ### Y la peor de todas: el flujo de recuperación llegó roto a producción
 

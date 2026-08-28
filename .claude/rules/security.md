@@ -26,16 +26,45 @@ users
 - **Lectura de tablas hijas** (`anime_cover`, `progress`, `continue_link`, `anime_genre`):
   se llega a ellas **siempre** mediante un `JOIN`/subconsulta contra `anime` filtrado por
   `user_id`. Nunca `WHERE anime_id = ?` a pelo con un id que venga del cliente.
-- **Mutaciones:** se comprueba la propiedad **antes** de mutar, en la misma transacción
-  cuando sea posible. El patrón canónico vive en `src/lib/db/ownership.ts`:
+- **Mutaciones:** la propiedad **no** se comprueba con un helper aparte que haya que
+  acordarse de llamar: se comprueba **dentro de la propia consulta**, lo que además cierra
+  la ventana entre el `SELECT` y la escritura. El patrón canónico vive en
+  `src/lib/db/vault.ts` y se importa **siempre** por la puerta pública `@/lib/db`:
 
 ```ts
-// Devuelve el anime o lanza NotFoundError. Nunca devuelve un anime de otro usuario.
-const target = await requireOwnedAnime(tx, { animeId, userId: session.user.id });
+// El `ctx` sale de una sesión ya verificada; el userId nunca viaja como string suelto.
+const { ctx } = await exigirSesionParaMutar();   // src/auth.ts
+const vault = vaultDe(ctx);
+
+// `obtener` devuelve `null` si no existe **o no es suyo** (indistinguible).
+const target = await vault.obtener(animeId);
+
+// Varias escrituras, todo o nada. Dentro sigue siendo imposible consultar sin filtro.
+await enTransaccion(ctx, async (vault) => { /* … */ });
 ```
+
+  Dentro del vault el filtro es un cierre sobre el contexto, no un parámetro que se pase:
+  `mias()` es `eq(anime.userId, ctx.userId)` y `mio(animeId)` es
+  `and(eq(anime.id, animeId), mias())`. Las escrituras sobre tablas hijas van con
+  `insert … select … where a.user_id = ctx.userId` —así lo hace `guardarPortada`—: si el
+  anime no es suyo la subconsulta no devuelve filas, no se inserta nada y el `returning`
+  viene vacío.
 
 - **Nunca "404 vs 403".** Si un recurso existe pero es de otro usuario, se responde **404**.
   Un 403 confirma la existencia del recurso y filtra información.
+
+> **Hubo un `src/lib/db/ownership.ts` y se ELIMINÓ (commit `fbae71a`). No lo resucites.**
+> Exportaba `exigirAnimePropio(db, { userId })`, que recibía el `userId` como **string
+> suelto**: quien llamara podía pasar el de otro y la comprobación bendecía el acceso. Lo
+> encontró el ataque adversarial. Su trabajo lo hace ahora el vault, donde el filtro viene
+> dado por la forma de la API en vez de por acordarse de pasarlo bien.
+> Importar `@/lib/db/ownership` —estática o dinámicamente— lo para `eslint.config.mjs`
+> (`no-restricted-imports` y `no-restricted-syntax`), y `scripts/verificar-contrato.mjs` lo
+> fija como caso de ataque que debe seguir sin compilar. Tampoco se importa
+> `@/lib/db/vault` a pelo: la puerta es `@/lib/db`, que no exporta ni las tablas ni el
+> cliente crudo. Esta regla enseñaba aquí un `requireOwnedAnime(tx, { animeId, userId })`
+> que **nunca existió en `src/`**: era el nombre del árbol planificado en
+> `tasks/fase-1-spec.md`, no el del código.
 
 ### Prohibiciones
 
@@ -43,7 +72,12 @@ const target = await requireOwnedAnime(tx, { animeId, userId: session.user.id })
 - Prohibido pasar `userId` desde el cliente (body, query, header, cookie propia).
   El `userId` sale **siempre** de `auth()` en el servidor.
 - Prohibido `SELECT *` sobre `users` en cualquier respuesta: `password_hash` no sale nunca
-  del servidor. Usa las proyecciones de `src/lib/db/projections.ts`.
+  del servidor. **No hay módulo de proyecciones compartido** —esta regla mandaba a un
+  `src/lib/db/projections.ts` que no existe—: cada consulta enumera a mano las columnas que
+  necesita en su `select({ … })`, y `users` solo se lee desde dos ficheros,
+  `src/lib/db/cuentas.ts` y `src/auth.ts` (cuatro consultas entre los dos). `passwordHash`
+  entra en la proyección **únicamente** cuando se consume dentro del servidor —derivar
+  `tienePassword`, verificar la contraseña— y no viaja en ninguna respuesta.
 
 ## 1 bis. El middleware NO es el límite de seguridad
 
@@ -110,8 +144,19 @@ vault de alguien que acaba de revocar sus sesiones, no.
 - Hash de contraseña: **Argon2id** (`@node-rs/argon2`), parámetros `m=19456, t=2, p=1`.
   Fallback documentado: bcrypt con `rounds >= 12`. Nunca MD5, SHA-1 ni SHA-256 pelado.
 - Sesión **JWT** de Auth.js v5. El JWT lleva `sub` (uuid del usuario) y nada sensible.
-- Comparación de contraseñas y de tokens: **siempre en tiempo constante**
-  (`argon2.verify`, `crypto.timingSafeEqual`). Nunca `===` sobre un secreto.
+- Comparación de **contraseñas**: en tiempo constante, con `verify` de `@node-rs/argon2`
+  (`src/lib/auth/password.ts`), y contra un hash señuelo cuando el usuario no existe para
+  que los dos caminos cuesten lo mismo. Nunca `===` sobre una contraseña.
+- Comparación de **tokens de un solo uso**: no se comparan en memoria. Se guarda el `sha256`
+  del token y la fila se localiza por igualdad SQL contra
+  `password_reset_tokens.token_hash`, dentro del `WITH … UPDATE` de `consumirTokenDeReset`
+  (`src/lib/db/cuentas.ts`). Esa igualdad **no es de tiempo constante, y no necesita
+  serlo**: lo que se compara es un digest, no el secreto, y nadie acierta prefijos de un
+  sha256 sin invertirlo antes.
+- **`crypto.timingSafeEqual` no se usa hoy en el proyecto.** Esta regla decía que sí y no
+  aparecía ni una vez en el código. Es la herramienta obligatoria el día que haya que
+  comparar un secreto **en memoria** —firma de webhook, clave de API, HMAC—: ahí `===` sí
+  delata por tiempo.
 - Tokens de un solo uso (verificación de email, reset de contraseña):
   - se generan con `crypto.randomBytes(32)`,
   - se guarda **solo el hash** (`sha256`) en `password_reset_tokens.token_hash`,
@@ -264,12 +309,24 @@ pone en rojo.
 Flujo no negociable, en este orden:
 
 1. Rate limit específico (3 intentos / hora / usuario).
-2. **Re-autenticación** con la contraseña actual.
-3. Confirmación escribiendo **el email exacto** de la cuenta.
-4. **Export automático** `.json` que se descarga **antes** de borrar nada.
+2. Confirmación escribiendo **el email exacto** de la cuenta.
+3. **Re-autenticación** con la contraseña actual.
+4. **Export** `.json` que se descarga **antes** de borrar nada — en la práctica es lo
+   primero de todo: el botón de borrar no se habilita hasta haberlo descargado
+   (`puedeBorrar`, en `src/app/app/ajustes/zona-peligro.tsx`).
 5. Borrado real en cascada (`ON DELETE CASCADE` en el esquema, no borrado lógico) dentro de
    una transacción: anime, portadas, géneros, progreso, enlaces, sitios propios, jobs, sesiones.
 6. Invalidación de la sesión.
+
+> **El email va antes que la contraseña, y esta regla lo tenía al revés.** El orden real es
+> el de los cinco bloques numerados de `src/app/app/ajustes/acciones-peligro.ts`, y el
+> motivo es el mismo que en el login: comparar dos cadenas no cuesta nada y Argon2id sí, así
+> que no se paga el hash cuando ya se sabe que la confirmación no cuadra. Entre las dos no
+> cambia nada de seguridad —ninguna enseña lo que quien tiene la sesión no vea ya en
+> pantalla—, pero las dos son obligatorias y ninguna se salta.
+> La cabecera de ese mismo fichero todavía recita el orden viejo y contradice a los bloques
+> de su propio cuerpo: es un comentario, no cambia lo que el código hace, y se corrige
+> cuando se toque el fichero.
 
 No se deja "papelera" ni copia de sombra en la BD. `users.deleted_at` existe para
 desactivaciones administrativas, **no** para simular el borrado que el usuario pidió.
@@ -300,30 +357,61 @@ libro si se implementa mal. Checklist obligatorio, en orden:
    **magic bytes** además de por `Content-Type` (una cabecera es texto que el atacante controla).
 10. **Re-encode obligatorio con sharp.** Nunca se guarda el binario original: sharp normaliza a
     WebP y de paso destruye cualquier payload (SVG con script, polyglot, EXIF con datos).
-    `sharp(...).rotate()` para respetar EXIF y `.withMetadata(false)` para no propagar GPS.
+    `sharp(...).rotate()` para respetar EXIF. **No hace falta `.withMetadata(false)` y no se
+    llama** (`src/lib/covers/procesar.ts`): re-encodear con sharp NO propaga el EXIF del
+    original —`meta.exif` queda `undefined`—, y está medido en `sharp-pipeline.test.ts`. La
+    regla pedía escribir una llamada que no hace falta, que es una forma de mentir por exceso.
 11. **Nada de mensajes de error que filtren la red interna.** El cliente recibe
     `IMAGEN_NO_DESCARGABLE`, jamás `ECONNREFUSED 10.0.0.5:8080`.
 
-La implementación vive en `src/lib/covers/fetch-remote.ts` y tiene tests unitarios de cada
+**`src/lib/covers/fetch-remote.ts` nunca existió.** La implementación está repartida en
+tres piezas, y el reparto importa: `src/lib/red/peticion-segura.ts` valida el destino y
+conecta a la IP ya comprobada (`validarDestino`, `peticionFijada`);
+`src/lib/covers/ip-privada.ts` clasifica los rangos (`esIpPrivada`); y
+`src/lib/covers/descargar.ts` es quien las usa (`descargarImagen`). El validador se sacó a
+`red/` cuando «comprobar espejos» pasó a necesitarlo: **es el mismo código**, no una copia,
+porque dos versiones de un límite de seguridad significan que la menos mirada es la que un
+atacante usa. Tiene tests de cada
 bypass conocido. **Si tocas ese archivo, se pasa `security-auditor` antes de cerrar.**
 
 ## 5. Rate limiting
 
 Todo endpoint que consuma recursos o permita adivinar credenciales lleva límite.
-Implementación en `src/lib/rate-limit.ts` (token bucket; en memoria en dev, Postgres o
+Implementación en `src/lib/rate-limit/` —un directorio, no un fichero: `index.ts` tiene
+`registrarIntento` y `consultarIntento`, `politica.ts` la tabla `LIMITES` y la ventana
+deslizante, y `claves.ts` los constructores de clave— (token bucket; en memoria en dev,
+Postgres o
 Upstash en producción — configurable, nunca solo memoria en serverless).
 
-| Ruta | Límite | Clave |
+> **La tabla va por NOMBRE DE LÍMITE, no por ruta, y no es un capricho.** Enumeraba nueve
+> rutas `/api/*` de las que **sólo una existe**: el proyecto tiene tres `route.ts`
+> (`api/auth/[...nextauth]`, `GET api/covers/[animeId]` y `POST api/import`) y todo lo demás
+> son Server Actions. Buscar `POST /api/cuenta` para ver cómo se limita el borrado no lleva
+> a ninguna parte; buscar `borrar-cuenta:user` lleva a `politica.ts` y a su único llamador.
+> Y es el nombre que hay que pasarle a `registrarIntento`, así que es el que se usa al
+> escribir código.
+
+| Nombre del límite | Máximo | Dónde se aplica |
 |---|---|---|
-| `POST /api/auth/login` | 5 / 15 min | IP + email |
-| `POST /api/registro` | 5 / hora | IP |
-| `POST /api/recuperar` | **3 / hora por email · 10 / hora por IP** | IP y email, por separado |
-| `POST /api/covers` | 30 / hora | userId |
-| `POST /api/enrich` | 60 / hora | userId |
-| `POST /api/enrich/batch` | 2 / hora | userId |
-| `POST /api/import` | 5 / hora | userId |
-| `DELETE /api/cuenta` | 3 / hora | userId |
-| `POST /api/sitios/comprobar` | 10 / hora | userId |
+| `login:email` | **5 / 15 min** | `authorize` en `src/auth.ts` |
+| `login:ip` | **20 / 15 min** | ídem — **no es el mismo número que el de email**, ver abajo |
+| `registro:ip` | 5 / hora | Server Action de `/registro` |
+| `recuperar:email` | 3 / hora | Server Action de `/recuperar` |
+| `recuperar:ip` | 10 / hora | ídem, y `/recuperar/nueva` con su propio cubo |
+| `reenviar-verificacion:email` | 3 / hora | reenvío de verificación |
+| `reenviar-verificacion:ip` | 10 / hora | ídem |
+| `covers:user` | 30 / hora | (previsto: hoy la portada entra por `crearAnime`) |
+| `enrich:user` | 60 / hora | Server Action `enriquecerAnime` |
+| `enrich-batch:user` | 2 / hora | (previsto: el lote es hoy `npm run enrich`) |
+| `import:user` | 5 / hora | `POST /api/import` |
+| `borrar-cuenta:user` | 3 / hora | Server Action `borrarCuenta` |
+| `comprobar-espejos:user` | 10 / hora | Server Action `comprobarEspejosDelUsuario` |
+
+> **`login:ip` son 20 y `login:email` son 5**, y la asimetría es la misma que la de
+> recuperación y por el mismo motivo: detrás de una IP puede haber una familia o un CGNAT
+> entero, y echarlos a los cinco intentos castiga a quien no ha hecho nada. Lo que hay que
+> frenar con firmeza es el martilleo contra **una cuenta concreta**. Esta tabla decía
+> «5 / 15 min · IP + email», que se lee como el mismo número en las dos claves y no lo es.
 
 Respuesta al superarlo: **429** con `Retry-After` y el código `LIMITE_EXCEDIDO`.
 
@@ -438,11 +526,14 @@ Orden de preferencia que implementa `src/lib/rate-limit/claves.ts`:
 
 En `next.config.ts` (o middleware), para todas las rutas:
 
-- `Content-Security-Policy`: `default-src 'self'` con `img-src 'self' data:`,
+- `Content-Security-Policy`: `default-src 'self'` con `img-src 'self' data: blob:`,
   `connect-src 'self' https://graphql.anilist.co https://api.anthropic.com`,
   `font-src 'self' https://fonts.gstatic.com`, `style-src 'self' 'unsafe-inline'`,
   `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`, `object-src 'none'`.
-  Los `script-src` usan **nonce** por petición; `unsafe-eval` está prohibido.
+  Los `script-src` usan **nonce** por petición. `unsafe-eval` está prohibido **en
+  producción**; en desarrollo SÍ se emite, a propósito y comentado en
+  `src/lib/security/csp.ts`, porque el refresco en caliente de Next lo necesita. La fuente
+  de verdad de la política es ese fichero, no esta lista.
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`

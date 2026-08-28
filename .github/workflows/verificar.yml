@@ -99,11 +99,27 @@ jobs:
       - name: Formato
         run: npm run format:check
 
-      # ── Tests unitarios: puros, sin base ──────────────────────────────────
-      - name: Tests unitarios
-        run: npm run test:unit
-
-      # ── Base de datos ─────────────────────────────────────────────────────
+      # ── Base de datos, ANTES DE NINGÚN TEST ───────────────────────────────
+      #
+      # EL ORDEN NO ES COSMÉTICO, Y ESTUVO MAL DESDE EL PRIMER DÍA.
+      #
+      # `test:unit` se llama «unitarios» y lo son casi todos, pero uno no:
+      # `src/lib/auth/revocacion.camino-real.test.ts` arranca la aplicación de
+      # verdad y hace login contra Postgres —es el test del CAMINO REAL, y esa
+      # es exactamente su razón de existir—. Sólo se salta si
+      # `DATABASE_URL_UNPOOLED` no está definida, y en CI SÍ lo está.
+      #
+      # Con las migraciones detrás, ese test corría contra una base sin tablas
+      # y fallaba siempre. Resultado: **el workflow nunca pasó**, ni una vez en
+      # sus veinte primeras ejecuciones, y el badge del README llevaba rojo
+      # desde que se creó.
+      #
+      # Eso no es un detalle de configuración: `.githooks/pre-commit` justifica
+      # lo que NO comprueba diciendo «lo cubre .github/workflows/verificar.yml,
+      # que corre en cada push y no se puede saltar». Un guardián que falla
+      # siempre no se lee, y uno que no se lee no guarda nada — es la misma
+      # lección del hook de 30 segundos, un escalón más arriba.
+      #
       # 0000_extensiones.sql SE APLICA TAMBIÉN AQUÍ. Una base nueva —rama de
       # Neon o contenedor— nace sin extensiones, y la migración 0001 falla en
       # la primera columna `citext` de `users`.
@@ -112,6 +128,10 @@ jobs:
 
       - name: Verificar el esquema aplicado
         run: npx tsx scripts/verificar-esquema.ts
+
+      # ── Tests ─────────────────────────────────────────────────────────────
+      - name: Tests unitarios
+        run: npm run test:unit
 
       - name: Tests de integración (aislamiento entre usuarios)
         run: npm run test:integracion

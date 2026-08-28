@@ -227,18 +227,41 @@ Todos con **UI optimista**: se pinta el cambio y se revierte si el servidor fall
 > **La URL es solo el origen, nunca el almacenamiento.**
 > La fuente de verdad son los bytes en Postgres. Drive es un espejo opcional.
 
-### Entrada — `POST /api/covers`
+### Entrada — Server Action `crearAnime` (`src/app/app/acciones.ts`)
 
-Dos modos: `{ url }` o `multipart/form-data` con el fichero.
+**Un solo modo: la URL.** El campo es `urlPortada` de `EsquemaCrearAnime`
+(`src/lib/validation/anime.ts`), y el modal de añadir ofrece un único control:
+«Portada (dirección de la imagen)». **No hay `POST /api/covers` ni subida de fichero.**
+Bajo `src/app/api/covers/` solo está el `GET [animeId]`, y los únicos `route.ts` del
+proyecto son ése, `api/import` y el de Auth.js. Corregido el 2026-08-28: esta sección
+encabezaba con un endpoint que nunca se escribió.
+
+La portada se trae **después** de crear el anime y no puede tumbarlo: si la descarga falla,
+el anime se queda y el motivo viaja en `avisoPortada`. Por eso el alta responde `ok: true`
+con un aviso, y no un error.
+
+Si algún día se acepta un fichero subido, no será por aquí: `api-conventions.md` manda los
+binarios y las subidas a un Route Handler, con la guarda CSRF explícita que ya lleva
+`POST /api/import`.
 
 Pasos, en orden y sin saltarse ninguno:
 
 1. **Descarga segura** — timeout 10 s, máximo 8 MB, solo `image/jpeg|png|webp|avif`.
    **Bloqueo de IPs privadas validando el host resuelto.** El detalle completo de SSRF está
    en `.claude/rules/security.md` §4 y es de obligada lectura antes de tocar
-   `src/lib/covers/fetch-remote.ts`.
-2. **sha256** del binario original. Si ese `checksum` ya existe **para ese usuario**, se
-   reutilizan los bytes: no se vuelve a descargar ni a reprocesar.
+   `src/lib/covers/descargar.ts` (`descargarImagen`), que se apoya en
+   `src/lib/red/peticion-segura.ts` —`validarDestino` resuelve y comprueba el destino,
+   `peticionFijada` conecta a la IP ya validada— y en `src/lib/covers/ip-privada.ts`
+   (`esIpPrivada`). **`src/lib/covers/fetch-remote.ts` no existe**, y es lo que decía esta
+   línea hasta el 2026-08-28: esa ruta nunca estuvo en disco.
+2. **sha256** del binario original. Se guarda en `anime_cover.checksum` y hoy sirve para
+   **versionar la URL** (`?v=<checksum>`) y como `ETag` de `/api/covers`. **No ahorra
+   trabajo todavía:** ninguna consulta busca por `checksum`, así que cada alta descarga y
+   reprocesa la imagen aunque esos mismos bytes ya estén en el vault. El índice
+   `idx_anime_cover_checksum` está creado esperando esa reutilización y **nadie lo lee**.
+   Ojo con el orden si se implementa: el hash se calcula sobre lo ya descargado
+   (`checksumDe(descarga.bytes)`, en `acciones.ts`), así que podría ahorrar reprocesar y
+   reguardar, nunca descargar.
 3. **sharp → WebP calidad 82**, dos salidas:
    - portada **480 × 720** (`fit: cover`) → `anime_cover.bytes`
    - miniatura **100 × 150** → `anime_cover.thumb_bytes`
@@ -251,12 +274,21 @@ Pasos, en orden y sin saltarse ninguno:
 
 ### Salida — `GET /api/covers/[animeId]?size=full|thumb&v=<checksum>`
 
-- Comprueba la propiedad **antes** de servir. Anime ajeno → **404**.
+- Comprueba la propiedad **antes** de servir un solo byte: `vault.portada()` lleva `mias()`
+  en el `WHERE`, así que un anime ajeno devuelve `null`. Y ese `null` sale por la **misma
+  puerta** que «anime propio todavía sin portada»: **200 con el placeholder**. Aquí no hay
+  404, y no hace falta: lo que impide enumerar ids ajenos no es el código de estado, es que
+  los dos casos son indistinguibles byte a byte. Sin sesión → **401**, el único rechazo del
+  handler.
 - Devuelve el binario con `Content-Type: image/webp`.
-- `Cache-Control: public, max-age=31536000, immutable`.
+- `Cache-Control: private, max-age=31536000, immutable`. **`private`, no `public`**: son los
+  datos de una persona, y un proxy compartido no debe guardarlos para servírselos a otra.
 - `ETag` = `checksum`. Con `If-None-Match` coincidente → **304** con cuerpo vacío.
-- Sin portada → **404** con un **placeholder SVG de laja negra** generado al vuelo
-  (fondo `--slate-850`, polígonos de fractura, inicial del título en Cormorant `--ash-500`).
+- Sin portada → **200** con un **placeholder SVG de laja negra** generado al vuelo: 480 × 720,
+  fondo `--slate-850` y polígonos de fractura con trazo `--slate-700`, **sin texto ni
+  tipografía**. `Content-Type: image/svg+xml` y `Cache-Control: private, max-age=60` —corto a
+  propósito: en cuanto haya portada de verdad, que se vuelva a pedir—. No es un 404 porque la
+  rejilla necesita algo que ocupe su 2:3.
 
 ### Trampas de sharp verificadas (no las redescubras)
 
@@ -280,7 +312,10 @@ imágenes de Next devuelve `image/webp` correcto en runtime.
 
 - El `<img>` de la app apunta **siempre** a `/api/covers/...`, nunca al dominio original.
   Ese es el punto del e2e crítico.
-- Dos animes con la misma imagen no duplican bytes: mismo `checksum`, se reutiliza.
+- **Todavía no:** dos animes con la misma imagen **sí** duplican bytes. `anime_cover` tiene
+  `anime_id` como PK, así que cada anime guarda su fila con sus propios `bytes`, y el alta
+  descarga y re-encodea siempre. El `checksum` coincide y nada lo aprovecha: la reutilización
+  no está implementada ni testeada, así que no la des por hecha.
 - La proporción es **2:3 sin excepción** (`aspect-ratio: 2/3`, `object-fit: cover`).
 
 ---

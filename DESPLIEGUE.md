@@ -237,16 +237,16 @@ Todas en el entorno **Production**.
 
 **Y ya está. Cuatro.** Todo lo demás es opcional y hoy no hace falta:
 
-| No la pongas                                     | Por qué                                                                                                  |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL_UNPOOLED`                          | **nada en runtime la usa.** Solo migraciones y scripts, que corren desde tu máquina                      |
-| `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD`       | son del comando `seed`, que no corre en Vercel                                                           |
-| `RESEND_API_KEY` / `EMAIL_FROM`                  | sin ellas el enlace se imprime en el log, que es lo que decidiste                                        |
-| `ANTHROPIC_API_KEY`                              | fase 4, el enriquecimiento no está construido                                                            |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`          | el proveedor no está cableado                                                                            |
-| `GOOGLE_DRIVE_*`                                 | el espejo es opcional y la base es la fuente de verdad                                                   |
-| `RATE_LIMIT_ENABLED`                             | **déjala sin poner.** Sin valor viene ENCENDIDA, que es como tiene que ir                                |
-| `AUTH_VENTANA_CHEQUEO_SEGUNDOS`, `AUTH_SESION_*` | escotillas de test. Sin valor usan los de producción: 60 s de caché de lectura, 12 h / 30 días de sesión |
+| No la pongas                                     | Por qué                                                                                                                |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL_UNPOOLED`                          | **nada en runtime la usa.** Solo migraciones y scripts, que corren desde tu máquina                                    |
+| `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD`       | son del comando `seed`, que no corre en Vercel                                                                         |
+| `RESEND_API_KEY` / `EMAIL_FROM`                  | sin ellas el enlace se imprime en el log, que es lo que decidiste                                                      |
+| `ANTHROPIC_API_KEY`                              | **opcional.** El enriquecimiento SÍ está construido; sin clave, el paso 1 (AniList) funciona y el 2 se salta con aviso |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`          | el proveedor no está cableado                                                                                          |
+| `GOOGLE_DRIVE_*`                                 | el espejo es opcional y la base es la fuente de verdad                                                                 |
+| `RATE_LIMIT_ENABLED`                             | **déjala sin poner.** Sin valor viene ENCENDIDA, que es como tiene que ir                                              |
+| `AUTH_VENTANA_CHEQUEO_SEGUNDOS`, `AUTH_SESION_*` | escotillas de test. Sin valor usan los de producción: 60 s de caché de lectura, 12 h / 30 días de sesión               |
 
 > **`AUTH_SECRET` distinto del de desarrollo, en serio.** Compartirlo significa que un token
 > emitido en tu portátil vale en producción.

@@ -54,7 +54,11 @@ no `crearAnimeHandler_v2`.
 
 ## Imports
 
-Orden, con línea en blanco entre bloques (lo aplica `eslint-plugin-import`):
+Orden, con línea en blanco entre bloques. **Esto no lo aplica ningún linter**: es convención,
+y la sostiene la revisión. `eslint-plugin-import` no es dependencia del proyecto —llega de
+rebote con `eslint-config-next`, y de él solo queda activa `import/no-anonymous-default-export`—
+y `eslint.config.mjs` no enciende `import/order`. Se dice aquí porque quien crea que hay una
+regla detrás deja de mirar el orden, y no hay nadie más mirándolo:
 
 ```ts
 import "server-only";                       // 1. directivas de entorno
@@ -62,18 +66,47 @@ import "server-only";                       // 1. directivas de entorno
 import { cache } from "react";              // 2. externos
 import { z } from "zod";
 
-import { db } from "@/lib/db";              // 3. internos por alias @/
-import { anime } from "@/lib/db/schema";
+import { vaultDe } from "@/lib/db";         // 3. internos por alias @/
+import { normalizarTitulo } from "@/lib/domain/normalizar";
 
 import { AnimeCard } from "./anime-card";   // 4. relativos del mismo módulo
 
-import type { Anime } from "@/lib/domain";  // 5. type-only al final
+import type { Vault } from "@/lib/db";      // 5. type-only al final
 ```
 
+> **Este ejemplo se corrigió el 2026-08-28.** El de antes tenía tres de sus cinco imports
+> rotos —`db` nunca se exportó de `@/lib/db`, `@/lib/db/schema` es un **error** de ESLint
+> desde `src/`, y `@/lib/domain` no existe—: el ejemplo canónico de estilo no pasaba el lint
+> de este repo.
+>
+> El ejemplo nuevo importa **dos veces de `@/lib/db`** —el valor y el tipo— y eso no
+> contradice la viñeta de los barriles: `@/lib/db` no es un barril que reexporte medio
+> proyecto, es **la puerta pública del contrato de datos**, y es justamente la que no
+> deja salir ni las tablas ni el cliente. La viñeta prohíbe los barriles que ocultan de
+> dónde viene cada cosa; ésta existe para ocultar exactamente una: el cliente crudo.
+
 - Alias `@/` → `src/`. **Prohibido** `../../../`. Si necesitas subir dos niveles, usa el alias.
-- `import type` para lo que solo se usa como tipo (`verbatimModuleSyntax` lo exige).
+- `import type` para lo que solo se usa como tipo (`verbatimModuleSyntax` lo exige, y
+  `@typescript-eslint/consistent-type-imports` lo marca como **error** en `eslint.config.mjs`).
+  Ésta sí es una regla aplicada; el orden de arriba no.
 - Sin imports de barril (`index.ts` que reexporta medio proyecto): rompen el tree-shaking y
   crean ciclos. Excepción: `src/lib/db/schema/index.ts`, que Drizzle necesita.
+- **`@/lib/db` no exporta `db`.** Exporta `vaultDe`, `enTransaccion`, `ContextoUsuario`, los
+  dos errores y los tipos del vault (`Vault`, `AnimeEnListado`, `DatosCrearAnime`…). Ni el
+  cliente crudo ni las tablas salen de ahí, y no es un olvido: es el mecanismo del contrato
+  de datos (`db-conventions.md`).
+- **`@/lib/db/schema` está prohibido desde la aplicación**, y no de palabra:
+  `no-restricted-imports` lo marca como error —«Las tablas de Drizzle no se importan desde la
+  aplicacion. Usa `vaultDe(ctx)` de @/lib/db: **el filtro por usuario viene dado por la forma
+  de la API en vez de por acordarse**»—, igual que `@/lib/db/interno`, `@/lib/db/vault`,
+  `@/lib/db/ownership` y el driver a pelo (`@neondatabase/serverless`, `drizzle-orm/neon-http`).
+  Quedan fuera **cuatro** sitios, no tres: `src/lib/db/**`, `src/auth.ts`,
+  `src/lib/rate-limit/**` y —el último bloque de `eslint.config.mjs`— **los ficheros de
+  test** (`src/**/*.test.ts` y `.tsx`), donde la regla está en `off`. Un test de
+  integración tiene que poder leer la tabla cruda para comprobar SOBRE QUÉ FILA actuó una
+  operación, que es justo lo que la regla impide en la aplicación.
+- **No hay barril `@/lib/domain`**: se importa el fichero concreto —`@/lib/domain/normalizar`,
+  `@/lib/domain/enums`, `@/lib/domain/alta`—, que es lo que pide la viñeta de arriba.
 - Todo módulo que toque secretos o BD empieza con `import "server-only"`.
   Todo módulo de cliente empieza con `"use client"` **solo si de verdad lo necesita**.
 
@@ -97,20 +130,35 @@ src/
     app/                  el vault, protegido por middleware
     api/                  route handlers
   components/
-    ui/                   primitivas del sistema de diseño (Boton, Input, Chip, Badge…)
-    anime/                dominio anime (AnimeCard, FichaAnime, ModalAnadir…)
-    layout/               BarraSuperior, NavMovil, Marco…
-  lib/
-    db/                   cliente, esquema, repositorios, ownership
+    ui/                   primitivas del sistema de diseño (Boton, Campo, Chip, Badge…)
+    anime/                dominio anime (AnimeCard, AccionesFicha, ModalAnadir…)
+    layout/               BarraSuperior, NavMovil, Pantalla404 — los tres, no hay más
+  lib/                    LAS QUINCE. Aquí se grepea antes de escribir una utilidad
+    db/                   la puerta a los datos: contexto, esquema y consultas del vault
     domain/               reglas puras: normalizar, deduplicar, progreso, enums
     validation/           esquemas Zod compartidos
-    covers/               pipeline de portadas (fetch, sharp, drive)
+    ui/                   cn, clases, texto, fecha, href, refs, eventos, navegación circular
+    covers/               pipeline de portadas (descargar, sharp, espejo en Drive)
     enrich/               AniList + Claude
     import-export/        xlsx / csv / json
-    api/                  sobre de respuesta, errores, middlewares
-  hooks/
+    api/                  sobre de respuesta, códigos de error, guarda CSRF
+    auth/                 login, registro, password, sesión, duración, vinculación
+    config/               lectura y validación del entorno
+    email/                drivers (consola · Resend), plantillas, reintentos
+    rate-limit/           claves, política y cubos del limitador
+    red/                  petición saliente segura (anti-SSRF) y comprobación de espejos
+    security/             la CSP
+    design/               cromo del navegador
   styles/
 ```
+
+> **No hay `src/hooks/`, y no es un olvido.** El proyecto no exporta ni un solo hook propio:
+> `grep -rn "function use[A-Z]" src/` no devuelve nada. El árbol la listaba y mandaba a
+> buscar una carpeta que nunca se creó. Cuando haga falta el primer hook se crea entonces,
+> con el hook dentro y en el mismo commit. **Y `lib/` va entero a propósito:** el punto 6 de
+> `CLAUDE.md` manda grepear en `src/lib/` antes de escribir una utilidad, y nadie busca en
+> una carpeta que no sabe que existe — faltaban ocho, `ui/` entre ellas, que es la dueña de
+> diez de las veintiocho filas de «Conceptos con un solo dueño». Corregido el 2026-08-28.
 
 Regla de dependencias: `domain/` **no importa nada** de `db/`, de `app/` ni de React.
 Es lógica pura y testeable sin arrancar nada. Si `normalizarTitulo` necesitara la BD,
@@ -304,7 +352,7 @@ distinto es un bug que el usuario encuentra el primer día.
 más de un fichero y **falla si el número sube**. Está encadenado en
 `lint:todo`, así que corre en cada commit.
 
-Va con techo y no a cero a propósito: los 14 que quedan son utilidades sueltas
+Va con techo y no a cero a propósito: los 12 que quedan son utilidades sueltas
 —`font-ui text-ui-s text-[var(--porcelain-200)]` y parecidas— que meter en una
 constante solo añadiría una indirección que hay que ir a leer. Lo que importa no
 es que haya duplicados: es que **aparezcan sin que nadie lo decida**.

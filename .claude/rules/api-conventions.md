@@ -4,10 +4,25 @@ Dos formas de mutar, y solo dos:
 
 - **Server Actions** — para todo lo que nace de un formulario o de un botón de la UI
   (crear anime, editar, borrar, marcar progreso, cambiar ajustes). Viven en
-  `src/app/**/actions.ts` con `"use server"` al principio del archivo.
+  `src/app/**/acciones.ts` con `"use server"` en la primera línea del archivo. En
+  **español**, no `actions.ts`: son dominio, no framework (`code-style.md` § Idioma).
+  Cuando un módulo acumula varias familias se parte por tema con sufijo —
+  `acciones-sitios.ts`, `acciones-importar.ts`, `acciones-peligro.ts`,
+  `acciones-enriquecer.ts`. Hoy son diez ficheros.
 - **Route Handlers** — para lo que necesita un contrato HTTP de verdad: binarios,
   descargas, subidas, procesos largos, y todo lo que un cliente externo o un script pueda
-  llamar (`/api/covers`, `/api/enrich`, `/api/import`, `/api/export`).
+  llamar. **Hoy son dos**, y conviene saberlo antes de buscar el tercero:
+  `GET /api/covers/[animeId]`, que sirve el binario de la portada, y `POST /api/import`,
+  que recibe la hoja y devuelve el plan sin escribir nada. (El tercer `route.ts` del
+  proyecto es el de Auth.js, que no es nuestro.)
+  `/api/enrich` está previsto para el enriquecimiento por lotes pero **todavía no
+  existe**: hoy se enriquece con la Server Action `enriquecerAnime`
+  (`src/app/app/anime/[id]/acciones-enriquecer.ts`) y con el CLI `npm run enrich`
+  (`scripts/enrich.ts`).
+  **No hay `/api/export` y no lo va a haber**: `security.md` §2 ter prohíbe exponer el
+  export por un `GET` —con la cookie puesta, cualquier página podría hacer que el
+  navegador lo visitara—, así que la exportación es la Server Action `exportarVault`
+  (`src/app/app/ajustes/acciones-peligro.ts`) y la descarga la provoca el cliente.
 
 Nada de una tercera vía. Nada de mutar desde un `GET`.
 
@@ -29,13 +44,24 @@ type Respuesta<T> =
 - Las Server Actions devuelven el mismo sobre (no lanzan al cliente), para que el formulario
   pueda pintar el error sin `try/catch` en el componente.
 
-Las respuestas binarias (`/api/covers/[id]`, `/api/export`) no llevan sobre: devuelven el
-binario con sus cabeceras. Sus errores sí lo llevan.
+La única respuesta binaria es la de `GET /api/covers/[animeId]`, y no lleva sobre: devuelve
+el binario con sus cabeceras. Sus errores sí lo llevan. El export **no** es un binario
+servido por HTTP: `exportarVault` devuelve el sobre con el objeto dentro y el cliente compone
+el fichero.
 
 ## Códigos de error
 
-`codigo` es un identificador estable en `SCREAMING_SNAKE_CASE`, definido en
-`src/lib/api/errors.ts`. El cliente ramifica por `codigo`, nunca por `mensaje`.
+> **Esta sección describe lo que HAY.** Apuntaba a un `src/lib/api/errors.ts` que **nunca
+> existió**: los códigos siempre han vivido en `src/lib/api/respuesta.ts`. Y listaba dos
+> códigos —`ANIME_SIMILAR` e `IA_NO_CONFIGURADA`— que tampoco existen en el código, porque
+> por construcción del sobre **nada que responda `ok: true` puede llevar `codigo`**. Un
+> puntero a un fichero fantasma manda a quien lee a buscar lo que no está, y hace que deje
+> de fiarse del resto del documento. Se corrigió el 2026-08-28, al pillarlo.
+
+`codigo` es un identificador estable en `SCREAMING_SNAKE_CASE`, definido en la constante
+`CODIGOS` de `src/lib/api/respuesta.ts`, de la que se deriva el tipo `CodigoError`. El
+cliente ramifica por `codigo`, nunca por `mensaje`. La tabla de abajo son **los once que
+hay**: si un código no está en `CODIGOS`, no compila.
 
 | Código | HTTP | Cuándo |
 |---|---|---|
@@ -43,18 +69,30 @@ binario con sus cabeceras. Sus errores sí lo llevan.
 | `NO_ENCONTRADO` | 404 | no existe **o no es tuyo** (ver `security.md` §1) |
 | `VALIDACION` | 422 | Zod falló; `detalles` lleva los campos |
 | `ANIME_DUPLICADO` | 409 | choca con `uq_anime_user_title_norm` |
-| `ANIME_SIMILAR` | 200 | **no es error**: candidatos en `data.similares` |
 | `LIMITE_EXCEDIDO` | 429 | rate limit; incluye `Retry-After` |
 | `IMAGEN_NO_DESCARGABLE` | 422 | la URL no dio una imagen válida o fue bloqueada |
 | `IMAGEN_DEMASIADO_GRANDE` | 413 | > 8 MB |
 | `TIPO_NO_SOPORTADO` | 415 | mime fuera de jpeg/png/webp/avif |
 | `PROVEEDOR_NO_DISPONIBLE` | 502 | AniList o Anthropic caídos o con error |
-| `IA_NO_CONFIGURADA` | 200 | falta `ANTHROPIC_API_KEY`: se avisa, no se rompe |
 | `CONFLICTO_ESTADO` | 409 | operación imposible en el estado actual |
 | `ERROR_INTERNO` | 500 | lo inesperado; se loguea con id de correlación |
 
-`ANIME_SIMILAR` e `IA_NO_CONFIGURADA` van con **200 y `ok: true`**: son resultados esperados
-del flujo, no fallos. El duplicado *exacto* sí es 409.
+El parecido por trigram y la falta de `ANTHROPIC_API_KEY` van con **200 y `ok: true`**: son
+resultados esperados del flujo, no fallos. Por eso **no tienen fila arriba ni entrada en
+`CODIGOS`**: la rama `ok: true` del sobre no lleva `error`, así que nada que responda 200
+puede tener un `codigo`. El aviso viaja dentro de `data`:
+
+| Caso | Qué devuelve de verdad | Dónde |
+|---|---|---|
+| anime parecido | `data = { clase: "PREGUNTA", candidatos }` — hasta 3, cada uno con `id` y `titulo` | `crearAnime`, `src/app/app/acciones.ts` |
+| sin clave de Anthropic | `data.resultado.ia === "NO_CONFIGURADA"` y un `data.mensaje` ya redactado en español | `enriquecerAnime`, `src/app/app/anime/[id]/acciones-enriquecer.ts` |
+
+Ojo con el nombre del campo: es `candidatos`, **no** `similares`. `similares` es la consulta
+del vault que los busca (`src/lib/db/vault.ts`); lo que sale al cliente se llama
+`candidatos`. Y sin clave de Anthropic el paso 1 —AniList— se guarda con normalidad: solo
+se salta el análisis de Claude. Se avisa, no se rompe.
+
+El duplicado *exacto* sí es 409 con `ANIME_DUPLICADO`.
 
 ## Validación
 
@@ -63,17 +101,57 @@ del flujo, no fallos. El duplicado *exacto* sí es 409.
 - Los esquemas viven en `src/lib/validation/*.ts` y se **comparten** entre cliente
   (react-hook-form + `zodResolver`) y servidor. Un solo esquema por concepto.
 - El servidor **nunca** confía en la validación del cliente. Se revalida siempre.
-- Helper obligatorio en Route Handlers:
+- **No hay envoltorios de handler, y esto describía tres que no existen.** Decía que
+  `withAuth`, `withRateLimit` y `parseJson` eran obligatorios y que «ningún handler los
+  salta»; los tres tienen cero apariciones en el repositorio. Lo que hay: cada Route
+  Handler que muta escribe sus guardas **a mano y en este orden** — CSRF → sesión →
+  límite → cuerpo:
 
 ```ts
-export const POST = withAuth(withRateLimit("covers", async (req, { session }) => {
-  const body = await parseJson(req, EsquemaCrearPortada);   // lanza VALIDACION
-  // …
-}));
+// POST /api/import — src/app/api/import/route.ts
+export async function POST(peticion: Request): Promise<Response> {
+  // 1. CSRF. Antes de nada: Next comprueba el origen de las Server Actions, de un
+  //    Route Handler no comprueba nada (security.md §2 ter).
+  const veredicto = comprobarOrigen({
+    metodo: "POST",
+    cabeceras: peticion.headers,
+    origenesPermitidos: origenesPermitidos({ … }),
+  });
+  if (!veredicto.permitido) return json(fallo("NO_AUTENTICADO", "…"), 403);
+
+  // 2. Sesión. Lanza `ErrorSesionInvalida`, que aquí se traduce a 401.
+  const sesion = await exigirSesionParaMutar();
+
+  // 3. Límite, ANTES de leer el cuerpo: parsear una hoja de 5 MiB cuesta CPU.
+  const limite = await registrarIntento(
+    "import:user",
+    clavePorUsuario("import:user", sesion.userId),
+  );
+  if (!limite.permitido) return json(fallo("LIMITE_EXCEDIDO", "…"), 429, { "retry-after": … });
+
+  // 4. Y solo entonces, el cuerpo.
+}
 ```
 
-`withAuth` inyecta la sesión y corta con `NO_AUTENTICADO`. `withRateLimit` aplica la tabla
-de `security.md` §5. `parseJson` valida y normaliza. Ningún handler los salta.
+`exigirSesionParaMutar()` y `exigirSesionParaLeer()` viven en `src/auth.ts` y devuelven la
+sesión o lanzan `ErrorSesionInvalida`. `comprobarOrigen` y `origenesPermitidos` están en
+`src/lib/api/csrf.ts` y **fallan cerrado** si no hay ni `Origin` ni `Referer`.
+`registrarIntento` (`src/lib/rate-limit`) recibe **el nombre de la política tal y como está
+escrito en `LIMITES`** —con su sufijo: `"import:user"`, `"covers:user"`, `"enrich:user"`…,
+en `src/lib/rate-limit/politica.ts`—, nunca el prefijo a secas; la clave del cubo la compone
+`clavePorUsuario`, y pasarle el `userId` pelado lanza (ver el comentario de
+`registrarIntento`: los límites `*:user` acabarían compartiendo contador).
+
+Que las guardas vayan sueltas significa que **hay que ponerlas todas, en cada ruta que
+mute**: no hay nada que lo recuerde por ti. Son dos rutas; un envoltorio que esconde el
+orden se rompe más fácil de lo que se lee. Si algún día pasan de dos, se escribe entonces y
+esta sección se reescribe con él.
+
+Hoy `POST /api/import` es el único Route Handler que muta. `/api/covers/[animeId]` exporta
+**solo `GET`**: subir una portada no es un Route Handler, es parte de la Server Action
+`crearAnime` (`src/app/app/acciones.ts`), y ahí la validación va con los esquemas de
+`src/lib/validation/*` —`EsquemaCrearAnime`, que incluye `EsquemaUrlPortada`— llamados a
+mano con `safeParse` y traducidos con `falloDeValidacion`.
 
 ## Nombres de ruta
 
@@ -94,10 +172,19 @@ arbitrario es la vía más corta para exfiltrar un secreto, y además no es desp
 en Vercel no existe una shell.
 
 El caso concreto que más se presta a equivocarse es **«Comprobar espejos»** (§8 del
-encargo). No es un comando: es un Route Handler.
+encargo). No es un comando —nunca se invoca `curl` ni `wget`— pero **tampoco es un Route
+Handler**: es la Server Action `comprobarEspejosDelUsuario`
+(`src/app/app/ajustes/acciones-sitios.ts`). Esta regla lo dio por handler y `POST
+/api/sitios/comprobar` no existe.
+
+Se hizo Server Action porque nace de un botón y porque **Next comprueba el origen de las
+Server Actions por su cuenta** (`security.md` §2 ter): un Route Handler habría necesitado
+la guarda CSRF escrita a mano, que es una más que se puede olvidar. Lo que la regla exige
+—el rate limit— sí está: `comprobar-espejos:user`, 10/hora.
 
 ```ts
-// POST /api/sitios/comprobar  — comprueba qué espejos siguen vivos
+// Server Action `comprobarEspejosDelUsuario` — qué espejos siguen vivos.
+// El `fetch` real lo hace `comprobarEspejo` en `src/lib/red/comprobar-espejo.ts`.
 const res = await fetch(mirror.url, {
   method: "HEAD",
   redirect: "manual",

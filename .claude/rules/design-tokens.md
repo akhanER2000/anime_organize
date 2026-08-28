@@ -9,7 +9,23 @@
 Está **prohibido** escribir un color literal (`#C9A227`, `rgb(...)`, `rgba(...)`) dentro de un
 componente, de una clase arbitraria de Tailwind o de cualquier CSS que no sea
 `src/app/globals.css`. Único lugar donde puede aparecer un hex: el bloque `@theme` de
-`src/app/globals.css`, que es la traducción literal de `design/tokens.json`.
+`src/app/globals.css`. **Todos sus colores salen de `design/tokens.json`** —ni uno solo se
+inventa—, pero el bloque **no es una copia clave a clave del JSON**, y las dos diferencias son
+deliberadas y están explicadas en el propio CSS:
+
+- **Los 15 `--spacing-05`…`--spacing-13` del JSON NO se declaran en `@theme`**
+  (`globals.css:146-169`). Declararlos **secuestra las utilidades numéricas de Tailwind v4**:
+  `h-8` deja de ser 32 px y pasa a ser 64. Sus valores viven en `:root` como `--e-*` y se
+  escriben siempre explícitos: `h-[var(--e-4)]`, `px-[var(--e-2)]`, `gap-[var(--e-3)]`. Los
+  NOMBRADOS (`--spacing-gutter-l`, `--spacing-tactil`…) sí se declaran: ésos no chocan con
+  ninguna utilidad numérica.
+- **`@theme` añade `--text-marca: 19px`** (`globals.css:111`), que no está en el JSON. Es el
+  tamaño del logotipo y solo del logotipo: la excepción declarada a «Cormorant nunca por
+  debajo de 26 px» (ver «Reglas duras»).
+
+Si cambia el diseño, este bloque se regenera desde el JSON **respetando esas dos excepciones**.
+Pegar el JSON entero reintroduce el fallo de las utilidades numéricas, que ya pasó una vez: el
+chip salía a 64 px donde la spec dice 32.
 
 Se verifica en CI con `npm run lint:tokens` (busca hex fuera de `globals.css`).
 
@@ -36,7 +52,14 @@ BIEN  <div className="border-[var(--slate-700)]">
    `--veta-horizontal`, `--tactil-min`…). Sirve para lo que Tailwind no modela bien
    (gradientes, halos, anillos) y para poder leer la spec y escribir el token tal cual.
 
-Las dos listas salen del mismo JSON. Si tocas una, tocas la otra.
+Las dos listas salen de `design/tokens.json` y de `design/tokens.css`, **y ninguna es copia
+exacta**: `@theme` deja fuera los 15 `--spacing-*` numéricos y añade `--text-marca`; `:root`
+renombra `--ash-500` en `--ash-inactivo` y `--estado-pendiente`, y añade cinco tokens que no
+están en ninguno de los dos ficheros de `design/` —`--e-3-5` (28 px),
+`--borde-marco-dispositivo`, `--ancho-card-auth`, `--velo-auth` y `--opacidad-laja-auth`—, cada
+uno con su justificación escrita al lado en `globals.css`. Si tocas una lista, tocas la otra; si
+añades otra excepción, la justificas donde la declares y la anotas aquí. Se documenta porque el
+que lea «traducción literal» y encuentre otra cosa dejará de fiarse del resto del documento.
 
 ## Paleta completa
 
@@ -129,13 +152,22 @@ Gradiente de pan de oro: `--gold-leaf` =
 | `VIENDO` | `--estado-viendo` | `--estado-viendo-texto` | `#C97F2A` / `#E2A468` |
 | `EN_ESPERA` | `--estado-espera` | `--ash-400` | `#7A838E` |
 | `ABANDONADO` | `--estado-abandonado` | `--estado-abandonado-texto` | `#8A3B3B` / `#C08A8A` |
-| `PENDIENTE` | `--ash-500` | `--ash-400` | `#565E68` / `#7A838E` |
+| `PENDIENTE` | `--estado-pendiente` | `--ash-400` | `#565E68` / `#7A838E` |
 | favorito | `--estado-favorito` | — | `#EBD59A` |
 
 **Crítico:** `--estado-viendo` y `--estado-abandonado` son para **puntos, barras y bordes**.
 Como color de texto se usan **siempre** sus variantes `-texto` (contraste ≥4.5:1).
-El granate `#8A3B3B` aparece **solo** en la pestaña Peligro y en errores de validación:
-no es un color de marca.
+El granate `#8A3B3B` es color de **estado**, nunca de marca y nunca de texto. Pinta el punto del
+estado `ABANDONADO` (badge y chip de filtro), el relleno de la barra de progreso de un anime
+abandonado, el subrayado de la pestaña Peligro, el hover del botón `destructivo`, el borde del
+campo con error de validación y los puntos de «esto no funciona» (espejo caído en Sitios, fila
+con error en Importar). Fuera de esos sitios no se escribe.
+
+`--estado-pendiente` y `--ash-inactivo` valen lo mismo (`#565E68`) y son **tokens distintos a
+propósito**: el primero es punto y borde, el segundo es texto inactivo, y separarlos es lo que
+permite que el lint de texto inactivo no tenga que hacer excepciones. `--ash-500` es el nombre
+muerto de los dos: `design/tokens.css` lo conserva, pero ese fichero no entra en el build y en
+`globals.css` no existe ningún `--ash-500`, así que `var(--ash-500)` no resuelve a nada.
 
 Bordes y washes semánticos disponibles: `--estado-viendo-borde` `rgba(201,127,42,.45)` ·
 `--estado-abandonado-borde` `rgba(138,59,59,.50)` · `--estado-viendo-wash` `rgba(201,127,42,.07)`
@@ -153,6 +185,7 @@ Tres familias, cargadas con `next/font/google`, y ningún peso más:
 
 Escala **display** (Cormorant): `hero` 84 · `display-xl` 72 · `display-l` 64 · `display-m` 56 ·
 `display-s` 44 · `display-xs` 40 · `titulo-l` 34 · `titulo-m` 32 · `titulo-s` 28 · `titulo-xs` 26.
+Fuera de la escala, y solo para el logotipo: `marca` 19 (ver «Reglas duras»).
 
 Escala **UI** (Inter): `cuerpo-l` 17 · `cuerpo` 16 · `cuerpo-s` 15 · `ui` 14 · `ui-s` 13 ·
 `ui-xs` 12 · `etiqueta` 11 · `etiqueta-xs` 10.
@@ -167,7 +200,16 @@ Interlineado: `hero` 1.02 · `display` 1.05 · `titulo` 1.2 · `cuerpo` 1.7 · `
 
 Reglas duras:
 
-- **Cormorant nunca por debajo de 26 px.**
+- **Cormorant nunca por debajo de 26 px, con una única excepción: el logotipo.**
+  `--text-marca` (utilidad `text-marca`, 19 px, `globals.css:111`) es ese hueco, y vale **solo**
+  para la marca: `src/components/ui/marca.tsx` y el logotipo de la landing. `DESIGN-SPEC.md` §2
+  fija el logotipo entre 15 y 19 px, y no encaja ni en la escala display —que empieza en 26— ni
+  en la de UI, porque es Cormorant. Tiene nombre propio en vez de quedarse como un `text-[19px]`
+  suelto: así se busca, se cambia en un sitio, y la excepción queda declarada en vez de
+  incumplida en silencio. Cualquier otra pieza en Cormorant sube a `titulo-xs` (26). No se
+  añaden más excepciones. Ojo con la cabecera de este documento: `--text-marca` es el único
+  token de `@theme` que nace en `globals.css` y no está ni en `design/tokens.json` ni en
+  `design/tokens.css`.
 - **Mono nunca para texto corrido.**
 - Etiquetas UPPERCASE siempre en `--gold-300`, nunca en `--gold-400` (satura).
 - No se sustituyen las fuentes. Nada de Roboto, Arial ni `system-ui` como primaria.
@@ -175,9 +217,15 @@ Reglas duras:
 ## Espaciado, geometría, sombra, movimiento
 
 Rejilla base **8 px**:
-`--e-05` 4 · `--e-1` 8 · `--e-1-5` 12 · `--e-2` 16 · `--e-2-5` 20 · `--e-3` 24 · `--e-4` 32 ·
-`--e-5` 40 · `--e-6` 48 · `--e-7` 56 · `--e-8` 64 · `--e-9` 72 · `--e-10` 80 · `--e-12` 96 ·
-`--e-13` 104.
+`--e-0` 0 · `--e-05` 4 · `--e-1` 8 · `--e-1-5` 12 · `--e-2` 16 · `--e-2-5` 20 · `--e-3` 24 ·
+`--e-3-5` 28 · `--e-4` 32 · `--e-5` 40 · `--e-6` 48 · `--e-7` 56 · `--e-8` 64 · `--e-9` 72 ·
+`--e-10` 80 · `--e-12` 96 · `--e-13` 104.
+
+`--e-3-5` (28) está **fuera de la rejilla, y a propósito**: `DESIGN-SPEC.md` lo pide en dos
+sitios concretos —el alto del chip de espejo (§4, artboard 09) y el gutter vertical de la
+rejilla de cards (§1)— y ya existía como literal `[28px]` escrito a mano, que es peor. **No** es espaciado
+general: para eso están `--e-3` y `--e-4`. La lista de arriba es la escala **completa**; quien
+la lea como incompleta volverá a escribir `[28px]`, que es justo lo que el token evita.
 
 Contenedor `--contenedor-max` 1440 · gutters 24 / 32 / 40 · `--marco-offset` 24 ·
 `--tactil-min` 44.

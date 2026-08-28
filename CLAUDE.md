@@ -47,30 +47,52 @@ npm run dev              # desarrollo en http://localhost:3000
 npm run build            # build de producción
 npm run start            # sirve el build (lo que usa el e2e)
 
+# ── Las siete puertas, y el agregado que las encadena ───────────────────
+npm run lint:scripts     # cada script declarado apunta a un fichero que existe
 npm run typecheck        # tsc --noEmit
 npm run lint             # eslint
 npm run lint:tokens      # falla si hay un hex fuera de globals.css
+npm run lint:duplicados  # recetas de clases repetidas; falla si el número SUBE
+npm run lint:spread      # un {...spread} detrás de lo que el componente calcula
+npm run lint:contrato    # 12 intentos de saltarse el contrato de datos, y su control positivo
+npm run lint:todo        # LAS SIETE, en orden. Es lo que corre el pre-commit
 npm run format           # prettier --write
+npm run format:check     # prettier --check (lo que corre CI)
 
-npm run test             # vitest run
-npm run test:watch       # vitest
+# ── Tests ───────────────────────────────────────────────────────────────
+npm run test             # alias de test:unit
+npm run test:unit        # SIN los de integración: no necesita base
+npm run test:watch       # ídem, en watch
+npm run test:integracion # SOLO los de integración: exigen Postgres real
+npm run test:todo        # los dos juntos
 npm run test:cov         # con cobertura (umbrales en .claude/rules/testing.md)
-npm run test:e2e         # playwright (contra build + start, no dev)
+npm run test:e2e         # playwright, contra build + start, nunca contra dev
 
+# ── Base de datos ───────────────────────────────────────────────────────
 npm run db:generate      # genera la migración desde el esquema TS
-npm run db:migrate       # aplica migraciones  (usa DATABASE_URL_UNPOOLED)
+npm run db:migrate       # aplica migraciones (ANUNCIA su destino antes de escribir)
 npm run db:push          # SOLO desarrollo local. Jamás contra producción.
 npm run db:studio        # drizzle-studio
+npm run db:verificar     # compara el esquema real contra el declarado
 
-npm run seed             # carga animes-seed.json + portadas desde Drive (idempotente)
-npm run enrich           # enriquecimiento masivo AniList + Claude
+# ── Datos ───────────────────────────────────────────────────────────────
+npm run seed             # carga animes-seed.json + portadas + sitios (idempotente)
+npm run enrich           # enriquecimiento AniList + Claude (--dry-run · --limite N)
+
+# ── Lo que se ejecuta antes de decir «terminado» ─────────────────────────
+npm run verificar:rapido # lint:todo + test:unit
+npm run verificar        # lint:todo + test:unit + build + test:integracion
+npm run verificar:todo   # lo anterior + test:e2e
 ```
 
 **Verificación antes de decir «terminado»** (y hay que **leer** la salida):
 
 ```bash
-npm run typecheck && npm run lint && npm run lint:tokens && npm run test && npm run build
+npm run verificar:todo
 ```
+
+Y se mira el **exit code**, no la última línea: en una tubería el estado es el del último
+comando, así que un `| tail -5 && echo OK` imprime «OK» sobre un `tsc` que falló. Pasó.
 
 ---
 
@@ -97,22 +119,62 @@ anime-vault/
     │   ├── app/            el vault — protegido por middleware
     │   └── api/            route handlers
     ├── components/
-    │   ├── ui/             primitivas del sistema (Boton, Input, Chip, Badge, Veta…)
-    │   ├── anime/          dominio (AnimeCard, FichaAnime, ModalAnadir…)
-    │   └── layout/         BarraSuperior, NavMovil, Marco…
-    ├── lib/
-    │   ├── db/             cliente, esquema, repositorios, ownership
-    │   ├── domain/         reglas PURAS: normalizar, duplicados, progreso, enums
-    │   ├── validation/     esquemas Zod compartidos cliente/servidor
+    │   ├── ui/             primitivas del sistema (Boton, Campo, Chip, Badge, Veta…)
+    │   ├── anime/          dominio (AnimeCard, AccionesFicha, ModalAnadir…)
+    │   └── layout/         BarraSuperior, NavMovil, Pantalla404 — los tres, no hay más
+    ├── lib/                LAS QUINCE CARPETAS, TODAS. Aquí es donde se grepea
+    │   ├── api/            sobre de respuesta, códigos de error, guarda CSRF
+    │   ├── auth/           login, registro, password, sesión, duración, vinculación
+    │   ├── config/         lectura y validación del entorno
     │   ├── covers/         pipeline de portadas (fetch seguro, sharp, drive)
+    │   ├── db/             cliente, esquema, repositorios, ownership
+    │   ├── design/         cromo del navegador
+    │   ├── domain/         reglas PURAS: normalizar, duplicados, progreso, enums
+    │   ├── email/          drivers (consola · Resend), plantillas, reintentos
     │   ├── enrich/         AniList + Claude
     │   ├── import-export/  xlsx · csv · json
-    │   └── api/            sobre de respuesta, errores, middlewares
-    └── hooks/
+    │   ├── rate-limit/     claves y política de los límites
+    │   ├── red/            petición saliente segura (anti-SSRF), comprobar espejos
+    │   ├── security/       la CSP
+    │   ├── ui/             LO COMPARTIDO DE PANTALLA: cn · clases · texto · fecha ·
+    │   │                   href · refs · eventos · navegacion-circular ·
+    │   │                   fortaleza-password. Las nueve. MIRA AQUÍ
+    │   └── validation/     esquemas Zod compartidos cliente/servidor
+    ├── styles/             componentes.css
+    ├── auth.ts · auth.config.ts   el config apto para Edge vive aparte a propósito
+    └── middleware.ts       el único middleware del proyecto
 ```
 
 **Regla de dependencias:** `src/lib/domain/` no importa nada de `db/`, de `app/` ni de React.
 Es lógica pura y testeable sin arrancar nada.
+
+**Este árbol está completo a propósito, y se mantiene así.** Si añades una carpeta a
+`src/lib/`, se añade aquí en el mismo commit. El punto 6 de «Cómo se trabaja aquí» manda
+un `grep` en `src/lib/` antes de escribir una utilidad, y nadie busca en una carpeta que no
+sabe que existe: el árbol listaba 7 de las 15 y se dejaba fuera `src/lib/ui/`, que es la
+carpeta que `code-style.md` cita **once** veces como dueña de un concepto compartido —más
+que ninguna otra—.
+
+Y cinco nombres que este árbol daba por buenos y **no existen** (corregido el 2026-08-28,
+al pillarlos):
+
+- **`src/hooks/`** — no existe, y no es un olvido: el proyecto no exporta ni un solo hook
+  propio (`grep -rE "export (function|const) use[A-Z]" src/` no devuelve nada). Cuando
+  haga falta el primero se crea la carpeta entonces, con el hook dentro.
+- **`FichaAnime`** — no hay tal componente. La ficha es una página,
+  `src/app/app/anime/[id]/page.tsx`; lo que vive en `components/anime/` es `AccionesFicha`
+  (`acciones-ficha.tsx`).
+- **`Marco`** — tampoco es un componente. El marco dorado es una receta de clases,
+  `MARCO_DORADO` en `src/lib/ui/clases.ts` (así lo registra `code-style.md` § «Conceptos
+  con un solo dueño»), y el marco del vault es `src/app/app/layout.tsx`.
+- **`Input`** — la primitiva de texto se llama `Campo`, con su hermana `AreaTexto`, en
+  `src/components/ui/campo.tsx`. No hay ningún `input.tsx`.
+- **Los middlewares de `src/lib/api/`** — ahí solo hay `respuesta.ts` (el sobre y los
+  códigos) y `csrf.ts` (`comprobarOrigen`, `origenesPermitidos`). No hay envoltorios de
+  handler: cada route handler se cablea a mano con `exigirSesionParaLeer` /
+  `exigirSesionParaMutar` de `@/auth`, la guarda de `@/lib/api/csrf` y `clavePorUsuario` +
+  `registrarIntento` de `@/lib/rate-limit`. El único middleware del proyecto es
+  `src/middleware.ts`, que ya está en el árbol aparte.
 
 ---
 

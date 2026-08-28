@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hashearPassword } from "@/lib/auth/password";
 import { marcaDeRevocacion } from "@/lib/auth/sesion";
 import { crearClientePrueba, urlDePruebas, type ClientePrueba } from "@/lib/db/cliente-test";
+import { laAppPuedeUsar } from "@/lib/db/motor";
 import { clavePorEmail, clavePorIp } from "@/lib/rate-limit";
 import { LIMITES } from "@/lib/rate-limit/politica";
 import { rateLimitBucket, users } from "@/lib/db/schema";
@@ -82,7 +83,37 @@ const PASSWORD = "una contraseña larga de prueba 123";
 const url = urlDePruebas();
 const hayBase = url !== undefined;
 
-const describeSiSePuede = describe.skipIf(!hayBase);
+/**
+ * No basta con que HAYA una base: hace falta una que **la aplicación** sepa
+ * usar.
+ *
+ * Los demás tests contra base van por `cliente-test.ts`, que elige driver y
+ * habla con cualquier Postgres. Este arranca `next start`, y ahí dentro manda
+ * `src/lib/db/interno.ts`, que usa el driver HTTP de Neon y no es
+ * configurable: contra un `postgres:18` no hay endpoint `/sql` al otro lado.
+ *
+ * Sin esta comprobación el fallo era INVISIBLE, y de la peor manera. En CI el
+ * worker de vitest moría durante el arranque, y el informe decía «57 passes ·
+ * 57 total» contando solo los ficheros que llegaron a terminar, cuando el
+ * total real era 58. Un test que desaparece del recuento se lee igual que un
+ * test que pasa.
+ */
+const appPuedeUsarla = url !== undefined && laAppPuedeUsar(url);
+const sePuede = hayBase && appPuedeUsarla;
+
+const describeSiSePuede = describe.skipIf(!sePuede);
+
+if (hayBase && !appPuedeUsarla) {
+  console.warn(
+    "\n[camino-real] OMITIDO: la base no es de Neon, y la APLICACIÓN solo\n" +
+      "  sabe hablar por el driver HTTP de Neon. Arrancarla contra este\n" +
+      "  Postgres da un \u00abfetch failed\u00bb a mitad del login.\n" +
+      "\n" +
+      "  Omitirlo NO es aprobarlo. Hacen falta las dos cosas:\n" +
+      "    · en local → DATABASE_URL apuntando a tu rama de Neon (lo normal)\n" +
+      "    · en CI    → un proxy HTTP de Neon delante del contenedor\n",
+  );
+}
 
 if (!hayBase) {
   console.warn(

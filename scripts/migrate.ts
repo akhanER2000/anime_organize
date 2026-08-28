@@ -27,6 +27,7 @@
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { esNeon } from "@/lib/db/motor";
 
 import { neonConfig, Pool as PoolNeon } from "@neondatabase/serverless";
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
@@ -53,11 +54,6 @@ type PoolMinimo = {
   query: <T>(texto: string, valores?: unknown[]) => Promise<{ rows: T[] }>;
   end: () => Promise<void>;
 };
-
-/** Una URL de Neon habla su protocolo por WebSocket; una local, no. */
-function esNeon(cadena: string): boolean {
-  return cadena.includes("neon.tech") || cadena.includes("neon.build");
-}
 
 const variable =
   process.env.DATABASE_URL_UNPOOLED !== undefined ? "DATABASE_URL_UNPOOLED" : "DATABASE_URL";

@@ -10,6 +10,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { esNeon } from "@/lib/db/motor";
 
 import { neonConfig, Pool as PoolNeon } from "@neondatabase/serverless";
 import { Pool as PoolPg } from "pg";
@@ -19,19 +20,6 @@ import { cargarEntorno, vinoDelEntorno } from "./cargar-entorno";
 import { anunciarDestino, exigirMismaRama } from "./rama-destino";
 
 cargarEntorno();
-
-/**
- * Una URL de Neon habla su protocolo por WebSocket; una local, no.
- *
- * Mismo criterio que `scripts/migrate.ts` y `src/lib/db/cliente-test.ts`: contra
- * el contenedor `postgres:18` de CI no hay proxy de Neon al otro lado, así que
- * el driver por WebSocket no llega ni a la primera consulta. Este script corre
- * inmediatamente después de las migraciones en el workflow, así que heredaba el
- * mismo fallo.
- */
-function esNeon(cadena: string): boolean {
-  return cadena.includes("neon.tech") || cadena.includes("neon.build");
-}
 
 /** Lo único que este script usa de un pool: consultar y cerrar. */
 type PoolMinimo = {

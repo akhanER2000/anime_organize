@@ -28,6 +28,7 @@ import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool as PoolPg } from "pg";
 import ws from "ws";
+import { esNeon } from "./motor";
 
 import * as schema from "./schema";
 
@@ -38,9 +39,6 @@ export type ClientePrueba = {
 };
 
 /** Una URL de Neon habla su protocolo por WebSocket; una local, no. */
-function esNeon(url: string): boolean {
-  return url.includes("neon.tech") || url.includes("neon.build");
-}
 
 export function crearClientePrueba(url: string): ClientePrueba {
   if (esNeon(url)) {

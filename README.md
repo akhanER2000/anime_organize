@@ -264,41 +264,53 @@ build, escaneo de secretos, extensiones y migraciones) antes de subir nada.
 
 ### 4 · Que CI llegue hasta el final
 
-**Corregido — pendiente solo de que una ejecución verde lo confirme.**
+**Dos causas, las dos encontradas leyendo el log entero. Ninguna era la que dije antes.**
 
-> **Lo que decía aquí antes era falso, y lo escribí yo.** Afirmaba que el bloqueo era
-> `revocacion.camino-real.test.ts` contra el driver HTTP de Neon, y que había que elegir
-> entre tres opciones de infraestructura. **No había ninguna decisión que tomar.** El
-> `camino-real` pasa en CI sin problema: va por `cliente-test.ts`, que ya elegía `pg`
-> contra un Postgres normal. Lo dejo escrito en vez de borrarlo porque el error de método
-> vale más que la conclusión.
+> **Este apartado ha mentido dos veces, y las dos las escribí yo.** Primero culpó al
+> orden de los pasos; después inventó un dilema de infraestructura con tres opciones.
+> Las dos veces **inferí la causa sin leer el error real**. Lo dejo escrito porque el
+> error de método vale más que la conclusión: una captura de la anotación de Actions
+> valió más que mis dos diagnósticos juntos.
 
-**Qué pasaba de verdad.** Un único test, `src/lib/rate-limit/limitador.test.ts`, con una
-**dependencia de base escondida**. Comprobaba que la guarda de forma de clave ACEPTA
-`recuperar-nueva:ip:<ip>`, y lo hacía llamando a `registrarIntento` — que en cuanto
-acepta sigue hasta el `insert`. Verde en local (donde `DATABASE_URL` es un Neon real),
-rojo en CI (donde es un `postgres:18` con el que el driver HTTP de Neon no habla).
+**Causa 1 — un test unitario con base escondida.** `limitador.test.ts` comprobaba que la
+guarda ACEPTA `recuperar-nueva:ip:<ip>` llamando a `registrarIntento`, y aceptar
+significa seguir hasta el `insert`. Verde en local (Neon real), rojo en CI
+(`postgres:18`). **Arreglado:** la comprobación se extrajo a `claveBienFormada()`, pura.
+El caso rechazado sigue yendo por `registrarIntento` a propósito — lanza antes de tocar
+nada, y así queda cubierto que la guarda está cableada y no solo exportada.
 
-**El arreglo.** La comprobación se extrajo a `claveBienFormada()`, pura y exportada. El
-caso aceptado se prueba contra ella; el rechazado sigue yendo por `registrarIntento`,
-que lanza antes de tocar nada, y así queda cubierto que la guarda está cableada de verdad
-y no solo exportada.
+**Causa 2 — un test que desaparecía del recuento.** Con lo anterior arreglado, el paso
+seguía saliendo con código 1 mientras el resumen decía «57 passes · 57 total». El log
+completo decía otra cosa:
 
-**Cómo se encontró, que es la parte que importa.** No razonándolo: reproduciendo el
-entorno de CI en local.
+    Test Files  57 passed (58)
+    Unhandled Error: [vitest-pool]: Worker forks emitted error.
+    Caused by: Error: Worker exited unexpectedly
 
-    DATABASE_URL=postgresql://…@localhost:5432/anime_vault_ci RATE_LIMIT_ENABLED=true npm run test:unit
+**Cincuenta y ocho ficheros, cincuenta y siete terminados.** El que faltaba,
+`revocacion.camino-real.test.ts`, ni siquiera aparecía en la lista: su worker moría
+durante el arranque. Y como vitest no lo contaba ni como pasa ni como falla, **el
+resumen se leía igual que un éxito**. Ese es el fallo más peligroso de los tres que han
+salido en este proyecto: no un rojo mal explicado, sino un verde que no cubría lo que
+parecía cubrir.
 
-Con eso, el test viejo falla con el mismo `AssertionError` y el mismo
-`insert into rate_limit_bucket` que la anotación de Actions, y el nuevo pasa. **Los dos
-diagnósticos anteriores fueron inferidos sin leer el error real, y los dos fueron
-falsos** — el primero culpó al orden de los pasos, el segundo al driver de la aplicación.
-La captura de una anotación de GitHub valió más que las dos.
+**Por qué moría.** Ese test arranca la aplicación de verdad (`next build` +
+`next start`), y la aplicación usa el driver HTTP de Neon —`src/lib/db/interno.ts`, no
+configurable— que necesita un endpoint `https://<host>/sql` que un contenedor no tiene.
+Los demás tests contra base no sufren esto porque van por `cliente-test.ts`, que elige
+`pg` cuando el destino no es Neon.
 
-> **Lo que sigue sin ser cierto hasta que haya una ejecución verde:** la frase de
-> `.githooks/pre-commit` que dice «lo cubre `.github/workflows/verificar.yml`, que corre
-> en cada push y no se puede saltar». El workflow no ha pasado nunca. Quien de verdad
-> guarda `main` hoy es el hook local, y ese sí se salta con `--no-verify`.
+**Arreglado declarando el requisito.** El fichero ya sabía omitirse en voz alta cuando le
+faltaba la base; ahora también cuando la base existe pero **la aplicación no puede
+usarla**, con el mismo aviso de siempre: _«omitirlo NO es aprobarlo»_. La pregunta tiene
+un solo dueño, `src/lib/db/motor.ts`, que además retiró las **cuatro copias** de
+`esNeon` que andaban sueltas.
+
+**Si quieres que ese test corra TAMBIÉN en CI**, hace falta un proxy HTTP de Neon delante
+del contenedor (un servicio más en el workflow). No lo he añadido: mete una imagen de
+terceros en el CI de un repositorio público, que es el criterio con el que este proyecto
+descartó Upstash. Hoy corre en local contra tu rama de Neon, que es donde siempre ha
+corrido.
 
 ### 5 · Envío de correo (recuperación y verificación)
 

@@ -85,6 +85,17 @@ jobs:
       AUTH_SECRET: secreto-solo-para-ci-no-firma-nada-real
       # Los tests de rate limiting necesitan el limitador ENCENDIDO.
       RATE_LIMIT_ENABLED: "true"
+      # Auth.js v5 con NODE_ENV=production RECHAZA toda peticion si no sabe en
+      # que host vive: sin `AUTH_URL` ni esta bandera responde UntrustedHost a
+      # todo, incluido `/api/auth/csrf`. El test del camino real arranca el
+      # servidor de PRODUCCION, asi que le pasaba justo eso: sondeaba 120 veces,
+      # agotaba sus 60 segundos y se caia sin decir por que.
+      #
+      # Se usa la bandera y no `AUTH_URL` porque ese test levanta DOS servidores
+      # en puertos distintos, y una URL fija solo valdria para uno.
+      #
+      # En produccion no hace falta: Vercel define VERCEL=1 y Auth.js ya confia.
+      AUTH_TRUST_HOST: "true"
       # Manda el driver HTTP de Neon al proxy de aquí arriba en vez de a
       # `https://<host>/sql`. En producción esta variable NO existe, y sin ella
       # `src/lib/db/motor.ts` deja el endpoint de siempre.

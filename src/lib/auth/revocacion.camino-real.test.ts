@@ -334,9 +334,25 @@ ${salidaBuild.slice(-4000)}`,
     });
 
     // Sin esto, un fallo de arranque se ve como «no arrancó» y no se sabe por qué.
+    // La salida se ACOTA y se escribe TAMBIÉN en directo.
+    //
+    // Acumularla y enseñarla solo dentro del error parecía suficiente, y no lo
+    // era: cuando el worker de vitest se cae, ese error no llega a contarse y
+    // la salida se va con él. Un arranque fallido se veía entonces como
+    // «Worker exited unexpectedly» y nada más — sesenta segundos de sondeo sin
+    // una sola pista de por qué el servidor no contestaba.
+    //
+    // El tope evita lo contrario: sesenta segundos de errores repetidos
+    // convertidos en un mensaje de megabytes.
+    const TOPE_SALIDA = 8000;
     let salida = "";
-    servidor.stdout?.on("data", (d: Buffer) => (salida += d.toString()));
-    servidor.stderr?.on("data", (d: Buffer) => (salida += d.toString()));
+    const anotar = (d: Buffer): void => {
+      const texto = d.toString();
+      salida = (salida + texto).slice(-TOPE_SALIDA);
+      process.stdout.write(`[servidor] ${texto}`);
+    };
+    servidor.stdout?.on("data", anotar);
+    servidor.stderr?.on("data", anotar);
 
     try {
       await esperarServidor();

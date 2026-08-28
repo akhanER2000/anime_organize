@@ -199,7 +199,22 @@ async function matarPuerto(puerto: number): Promise<void> {
           `ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }`,
       ]);
     } else {
-      await ejecutar("sh", ["-c", `lsof -ti tcp:${puerto} | xargs -r kill -9`]);
+      // `-sTCP:LISTEN` NO es un detalle: es lo que impide que este proceso se
+      // suicide.
+      //
+      // `lsof -i tcp:N` casa cualquier socket con ese puerto en CUALQUIERA de
+      // los dos extremos. Este test es quien hace las peticiones al servidor,
+      // asi que sus propias conexiones salientes tienen 3994 como puerto
+      // REMOTO y entraban en la lista. El `kill -9` del `afterAll` mataba
+      // entonces al worker de vitest junto con el servidor.
+      //
+      // El sintoma era perfecto para despistar: los diez tests PASABAN y el
+      // paso salia con codigo 1 igualmente, con un «Worker exited
+      // unexpectedly» sin mensaje y el fichero fuera del recuento.
+      //
+      // En Windows nunca ocurrio porque la rama de PowerShell ya filtra
+      // `-State Listen`. Las dos ramas hacen ahora lo mismo.
+      await ejecutar("sh", ["-c", `lsof -ti tcp:${puerto} -sTCP:LISTEN | xargs -r kill -9`]);
     }
   } catch {
     // No había nada escuchando, que es el caso normal.

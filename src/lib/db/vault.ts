@@ -88,6 +88,22 @@ export type DatosProgreso = {
   porcentaje?: number | null;
 };
 
+/**
+ * Un enlace para continuar viendo: la URL EXACTA del capítulo.
+ *
+ * `siteId` es opcional a propósito (skill de dominio §7): se puede pegar un
+ * enlace suelto sin asociarlo a ningún sitio, que es lo que la gente hace la
+ * primera vez.
+ */
+export type DatosEnlace = {
+  url: string;
+  /** Legible: «AnimeFLV V2 · Ep 7». */
+  etiqueta?: string | null;
+  temporada?: number | null;
+  episodio?: number | null;
+  siteId?: string | null;
+};
+
 /** Lo que se guarda de una portada ya procesada. */
 export type DatosPortada = {
   bytes: Buffer;
@@ -256,6 +272,34 @@ export interface Vault {
    * Por eso es «guardar» y no «añadir».
    */
   guardarProgreso(animeId: string, datos: DatosProgreso): Promise<{ animeId: string } | null>;
+  /**
+   * Todos los enlaces de un anime PROPIO, el más reciente primero.
+   *
+   * `NULLS LAST` explícito: en Postgres, `DESC` pone los `NULL` **primero**, así
+   * que un enlace recién pegado —`last_used_at` a `null` hasta que se usa— se
+   * colaría por delante del que la persona abrió hace diez minutos. Es la
+   * versión de este orden que se ve mal solo cuando ya hay dos enlaces.
+   */
+  enlaces(animeId: string): Promise<
+    {
+      id: string;
+      url: string;
+      etiqueta: string | null;
+      temporada: number | null;
+      episodio: number | null;
+      ultimoUso: Date | null;
+    }[]
+  >;
+  /** Añade un enlace a un anime PROPIO. `null` si no existe o no es suyo. */
+  guardarEnlace(animeId: string, datos: DatosEnlace): Promise<{ id: string } | null>;
+  /**
+   * Marca un enlace como usado AHORA. Es lo que decide cuál es el más reciente.
+   *
+   * Devuelve la URL para que quien llama pueda abrirla sin una segunda consulta
+   * —y sin fiarse de una que le hayan pasado por parámetro—.
+   */
+  marcarEnlaceUsado(enlaceId: string): Promise<{ url: string } | null>;
+  borrarEnlace(enlaceId: string): Promise<{ id: string } | null>;
   editar(animeId: string, datos: DatosEditarAnime): Promise<{ id: string } | null>;
   borrar(animeId: string): Promise<{ id: string } | null>;
 }
@@ -555,6 +599,119 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
      * Edita un anime propio. Devuelve `null` si no existe o no es suyo, en vez
      * de tocar cero filas en silencio.
      */
+    /**
+     * Los enlaces de un anime propio, el más usado recientemente primero.
+     *
+     * ── EL `NULLS LAST` NO ES UN ADORNO ──────────────────────────────────
+     *
+     * En Postgres, `ORDER BY x DESC` pone los `NULL` **primero**. Un enlace
+     * recién pegado tiene `last_used_at` a `null` hasta que se abre, así que sin
+     * esto se colocaría por delante del que se usó hace diez minutos — y como el
+     * primero es la acción primaria de la card, la card ofrecería el enlace
+     * equivocado. Solo se nota cuando hay dos.
+     */
+    async enlaces(animeId: string) {
+      return cliente
+        .select({
+          id: continueLink.id,
+          url: continueLink.url,
+          etiqueta: continueLink.label,
+          temporada: continueLink.season,
+          episodio: continueLink.episode,
+          ultimoUso: continueLink.lastUsedAt,
+        })
+        .from(continueLink)
+        .innerJoin(anime, eq(anime.id, continueLink.animeId))
+        .where(and(eq(continueLink.animeId, animeId), mias()))
+        .orderBy(sql`${continueLink.lastUsedAt} desc nulls last`, desc(continueLink.createdAt));
+    },
+
+    /**
+     * Añade un enlace a un anime propio.
+     *
+     * ── DOS SENTENCIAS, Y AQUÍ SÍ ES CORRECTO ────────────────────────────
+     *
+     * El resto de escrituras de este fichero meten la comprobación de propiedad
+     * DENTRO del `WHERE`, porque comprobar-y-luego-escribir deja una ventana
+     * entre las dos. Aquí no se puede: el `INSERT … SELECT` de Drizzle exige que
+     * los campos seleccionados coincidan **uno a uno y en el mismo orden** con
+     * la definición de la tabla, así que añadir una columna a `continue_link`
+     * rompería esta consulta en runtime. Cambiar una ventana teórica por una
+     * bomba de relojería no es un intercambio bueno.
+     *
+     * Lo que hace segura la versión de dos pasos es que **nada en la aplicación
+     * cambia el `user_id` de un anime**: no hay método que lo haga, ni en el
+     * vault ni fuera. La propiedad de una fila de `anime` se fija al crearla y
+     * no se mueve, así que entre la lectura y la escritura no hay nada que pueda
+     * cambiar la respuesta.
+     *
+     * **Si algún día existe «transferir un anime a otra cuenta», esto hay que
+     * rehacerlo**, y esta nota es el aviso.
+     *
+     * La `FOREIGN KEY` cubre el otro caso: si el anime se borra entremedias, el
+     * `INSERT` falla en vez de dejar un enlace huérfano.
+     *
+     * `last_used_at` nace `null`, no `now()`: un enlace pegado y nunca abierto
+     * no es «lo último que vi». Ver el orden de `enlaces()`.
+     */
+    async guardarEnlace(animeId: string, datos: DatosEnlace) {
+      const [propio] = await cliente
+        .select({ id: anime.id })
+        .from(anime)
+        .where(mio(animeId))
+        .limit(1);
+
+      // `null` y no un throw: no existe y no es tuyo son indistinguibles desde
+      // fuera, como en todo este fichero (`security.md` §1).
+      if (propio === undefined) return null;
+
+      const [fila] = await cliente
+        .insert(continueLink)
+        .values({
+          animeId: propio.id,
+          url: datos.url,
+          label: datos.etiqueta ?? null,
+          season: datos.temporada ?? null,
+          episode: datos.episodio ?? null,
+          siteId: datos.siteId ?? null,
+        })
+        .returning({ id: continueLink.id });
+
+      return fila ?? null;
+    },
+
+    /** Marca un enlace propio como usado ahora, y devuelve su URL. */
+    async marcarEnlaceUsado(enlaceId: string) {
+      const [fila] = await cliente
+        .update(continueLink)
+        .set({ lastUsedAt: new Date() })
+        .where(
+          and(
+            eq(continueLink.id, enlaceId),
+            // La propiedad va por subconsulta porque `continue_link` no tiene
+            // `user_id`: cuelga de `anime`, y ahí es donde vive el filtro.
+            sql`exists (select 1 from ${anime} where ${anime.id} = ${continueLink.animeId} and ${mias()})`,
+          ),
+        )
+        .returning({ url: continueLink.url });
+
+      return fila ?? null;
+    },
+
+    async borrarEnlace(enlaceId: string) {
+      const [fila] = await cliente
+        .delete(continueLink)
+        .where(
+          and(
+            eq(continueLink.id, enlaceId),
+            sql`exists (select 1 from ${anime} where ${anime.id} = ${continueLink.animeId} and ${mias()})`,
+          ),
+        )
+        .returning({ id: continueLink.id });
+
+      return fila ?? null;
+    },
+
     async editar(animeId: string, datos: DatosEditarAnime) {
       const cambios: Record<string, unknown> = { updatedAt: new Date() };
 

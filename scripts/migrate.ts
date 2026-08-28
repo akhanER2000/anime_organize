@@ -15,7 +15,7 @@ import { migrate } from "drizzle-orm/neon-serverless/migrator";
 import ws from "ws";
 
 import { cargarEntorno, vinoDelEntorno } from "./cargar-entorno";
-import { anunciarDestino } from "./rama-destino";
+import { anunciarDestino, exigirMismaRama } from "./rama-destino";
 
 cargarEntorno();
 
@@ -38,6 +38,7 @@ if (url === undefined || url.trim().length === 0) {
 
 // Antes de tocar nada: contra qué base. Las dos ramas de Neon se parecen lo
 // bastante como para confundirlas, y migrar la equivocada no tiene deshacer.
+exigirMismaRama();
 anunciarDestino(url, { variable, pasadaEnLinea: vinoDelEntorno(variable) });
 
 const carpeta = fileURLToPath(new URL("../drizzle", import.meta.url));

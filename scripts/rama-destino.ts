@@ -60,3 +60,81 @@ export function anunciarDestino(
   console.log(`  ${opciones.variable}, ${procedencia}`);
   console.log(`${"═".repeat(70)}`);
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DOS VARIABLES, DOS RAMAS: SE PARA.
+ *
+ * ── EL FALLO QUE ESTO CIERRA, Y ES LA SEXTA VEZ ───────────────────────────
+ *
+ * Los scripts no leen todos la misma variable. `dbInterna()` —la que usan el
+ * seed y la aplicación— lee `DATABASE_URL`. `conTransaccion()` y
+ * `verificar-esquema` leen `DATABASE_URL_UNPOOLED` **con preferencia**.
+ *
+ * Al operar contra producción se pasa la cadena en línea. Si se pasa **solo
+ * una** de las dos, la otra sigue valiendo lo que dice `.env.local`, que apunta
+ * a `development`. Resultado: la mitad del comando actúa sobre producción y la
+ * otra mitad sobre desarrollo, y **el anuncio de destino dice la verdad sobre
+ * la variable que anuncia** — así que todo parece correcto.
+ *
+ * Fue exactamente esto: `db:verificar` dijo «esquema verificado: todo correcto»
+ * sobre `development` mientras se creía estar mirando `production`, y el
+ * recuento de «83 animes, 83 portadas» que se dio por bueno salió de la rama
+ * equivocada. La aplicación desplegada quedó apuntando a una base sin datos y
+ * nadie lo supo hasta abrirla.
+ *
+ * ── POR QUÉ SE PARA EN VEZ DE AVISAR ──────────────────────────────────────
+ *
+ * `security.md` regla 5: la configuración falla en voz alta. Un aviso en medio
+ * de la salida de un seed que imprime 83 líneas no lo lee nadie. Y la operación
+ * que sigue escribe: si se equivoca de rama, no hay deshacer.
+ *
+ * Que las dos apunten al MISMO host es lo normal —es lo que hay en `.env.local`
+ * y lo que hay en Vercel—, así que esta guarda no molesta nunca salvo cuando
+ * está a punto de pasar el fallo que previene.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export function exigirMismaRama(
+  // Estructural y no `NodeJS.ProcessEnv`: lo único que se necesita son dos
+  // claves, y exigir el tipo completo obligaría a cada test a inventarse un
+  // `NODE_ENV` que no tiene nada que ver con lo que se comprueba.
+  entorno: Readonly<Record<string, string | undefined>> = process.env,
+): void {
+  const agrupada = entorno["DATABASE_URL"];
+  const directa = entorno["DATABASE_URL_UNPOOLED"];
+
+  // Sin la segunda no hay dos ramas posibles: quien la lee cae en la primera.
+  if (agrupada === undefined || directa === undefined) return;
+
+  const hostDe = (cadena: string): string | null => {
+    try {
+      // El sufijo `-pooler` es lo ÚNICO que distingue la cadena agrupada de la
+      // directa de la misma rama de Neon. Compararlas sin quitarlo daría un
+      // falso positivo en el caso normal, y una guarda que salta siempre se
+      // desactiva a la semana.
+      return new URL(cadena).hostname.replace("-pooler", "");
+    } catch {
+      return null;
+    }
+  };
+
+  const unaRama = hostDe(agrupada);
+  const otraRama = hostDe(directa);
+
+  if (unaRama === null || otraRama === null || unaRama === otraRama) return;
+
+  throw new Error(
+    "\n" +
+      "═".repeat(70) +
+      "\n  DOS RAMAS A LA VEZ. No se escribe nada.\n\n" +
+      `  DATABASE_URL           → ${unaRama}\n` +
+      `  DATABASE_URL_UNPOOLED  → ${otraRama}\n\n` +
+      "  Los scripts no leen todos la misma: `seed` usa la primera y\n" +
+      "  `db:verificar` y las transacciones prefieren la segunda. Con dos\n" +
+      "  ramas distintas, media operación cae en cada una y el resumen final\n" +
+      "  parece correcto.\n\n" +
+      "  Pasa LAS DOS en la línea de comandos, o ninguna.\n" +
+      "═".repeat(70) +
+      "\n",
+  );
+}

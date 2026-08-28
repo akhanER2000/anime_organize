@@ -195,8 +195,21 @@ equivocada**:
 | 3 | `db:verificar`: «Esquema verificado: todo correcto» | **la rama equivocada** — leía `DATABASE_URL_UNPOOLED` de `.env.local` |
 | 4 | El despliegue: 895 + 74 + 48 tests verdes | **el commit equivocado** — nada se había subido |
 | 5 | El seed: «83 animes, 83 portadas, 3,5 MB» | **no se comprobó de quién eran** — la cuenta que entra ve 0 |
+| 6 | Lo mismo, otra vez: el seed de producción | **la rama equivocada** — el recuento salió de `development` porque en línea solo viajó `DATABASE_URL`, y quien cuenta prefiere `DATABASE_URL_UNPOOLED` |
 
-Ninguno se habría evitado con más tests de la operación. Los cinco necesitaban
+> **El sexto es el tercero repetido, y por eso ya no basta con anunciar.**
+> `db:migrate`, `seed` y `db:verificar` decían su destino en voz alta desde el
+> fallo número 3 — y el 6 pasó igual, porque **el anuncio decía la verdad**: la
+> variable que anunciaba sí apuntaba a producción. La que usaba el contador,
+> no. Un anuncio honesto sobre una de dos variables no protege de nada.
+>
+> Arreglado con `exigirMismaRama()` en `scripts/rama-destino.ts`, que **para
+> antes de escribir** si `DATABASE_URL` y `DATABASE_URL_UNPOOLED` son de ramas
+> distintas. La lección general: **anunciar no es comprobar.** Si dos caminos
+> pueden llevar a sitios distintos, el que decide tiene que ser uno solo, o hay
+> que negarse a arrancar.
+
+Ninguno se habría evitado con más tests de la operación. Los seis necesitaban
 **una comprobación distinta**: no «¿funcionó?», sino «¿sobre qué?».
 
 ### La pregunta, en tres formas

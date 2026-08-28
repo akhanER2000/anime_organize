@@ -1,11 +1,62 @@
-# BLOQUEO · falta la cadena de `production`
+# BLOQUEO · falta la cadena de `production` para ESCRIBIR
 
-> Escrito el 2026-08-27. **Solo bloquea la FASE 0.** Todo lo demás sigue en marcha.
+> Escrito el 2026-08-27, reescrito el mismo día al cerrarse el diagnóstico.
+> **Solo bloquea el arreglo de la FASE 0.** Todo lo demás sigue en marcha.
 
-## Qué necesito de ti, exactamente
+## El diagnóstico ya NO necesita la cadena. Está cerrado.
 
-Dejar el fichero **`J:\Code\Anime_Organize\neon-prod.txt`** con las dos cadenas de la
-rama `production` de Neon, en este formato:
+**`production` tiene tu cuenta y no tiene ni un anime.** No es una hipótesis:
+sale de tres hechos medidos y de una restricción del esquema.
+
+| Hecho | Cómo se midió |
+|---|---|
+| En `production` hay **exactamente un** `users` | tu consulta 1 en la consola de Neon |
+| `anime.user_id` tiene `FOREIGN KEY … REFERENCES users(id)` | `drizzle/0001_esquema_inicial.sql:214` |
+| → luego **todo** anime de `production` es de esa única cuenta | por la restricción: no cabe un `user_id` que no esté en `users` |
+| `/app`, con esa cuenta iniciada, dice «0 de 0» | lo viste tú en el navegador |
+| → **`production` tiene 0 filas en `anime`** | se sigue de los tres anteriores |
+
+El `GROUP BY user_id` que faltaba ya no hace falta: con una sola cuenta y la
+clave foránea puesta, «cuántos ve esa cuenta» y «cuántos hay» son el mismo
+número, y ese número lo enseñó la pantalla.
+
+## Qué pasó, y por qué el seed pareció funcionar
+
+Tu cuenta de `production` se creó **a las 02:48:46 del 25**, y el `created_at`
+coincide al segundo con uno de tus `POST /registro`. La creó el registro.
+
+Eso es lo que lo delata: el seed crea al propietario buscándolo por
+`SEED_OWNER_EMAIL`. Si el seed hubiera corrido contra `production` **antes** de
+ese registro, la cuenta ya habría existido y tu registro habría fallado por el
+`UNIQUE` de email. Y si hubiera corrido **después**, habría encontrado tu cuenta
+y colgado de ella los 83. Ninguna de las dos pasó. **El seed nunca escribió en
+`production`.**
+
+Los 83 que sí existen están en `development`, sembrados el **24 a las 18:50** —
+el seed local de la FASE 1, no el del despliegue. Medido directamente:
+
+```
+DESTINO: ep-green-recipe-ay3kbq97-pooler…          (development)
+users:   72314c6d… castrolorenzosegundo@gmail.com  2026-08-24T18:49:10Z
+anime:   72314c6d… n=83   18:50:19 → 18:50:31
+portadas: 83, 3,05 MB
+```
+
+Y el recuento de «83 animes, 83 portadas» que se dio por bueno como si fuera de
+`production` salió **de ahí**. Es la sexta repetición del mismo fallo:
+`db:verificar` y las transacciones prefieren `DATABASE_URL_UNPOOLED`, que seguía
+valiendo lo de `.env.local` —`development`— porque en línea solo viajó
+`DATABASE_URL`. Media operación en cada rama, y el resumen final impecable.
+
+**Eso ya no puede volver a pasar**: `scripts/rama-destino.ts` tiene ahora
+`exigirMismaRama()`, que **para antes de escribir nada** si las dos variables
+apuntan a ramas distintas. Cableada en `seed`, `migrate` y `verificar-esquema`,
+con 7 tests y verificada por mutación.
+
+## Lo único que necesito de ti
+
+Dejar el fichero **`J:\Code\Anime_Organize\neon-prod.txt`** con las dos cadenas
+de la rama `production`, **las dos**:
 
 ```
 POOLED=postgresql://…-pooler.…
@@ -13,52 +64,32 @@ DIRECTA=postgresql://…            (la misma sin "-pooler")
 ```
 
 Lo busqué en `J:\Code\Anime_Organize\`, `J:\Code\`, y en tu carpeta de usuario,
-Escritorio, Descargas y Documentos. **No está en ninguna.** Lo borro en cuanto
-termine, como la otra vez.
+Escritorio, Descargas y Documentos. No está en ninguna. **Lo borro en cuanto
+termine**, como la otra vez.
 
-Hay un vigía en marcha: en cuanto el fichero aparezca, sigo solo sin que tengas
-que decírmelo.
+## Qué haré con ella, exactamente
 
-## Por qué hace falta
+Nada que borre datos. El arreglo es **volver a sembrar `production`**:
 
-Para **una sola medición** y para aplicar el arreglo. El diagnóstico está casi
-cerrado sin ella:
+1. `exigirMismaRama()` comprueba que las dos cadenas son de la misma rama.
+2. Se anuncia el destino y se confirma el host `ep-broad-water-aym5x71z`.
+3. `npm run db:migrate` — idempotente.
+4. `npm run seed` — idempotente: `crear()` devuelve `null` ante el `UNIQUE`, así
+   que correrlo dos veces no duplica nada. Encuentra tu cuenta por
+   `SEED_OWNER_EMAIL` y le cuelga los 83 con sus portadas.
+5. Se cuenta **agrupando por `user_id`**, no con un `count(*)` suelto — que es
+   lo que escondió el problema la primera vez.
+6. Se borra `neon-prod.txt`.
 
-| Hecho | Cómo se midió |
-|---|---|
-| La app **no** usa `development` | Sondé una cuenta creada por la app: no aparece en `development` |
-| Solo hay **dos ramas** | Medido por ti en la consola de Neon |
-| → luego la app usa **`production`** | Por eliminación, ahora sí válida: con dos ramas no hay tercera opción |
-| En `production` hay **un solo usuario**, creado a las 02:48:46 | Tu consulta 1 |
-| Ese usuario lo creó **el registro, no el seed** | El `created_at` coincide al segundo con un `POST /registro` de los logs |
-| `development` tiene 83 animes, todos de un mismo `user_id` | `GROUP BY user_id` → `72314c6d=83` |
+No se toca tu contraseña, no se borra tu cuenta, y no se borra ningún anime.
 
-Lo único que falta es el `GROUP BY user_id` sobre `anime` **en `production`**.
+## Mientras tanto, esto sigue
 
-## La hipótesis que ese número confirma o refuta
+Nada de lo de abajo escribe en `production`. Se construye y se verifica contra
+`development`, que tiene los mismos 83 y el mismo esquema.
 
-Las filas de `anime` cuelgan de `users` con `ON DELETE CASCADE`. Si en
-`production` solo hay un usuario y lo creó tu registro, entonces **el usuario que
-sembré ya no está** — y con él se habrán llevado los 83 por cascada.
-
-Si es así, `production` tiene **0 animes ahora mismo**, y los 33,66 MB que ves en
-la consola son almacenamiento histórico que Neon todavía no ha compactado, no
-datos vivos.
-
-**Eso haría que el arreglo no sea reasignar, sino volver a sembrar** — que es
-idempotente, no borra nada y ya está autorizado.
-
-La alternativa —que los 83 sigan ahí colgando de un usuario que la consulta 1 no
-vio— la descartaría el mismo número. Por eso no se toca nada hasta tenerlo.
-
-## Mientras tanto
-
-Sigo con lo que no depende de `production`:
-
-- Borrar el proyecto `anime-organize` de Vercel.
-- FASE 1 completa: las nueve primitivas que faltan, los 26 conceptos duplicados
-  y el barrido de agregados calculados en JavaScript.
-- FASE 2 por lotes, construida y verificada contra `development`, que tiene los
-  mismos 83 animes y el mismo esquema.
-
-Nada de eso escribe en `production`.
+- FASE 1.1 — las nueve primitivas que faltan en `/dev/primitivas`.
+- FASE 1.2 — los 26 conceptos duplicados restantes. Los **dos que eran
+  comportamiento** ya están hechos: ver `.claude/rules/code-style.md`.
+- FASE 1.3 — el barrido de agregados en JavaScript. **HECHO.**
+- FASE 2 — los cuatro lotes.

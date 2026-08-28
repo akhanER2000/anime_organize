@@ -35,7 +35,7 @@ import { descargarImagen } from "../src/lib/covers/descargar";
 import { procesarPortada } from "../src/lib/covers/procesar";
 import { contextoDeScript } from "../src/lib/db/contexto-fuera-de-sesion";
 import { dbInterna } from "../src/lib/db/interno";
-import { anunciarDestino } from "./rama-destino";
+import { anunciarDestino, exigirMismaRama } from "./rama-destino";
 import { users } from "../src/lib/db/schema";
 import { vaultDe } from "../src/lib/db/vault";
 import { ESTADOS } from "../src/lib/domain/enums";
@@ -54,6 +54,7 @@ cargarEntorno();
 // parecen lo suficiente como para confundirlas cuando la cadena viaja en la
 // línea de comandos. Se dice el host antes de escribir nada — nunca la cadena
 // entera, que lleva la contraseña dentro.
+exigirMismaRama();
 anunciarDestino(process.env.DATABASE_URL ?? "", {
   variable: "DATABASE_URL",
   pasadaEnLinea: vinoDelEntorno("DATABASE_URL"),

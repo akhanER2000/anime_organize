@@ -15,7 +15,7 @@ import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
 
 import { cargarEntorno, vinoDelEntorno } from "./cargar-entorno";
-import { anunciarDestino } from "./rama-destino";
+import { anunciarDestino, exigirMismaRama } from "./rama-destino";
 
 cargarEntorno();
 neonConfig.webSocketConstructor = ws;
@@ -39,6 +39,7 @@ if (url === undefined) {
   process.exit(1);
 }
 
+exigirMismaRama();
 anunciarDestino(url, { variable, pasadaEnLinea: vinoDelEntorno(variable) });
 
 const TABLAS = [

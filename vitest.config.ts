@@ -39,7 +39,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // `scripts/` entra a propósito: son código que ESCRIBE en la base —seed,
+    // migrate, verificar-esquema— y estaban sin un solo test. La guarda de
+    // «dos ramas a la vez» vive ahí, y dejarla fuera de la suite sería fijar
+    // por sexta vez un mecanismo que nadie ejecuta.
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "scripts/**/*.test.ts"],
     // Los de integración comparten una base: en paralelo se pisarían.
     fileParallelism: false,
     coverage: {

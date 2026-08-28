@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ETIQUETA_UPPERCASE, TRANSICION_RAPIDA } from "@/lib/ui/clases";
 import { useCallback, useState } from "react";
 
 import { cn } from "@/lib/ui/cn";
@@ -127,7 +128,7 @@ export function TablaLista({ filas, orden, enlacesDeOrden }: PropsTablaLista) {
                     aria-sort={campo === undefined ? undefined : orientacion}
                     className={cn(
                       "text-left align-middle",
-                      "font-ui text-etiqueta font-[var(--fw-ui-bold)] uppercase tracking-etiqueta",
+                      ETIQUETA_UPPERCASE,
                       "text-[var(--gold-300)]",
                       indice === 0
                         ? "pl-[var(--e-2-5)] pr-[9px]"
@@ -155,7 +156,7 @@ export function TablaLista({ filas, orden, enlacesDeOrden }: PropsTablaLista) {
                         href={enlacesDeOrden[campo]}
                         className={cn(
                           "inline-flex items-center gap-[var(--e-05)] rounded-chip",
-                          "transition-colors duration-[var(--dur-rapida)] ease-base",
+                          TRANSICION_RAPIDA,
                           "hover:text-[var(--gold-200)]",
                           "focus-visible:outline-2 focus-visible:outline-offset-2",
                           "focus-visible:outline-[var(--gold-400)]",

@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { TRANSICION } from "@/lib/ui/clases";
+import { MensajeError } from "./mensaje-error";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -130,7 +132,7 @@ export function ZonaArrastre({
         className={cn(
           "flex min-h-[128px] cursor-pointer flex-col items-center justify-center gap-[var(--e-1)]",
           "rounded-card border border-dashed p-[var(--e-3)] text-center",
-          "transition-colors duration-[var(--dur-base)] ease-base",
+          TRANSICION,
           "border-[var(--slate-600)]",
           "hover:border-[var(--gold-400)]",
           // El foco vive en el input, que está `sr-only`: se refleja aquí con
@@ -197,16 +199,9 @@ export function ZonaArrastre({
       </label>
 
       {hayError && (
-        <p
-          id={idError}
-          // `alert` y no `status`: un fichero rechazado interrumpe lo que la
-          // persona estaba haciendo y tiene que enterarse ya.
-          role="alert"
-          className="mt-[var(--e-1)] flex items-start gap-[var(--e-05)] font-mono text-mono text-[var(--estado-abandonado-texto)]"
-        >
-          <span aria-hidden="true">⚠</span>
+        <MensajeError id={idError} className="mt-[var(--e-1)]">
           {error}
-        </p>
+        </MensajeError>
       )}
     </div>
   );

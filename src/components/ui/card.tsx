@@ -85,6 +85,23 @@ export type PropsBarraProgreso = {
   abandonado?: boolean;
   /** Texto para lectores de pantalla: «Temporada 2 · episodio 7». */
   etiqueta: string;
+  /**
+   * Dentro de una figura decorativa: se pinta igual pero NO se anuncia.
+   *
+   * ── POR QUÉ ESTA PROP EXISTE ─────────────────────────────────────────────
+   *
+   * Sin ella, la landing tenía **dos reconstrucciones a mano** de esta misma
+   * barra —en `sincronia.tsx` y en `vistazo.tsx`—, con la pista, el relleno y
+   * el halo copiados. Coincidían hoy; el día que la barra cambie de grosor o de
+   * halo, cambiará en el vault y no en la landing, y nadie lo notará porque las
+   * dos pantallas no se miran juntas.
+   *
+   * No usaban la primitiva por un motivo real: un `role="progressbar"` dentro de
+   * una maqueta decorativa anuncia al lector de pantalla un progreso que no es
+   * de nadie. La respuesta correcta no era copiar el aspecto, era dejar que la
+   * SEMÁNTICA varíe manteniendo un solo dueño del dibujo.
+   */
+  decorativa?: boolean;
 };
 
 export function BarraProgreso({
@@ -92,16 +109,18 @@ export function BarraProgreso({
   grosor = "hairline",
   abandonado = false,
   etiqueta,
+  decorativa = false,
 }: PropsBarraProgreso) {
   const acotado = porcentaje === null ? null : Math.min(100, Math.max(0, porcentaje));
 
   return (
     <div
-      role="progressbar"
-      aria-valuenow={acotado ?? undefined}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={etiqueta}
+      role={decorativa ? undefined : "progressbar"}
+      aria-hidden={decorativa ? true : undefined}
+      aria-valuenow={decorativa ? undefined : (acotado ?? undefined)}
+      aria-valuemin={decorativa ? undefined : 0}
+      aria-valuemax={decorativa ? undefined : 100}
+      aria-label={decorativa ? undefined : etiqueta}
       className={cn(
         "w-full overflow-hidden rounded-barra bg-[var(--slate-700)]",
         grosor === "hairline" ? "h-px" : "h-[2px]",

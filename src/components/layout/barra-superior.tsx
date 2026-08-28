@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Marca } from "@/components/ui/marca";
 
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/ui/cn";
@@ -67,17 +68,10 @@ export function BarraSuperior({
           href="/app"
           className="flex shrink-0 items-center gap-[var(--e-1)] rounded-boton focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--gold-400)]"
         >
-          <span aria-hidden="true" className="text-[var(--gold-400)]">
-            <svg width="18" height="30" viewBox="0 0 18 30" fill="none" stroke="currentColor">
-              <path d="M9 2 16 6.5v17L9 28 2 23.5v-17L9 2Z" strokeWidth="1" />
-              <path d="M9 10v10" strokeWidth="1" />
-            </svg>
-          </span>
-          <span className="hidden font-display text-marca uppercase leading-titulo tracking-marca text-[var(--porcelain-100)] tablet:block">
-            Anime
-            <br />
-            Vault
-          </span>
+          {/* 20 px: es lo que dibuja el artboard 03 para la barra del vault.
+           * La palabra se oculta en móvil, no se parte: el diseño la escribe en
+           * una línea las doce veces que aparece. Ver `ui/marca.tsx`. */}
+          <Marca tamanoIcono={20} palabraDesdeTablet />
         </Link>
 
         {/* El buscador va centrado y con su ancho de 520 px cuando cabe. */}

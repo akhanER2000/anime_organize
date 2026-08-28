@@ -1,6 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { FOCO_DORADO, TRANSICION_RAPIDA } from "@/lib/ui/clases";
+import { MensajeError } from "@/components/ui/mensaje-error";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -133,7 +135,7 @@ export function FormularioLogin() {
         {...register("password")}
       />
 
-      {errorDelServidor !== null && <AvisoDelFormulario mensaje={errorDelServidor} />}
+      {errorDelServidor !== null && <MensajeError>{errorDelServidor}</MensajeError>}
 
       <div className="flex items-center justify-between gap-[var(--e-2)]">
         <Casilla etiqueta="Recordarme" {...register("recordarme")} />
@@ -173,32 +175,13 @@ function ConmutadorContrasena({ visible, alPulsar }: { visible: boolean; alPulsa
         // Sobre `--slate-800` —el fondo del input— `--ash-400` se queda en
         // 4.17:1. El mínimo real ahí es `--porcelain-200` (design-tokens.md).
         "font-ui text-ui-s text-[var(--porcelain-200)]",
-        "transition-colors duration-[var(--dur-rapida)] ease-base",
+        TRANSICION_RAPIDA,
         "hover:text-[var(--porcelain-100)]",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
+        FOCO_DORADO,
       )}
     >
       <span aria-hidden="true">ver</span>
       <span className="sr-only">{visible ? "Ocultar la contraseña" : "Mostrar la contraseña"}</span>
     </button>
-  );
-}
-
-/**
- * Aviso a nivel de formulario, con la misma forma que el error de campo del
- * artboard: mono 12 px, `--estado-abandonado-texto`, icono `⚠` (DESIGN-SPEC §07).
- *
- * `role="alert"` lo anuncia en cuanto aparece, sin esperar a que el foco pase
- * por él. Es la misma decisión que toma `Campo` para su error.
- */
-function AvisoDelFormulario({ mensaje }: { mensaje: string }) {
-  return (
-    <p
-      role="alert"
-      className="flex items-start gap-[var(--e-05)] font-mono text-mono leading-ui text-[var(--estado-abandonado-texto)]"
-    >
-      <span aria-hidden="true">⚠</span>
-      {mensaje}
-    </p>
   );
 }

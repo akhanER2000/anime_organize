@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { TRANSICION_RAPIDA } from "@/lib/ui/clases";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import { Chip } from "@/components/ui/chip";
@@ -248,7 +249,7 @@ function ConmutadorDeVista({ parametros, ruta }: { parametros: URLSearchParams; 
             title={vista.etiqueta}
             className={cn(
               "inline-flex size-[var(--e-4)] items-center justify-center rounded-chip",
-              "transition-colors duration-[var(--dur-rapida)] ease-base",
+              TRANSICION_RAPIDA,
               "focus-visible:outline-2 focus-visible:outline-offset-2",
               "focus-visible:outline-[var(--gold-400)]",
               activa

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TRANSICION } from "@/lib/ui/clases";
 
 import { BadgeEstado } from "@/components/ui/badge";
 import { cn } from "@/lib/ui/cn";
@@ -56,7 +57,7 @@ export function AnimeCard({ anime }: { anime: AnimeParaCard }) {
         // §03: «padding-left: 14px + border-left 1px transparent, que pasa a
         // --gold-400 en hover». La veta kintsugi en su segunda forma.
         "group relative border-l border-transparent pl-[var(--e-1-5)]",
-        "transition-colors duration-[var(--dur-base)] ease-base",
+        TRANSICION,
         "hover:border-[var(--gold-400)]",
       )}
     >

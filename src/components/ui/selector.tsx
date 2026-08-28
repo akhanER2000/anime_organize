@@ -5,6 +5,7 @@
 // Se declara aquí, en la primitiva, y ninguna pantalla tiene que acordarse.
 
 import { useId } from "react";
+import { CAJA_DE_CONTROL } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -69,20 +70,11 @@ export type PropsSelector = Omit<SelectHTMLAttributes<HTMLSelectElement>, "id" |
 };
 
 const CONTROL = cn(
-  "w-full appearance-none rounded-input border bg-[var(--slate-800)]",
-  "h-[var(--tactil-min)] px-[var(--e-2)] pr-[var(--e-5)]",
-  "font-ui text-ui text-[var(--porcelain-100)]",
-  "border-[var(--slate-600)]",
-  "transition-colors duration-[var(--dur-base)] ease-base",
-  // El hover ACLARA la superficie, no el borde: `--slate-500` no existe y en la
-  // rampa de obsidiana el número baja al aclarar, así que `--slate-700` como
-  // borde apagaría el campo. Mismo razonamiento que en `campo.tsx`.
-  "hover:bg-[var(--slate-700)]",
-  "focus-visible:border-[var(--gold-400)] focus-visible:outline-2",
-  "focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-foco)]",
-  "disabled:cursor-not-allowed disabled:bg-[var(--slate-900)]",
-  // lint-tokens-ok: `--ash-inactivo` es exactamente el token de deshabilitado
-  "disabled:text-[var(--ash-inactivo)]",
+  // La caja es la del sistema —`CAJA_DE_CONTROL` en `lib/ui/clases.ts`—; lo de
+  // aquí es solo lo que este control necesita de más: quitar la apariencia
+  // nativa y dejar hueco a la derecha para la punta.
+  CAJA_DE_CONTROL,
+  "appearance-none pr-[var(--e-5)]",
 );
 
 export function Selector({

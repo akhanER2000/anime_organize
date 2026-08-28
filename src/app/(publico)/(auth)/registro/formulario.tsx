@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { MensajeError } from "@/components/ui/mensaje-error";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
@@ -158,15 +159,11 @@ export function FormularioRegistro() {
       </Boton>
 
       {(estado.estado === "ERROR" || estado.estado === "LIMITE_EXCEDIDO") && (
-        <p
-          role="alert"
-          className="flex items-start gap-[var(--e-05)] font-mono text-mono text-[var(--estado-abandonado-texto)]"
-        >
-          <span aria-hidden="true">⚠</span>
+        <MensajeError>
           {estado.estado === "LIMITE_EXCEDIDO"
             ? mensajeLimiteExcedido(estado.reintentarEnSegundos)
             : estado.mensaje}
-        </p>
+        </MensajeError>
       )}
     </form>
   );

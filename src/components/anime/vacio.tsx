@@ -1,4 +1,5 @@
 import { Boton } from "@/components/ui/boton";
+import { TITULAR_PANTALLA } from "@/lib/ui/clases";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -81,7 +82,7 @@ export function Vacio(props: PropsVacio) {
     >
       {conIcono && <IconoLaja />}
 
-      <h2 className="font-display text-titulo-l font-[var(--fw-display-light)] leading-titulo tracking-display text-[var(--porcelain-050)]">
+      <h2 className={TITULAR_PANTALLA}>
         {esFiltro ? "Ninguna serie coincide" : "Tu vault está vacío"}
       </h2>
 

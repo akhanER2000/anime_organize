@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { TITULAR_PANTALLA } from "@/lib/ui/clases";
 import { Enlace } from "@/components/ui/enlace";
 
 import { FormularioRecuperar } from "./formulario";
@@ -58,9 +59,7 @@ export default function PaginaRecuperar() {
       className={`w-full ${ANCHO_CARD} bg-[var(--slate-900)] p-[var(--e-4)]`}
     >
       <header className="flex flex-col gap-[var(--e-05)]">
-        <h1 className="font-display text-titulo-l font-[var(--fw-display-light)] leading-titulo tracking-display text-[var(--porcelain-050)]">
-          Recuperar acceso
-        </h1>
+        <h1 className={TITULAR_PANTALLA}>Recuperar acceso</h1>
         <p className="font-ui text-ui-s leading-ui text-[var(--ash-400)]">
           Te mandamos un enlace de un solo uso.
         </p>

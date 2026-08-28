@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { CAJA_DE_CONTROL } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
 import { indiceCircular } from "@/lib/ui/navegacion-circular";
@@ -204,18 +205,9 @@ export function Combobox({
           onFocus={abrir}
           onKeyDown={alPulsarTecla}
           className={cn(
-            "w-full rounded-input border bg-[var(--slate-800)]",
-            "h-[var(--tactil-min)] px-[var(--e-2)]",
-            "font-ui text-ui text-[var(--porcelain-100)]",
+            CAJA_DE_CONTROL,
             // lint-tokens-ok: `--ash-inactivo` es el token del placeholder
             "placeholder:text-[var(--ash-inactivo)]",
-            "border-[var(--slate-600)]",
-            "transition-colors duration-[var(--dur-base)] ease-base",
-            "hover:bg-[var(--slate-700)]",
-            "focus-visible:border-[var(--gold-400)] focus-visible:outline-2",
-            "focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-foco)]",
-            // lint-tokens-ok: estado deshabilitado
-            "disabled:cursor-not-allowed disabled:bg-[var(--slate-900)] disabled:text-[var(--ash-inactivo)]",
           )}
         />
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { FOCO_DORADO, TRANSICION } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
 import { indiceCircular } from "@/lib/ui/navegacion-circular";
@@ -135,9 +136,8 @@ export function Pestanas({ pestanas, inicial, etiqueta, className }: PropsPestan
               className={cn(
                 "relative flex h-[48px] shrink-0 items-center gap-[var(--e-1)] px-[var(--e-05)]",
                 "font-ui text-ui whitespace-nowrap",
-                "transition-colors duration-[var(--dur-base)] ease-base",
-                "focus-visible:outline-2 focus-visible:outline-offset-2",
-                "focus-visible:outline-[var(--gold-400)]",
+                TRANSICION,
+                FOCO_DORADO,
                 esActiva
                   ? "text-[var(--porcelain-100)]"
                   : "text-[var(--ash-400)] hover:text-[var(--porcelain-100)]",

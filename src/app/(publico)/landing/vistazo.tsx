@@ -1,4 +1,5 @@
 import { cn } from "@/lib/ui/cn";
+import { BarraProgreso } from "@/components/ui/card";
 
 import { CONTENEDOR, PADDING_LATERAL } from "./medidas";
 
@@ -91,15 +92,12 @@ export function Vistazo() {
                       indice % 2 === 0 ? "bg-[var(--slate-850)]" : "bg-[var(--slate-800)]",
                     )}
                   />
-                  {/* Barra de progreso hairline: pista `--slate-700`, relleno
-                   * `--gold-400` con `--halo-punto` (DESIGN-SPEC §6). */}
-                  <div className="mt-[var(--e-1)] h-px w-full rounded-barra bg-[var(--slate-700)]">
-                    <div
-                      className="h-full rounded-barra bg-[var(--gold-400)]"
-                      style={{
-                        width: `${String(hueco.progreso)}%`,
-                        boxShadow: "var(--halo-punto)",
-                      }}
+                  {/* La MISMA primitiva que el vault. Ver `card.tsx`. */}
+                  <div className="mt-[var(--e-1)]">
+                    <BarraProgreso
+                      porcentaje={hueco.progreso}
+                      etiqueta="Progreso de ejemplo"
+                      decorativa
                     />
                   </div>
                 </div>

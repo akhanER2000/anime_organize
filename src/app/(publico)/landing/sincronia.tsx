@@ -1,4 +1,5 @@
 import { cn } from "@/lib/ui/cn";
+import { BarraProgreso, Veta } from "@/components/ui/card";
 
 import { CONTENEDOR, ETIQUETA_SECCION, PADDING_LATERAL } from "./medidas";
 
@@ -39,7 +40,7 @@ export function Sincronia() {
     <section className="relative bg-[var(--slate-900)]">
       {/* Divisor de sección, de borde a borde. */}
       <div aria-hidden="true" className="absolute inset-x-0 top-0">
-        <div className="veta-divisor" />
+        <Veta />
       </div>
 
       <div
@@ -109,13 +110,14 @@ export function Sincronia() {
                 EP 18 → EP 19
               </p>
 
-              <div className="mt-[var(--e-1-5)] h-px w-full rounded-barra bg-[var(--slate-700)]">
-                <div
-                  className="h-full rounded-barra bg-[var(--gold-400)]"
-                  style={{
-                    width: `${String(PROGRESO_EJEMPLO)}%`,
-                    boxShadow: "var(--halo-punto)",
-                  }}
+              {/* La MISMA primitiva que el vault, no una copia de su aspecto.
+               * `decorativa` porque esto es una maqueta: se ve igual y no se
+               * anuncia como un progreso que no es de nadie. */}
+              <div className="mt-[var(--e-1-5)]">
+                <BarraProgreso
+                  porcentaje={PROGRESO_EJEMPLO}
+                  etiqueta="Progreso de ejemplo"
+                  decorativa
                 />
               </div>
 

@@ -197,6 +197,9 @@ importas de ahí. Si necesitas que cambie, cambias ese fichero.
 | Botón, enlace, chip, badge, input, skeleton | `src/components/ui/` |
 | Selector, combobox, pestañas, tooltip, zona de arrastre, diálogo de confirmación, progreso editable | `src/components/ui/` |
 | Recorrer una lista con las flechas, circular | `src/lib/ui/navegacion-circular.ts` |
+| El logotipo | `src/components/ui/marca.tsx` |
+| El mensaje de error de un campo | `src/components/ui/mensaje-error.tsx` |
+| El anillo de foco, la transición, el titular, la caja de un control, el marco dorado, la etiqueta de sección | `src/lib/ui/clases.ts` |
 | La card de un anime | `src/components/anime/anime-card.tsx` |
 | La barra de filtros y el conmutador de vista | `src/components/anime/barra-filtros.tsx` |
 
@@ -222,6 +225,25 @@ divergían en cómo se ven sino en **qué hacen**:
 La regla que sale de los dos: **cuando dos copias divergen en lo que HACEN, no
 esperan al barrido.** Un duplicado idéntico es deuda; uno que se comporta
 distinto es un bug que el usuario encuentra el primer día.
+
+### El barrido es ahora un comando, no una tanda
+
+`npm run lint:duplicados` cuenta las recetas de clases escritas literalmente en
+más de un fichero y **falla si el número sube**. Está encadenado en
+`lint:todo`, así que corre en cada commit.
+
+Va con techo y no a cero a propósito: los 14 que quedan son utilidades sueltas
+—`font-ui text-ui-s text-[var(--porcelain-200)]` y parecidas— que meter en una
+constante solo añadiría una indirección que hay que ir a leer. Lo que importa no
+es que haya duplicados: es que **aparezcan sin que nadie lo decida**.
+
+Si uno nuevo está justificado, se sube el techo A MANO en el mismo commit. Ese
+diff es la conversación.
+
+Bajó de 26 a 14 al dar dueño a: el mensaje de error (seis copias, **dos
+interlineados distintos**, y una séptima en `font-ui` cuando la spec dice mono),
+el anillo de foco (seis), la transición (once), el titular de pantalla (tres), la
+caja de un control (tres), el marco dorado (tres) y la etiqueta de sección (dos).
 
 ### Qué hacer cuando encuentres un duplicado
 

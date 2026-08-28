@@ -1,9 +1,10 @@
 import { Enlace } from "@/components/ui/enlace";
+import { TRANSICION_RAPIDA } from "@/lib/ui/clases";
+import { Marca } from "@/components/ui/marca";
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/ui/cn";
 
 import { CTA_NAV, CTA_PRINCIPAL, CTA_SECUNDARIO, ENLACES_NAV } from "./enlaces";
-import { Marca } from "./marca";
 import { CONTENEDOR, ETIQUETA_SECCION, MARCO_DORADO, PADDING_LATERAL } from "./medidas";
 
 /**
@@ -138,7 +139,7 @@ export function Hero() {
           {/* El logotipo apunta a la propia landing: es el ancla de vuelta desde
            * cualquier scroll y desde las pantallas de autenticación. */}
           <Enlace href="/" desnudo aria-label="Anime Vault, inicio" className="rounded-boton">
-            <Marca tamanoIcono={22} />
+            <Marca tamanoIcono={22} tono="claro" conVetaDiagonal />
           </Enlace>
 
           <div className="flex flex-wrap items-center gap-[var(--e-3)] laptop:gap-[var(--e-4)]">
@@ -151,7 +152,7 @@ export function Hero() {
                     className={cn(
                       "inline-flex min-h-[var(--tactil-min)] items-center rounded-boton tablet:min-h-0",
                       "font-ui text-ui text-[var(--porcelain-200)]",
-                      "transition-colors duration-[var(--dur-rapida)] ease-base",
+                      TRANSICION_RAPIDA,
                       "hover:text-[var(--porcelain-050)]",
                     )}
                   >

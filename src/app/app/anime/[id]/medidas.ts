@@ -58,10 +58,7 @@ export const REJILLA_FICHA = [
 export const COLUMNA_PORTADA = "tablet:mx-auto tablet:w-[280px] laptop:mx-0 laptop:w-auto";
 
 /** Etiqueta de sección: Inter 11/600 UPPERCASE, tracking .18em, `--gold-300`. */
-export const ETIQUETA_SECCION = [
-  "font-ui text-etiqueta font-[var(--fw-ui-bold)] uppercase",
-  "tracking-etiqueta text-[var(--gold-300)]",
-].join(" ");
+export { ETIQUETA_SECCION } from "@/lib/ui/clases";
 
 /**
  * El título de la ficha — DESIGN-SPEC §2: Cormorant 64/300, tracking +.02em.

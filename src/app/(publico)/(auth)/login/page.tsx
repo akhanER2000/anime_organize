@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { TITULAR_PANTALLA } from "@/lib/ui/clases";
 import { Enlace } from "@/components/ui/enlace";
 import { cn } from "@/lib/ui/cn";
 
@@ -57,9 +58,7 @@ export default function PaginaLogin() {
       className={cn("w-full bg-[var(--slate-900)] p-[var(--e-4)]", ANCHO_CARD)}
     >
       <header className="flex flex-col gap-[var(--e-05)]">
-        <h1 className="font-display text-titulo-l font-[var(--fw-display-light)] leading-titulo tracking-display text-[var(--porcelain-050)]">
-          Iniciar sesión
-        </h1>
+        <h1 className={TITULAR_PANTALLA}>Iniciar sesión</h1>
         <p className="font-ui text-ui-s leading-ui text-[var(--ash-400)]">
           Vuelve a donde lo dejaste.
         </p>

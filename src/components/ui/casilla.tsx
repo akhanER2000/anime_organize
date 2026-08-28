@@ -5,6 +5,7 @@
 // Se declara aquí, en la primitiva, y ninguna pantalla tiene que acordarse.
 
 import { useId } from "react";
+import { TRANSICION_RAPIDA } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -49,7 +50,7 @@ const CAJA = cn(
   // 15 px exactos y radio 2: DESIGN-SPEC §08. No es --e-2 (16): es 15.
   "relative grid size-[15px] shrink-0 place-items-center rounded-[2px]",
   "border border-[var(--slate-600)] bg-transparent",
-  "transition-colors duration-[var(--dur-rapida)] ease-base",
+  TRANSICION_RAPIDA,
   // hover de la fila → borde dorado apagado
   "peer-hover:border-[var(--gold-700)]",
   // marcada → relleno oro sólido
@@ -85,7 +86,7 @@ export function Casilla({
       className={cn(
         "flex min-h-[var(--tactil-min)] cursor-pointer items-center gap-[var(--e-1)]",
         "font-ui text-ui-s text-[var(--porcelain-200)]",
-        "transition-colors duration-[var(--dur-rapida)] ease-base",
+        TRANSICION_RAPIDA,
         "hover:text-[var(--porcelain-100)]",
         disabled === true && "cursor-not-allowed text-[var(--ash-400)] hover:text-[var(--ash-400)]",
         className,

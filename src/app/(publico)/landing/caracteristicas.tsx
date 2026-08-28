@@ -1,4 +1,5 @@
 import { cn } from "@/lib/ui/cn";
+import { Veta } from "@/components/ui/card";
 
 import { AIRE_DE_ANCLA, CONTENEDOR, PADDING_LATERAL } from "./medidas";
 
@@ -111,7 +112,7 @@ export function Caracteristicas() {
         aria-hidden="true"
         className={cn(CONTENEDOR, PADDING_LATERAL, "absolute inset-x-0 top-0")}
       >
-        <div className="veta-divisor" />
+        <Veta />
       </div>
 
       <div

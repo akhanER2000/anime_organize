@@ -1,6 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { FOCO_DORADO } from "@/lib/ui/clases";
+import { MensajeError } from "@/components/ui/mensaje-error";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
@@ -164,7 +166,7 @@ export function FormularioRecuperar() {
       <div className="flex flex-col gap-[var(--e-2)]">
         <AvisoEnviado minutos={enviado.minutos} mensajeCanonico={enviado.mensaje} />
 
-        {errorDelServidor !== null && <AvisoDelFormulario mensaje={errorDelServidor} />}
+        {errorDelServidor !== null && <MensajeError>{errorDelServidor}</MensajeError>}
 
         {/* NO es `solido`: el único botón de relleno dorado de esta pantalla es
          * «Entrar al Vault», en la card de login (regla del oro nº 3).
@@ -202,7 +204,7 @@ export function FormularioRecuperar() {
         {...register("email")}
       />
 
-      {errorDelServidor !== null && <AvisoDelFormulario mensaje={errorDelServidor} />}
+      {errorDelServidor !== null && <MensajeError>{errorDelServidor}</MensajeError>}
 
       <Boton type="submit" ancho cargando={isSubmitting}>
         Enviar el enlace
@@ -249,7 +251,7 @@ function AvisoEnviado({ minutos, mensajeCanonico }: { minutos: number; mensajeCa
         "flex items-start gap-[var(--e-1)] rounded-card",
         "border border-[var(--slate-700)] border-l-2 border-l-[var(--gold-400)]",
         "bg-[var(--slate-850)] px-[var(--e-2)] py-[var(--e-1-5)]",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
+        FOCO_DORADO,
       )}
     >
       <span aria-hidden="true" className="font-ui text-ui text-[var(--gold-400)]">
@@ -279,24 +281,5 @@ function AvisoEnviado({ minutos, mensajeCanonico }: { minutos: number; mensajeCa
         <p className="sr-only">{mensajeCanonico}</p>
       </div>
     </div>
-  );
-}
-
-/**
- * Aviso a nivel de formulario, con la misma forma que el error de campo del
- * artboard: mono 12 px, `--estado-abandonado-texto`, icono `⚠` (DESIGN-SPEC §07).
- *
- * `role="alert"` lo anuncia en cuanto aparece, sin esperar a que el foco pase
- * por él. Es la misma decisión que toma `Campo` para su error.
- */
-function AvisoDelFormulario({ mensaje }: { mensaje: string }) {
-  return (
-    <p
-      role="alert"
-      className="flex items-start gap-[var(--e-05)] font-mono text-mono leading-ui text-[var(--estado-abandonado-texto)]"
-    >
-      <span aria-hidden="true">⚠</span>
-      {mensaje}
-    </p>
   );
 }

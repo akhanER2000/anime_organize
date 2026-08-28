@@ -1,7 +1,7 @@
 import { Enlace } from "@/components/ui/enlace";
+import { Marca } from "@/components/ui/marca";
 import { cn } from "@/lib/ui/cn";
 
-import { Marca } from "./marca";
 import { RUTA_LOGIN, RUTA_REGISTRO } from "./enlaces";
 import { CONTENEDOR, ETIQUETA_SECCION, MARCO_DORADO, PADDING_LATERAL } from "./medidas";
 

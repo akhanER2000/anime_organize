@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { FOCO_DORADO, TRANSICION } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -106,10 +107,9 @@ export function ProgresoEditable({
                 "min-h-[var(--tactil-min)] tablet:min-h-0",
                 "font-ui text-ui-s",
                 "border-[var(--slate-700)] bg-[var(--slate-900)] text-[var(--porcelain-200)]",
-                "transition-colors duration-[var(--dur-base)] ease-base",
+                TRANSICION,
                 "hover:border-[var(--gold-borde)] hover:text-[var(--gold-200)]",
-                "focus-visible:outline-2 focus-visible:outline-offset-2",
-                "focus-visible:outline-[var(--gold-400)]",
+                FOCO_DORADO,
                 // lint-tokens-ok: estado deshabilitado
                 "disabled:cursor-not-allowed disabled:text-[var(--ash-inactivo)]",
               )}

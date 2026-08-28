@@ -5,6 +5,8 @@
 // Se declara aquí, en la primitiva, y ninguna pantalla tiene que acordarse.
 
 import { useId } from "react";
+import { ETIQUETA_UPPERCASE, FOCO_DORADO_SUAVE, TRANSICION } from "@/lib/ui/clases";
+import { MensajeError } from "./mensaje-error";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -71,10 +73,9 @@ const CONTROL = cn(
   // Faltaba: no había un solo `caret-color` en todo el proyecto, así que el
   // cursor salía del color del texto y el estado activo no se distinguía.
   "caret-[var(--gold-400)]",
-  "transition-colors duration-[var(--dur-base)] ease-base",
+  TRANSICION,
   // Foco: borde dorado + anillo suave con 2 px de offset.
-  "focus-visible:border-[var(--gold-400)] focus-visible:outline-2",
-  "focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-foco)]",
+  FOCO_DORADO_SUAVE,
   "disabled:cursor-not-allowed disabled:bg-[var(--slate-900)] disabled:text-[var(--ash-inactivo)]",
 );
 
@@ -96,7 +97,7 @@ function describedBy(
 }
 
 const ETIQUETA = cn(
-  "font-ui text-etiqueta font-[var(--fw-ui-bold)] uppercase tracking-etiqueta",
+  ETIQUETA_UPPERCASE,
   // Las etiquetas UPPERCASE van en --gold-300, NUNCA en --gold-400 (satura).
   "text-[var(--gold-300)]",
 );
@@ -116,14 +117,7 @@ function Mensajes({
     <>
       {error !== undefined && (
         // `role="alert"` lo anuncia en cuanto aparece, sin esperar al foco.
-        <p
-          id={idError}
-          role="alert"
-          className="flex items-start gap-[var(--e-05)] font-mono text-mono text-[var(--estado-abandonado-texto)]"
-        >
-          <span aria-hidden="true">⚠</span>
-          {error}
-        </p>
+        <MensajeError id={idError}>{error}</MensajeError>
       )}
       {/* LA AYUDA NO DESAPARECE AL FALLAR.
        * Antes se ocultaba cuando había error, que es justo cuando hace falta:

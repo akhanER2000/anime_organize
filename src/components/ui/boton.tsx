@@ -1,4 +1,5 @@
 import { Enlace } from "@/components/ui/enlace";
+import { FOCO_DORADO, TRANSICION } from "@/lib/ui/clases";
 import { cn } from "@/lib/ui/cn";
 
 import type { PropsEnlace } from "@/components/ui/enlace";
@@ -107,9 +108,9 @@ export type PropsBoton = PropsBotonPulsable | PropsBotonEnlace;
 const BASE = cn(
   "inline-flex items-center justify-center gap-[var(--e-1)] no-underline",
   "rounded-boton border font-ui font-[var(--fw-ui-medium)] tracking-boton",
-  "transition-colors duration-[var(--dur-base)] ease-base",
+  TRANSICION,
   // Foco SIEMPRE visible: anillo de 2 px con 2 px de offset (DESIGN-SPEC §7).
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
+  FOCO_DORADO,
   // Área táctil mínima en móvil.
   "min-h-[var(--tactil-min)] tablet:min-h-0",
   "disabled:cursor-not-allowed",

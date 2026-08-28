@@ -33,17 +33,10 @@ export const CONTENEDOR = "mx-auto w-full max-w-[var(--contenedor-max)]";
  * móvil**. En 390 px de ancho, 24 px por lado se comen 48 y aprietan el texto
  * contra sí mismo. Sin radio: «el marco dorado nunca lleva radio».
  */
-export const MARCO_DORADO = [
-  "pointer-events-none absolute border border-[var(--gold-700)]",
-  "hidden tablet:block",
-  "inset-[var(--e-2)] laptop:inset-[var(--marco-offset)]",
-].join(" ");
+export { MARCO_DORADO } from "@/lib/ui/clases";
 
 /** Etiqueta de sección: Inter 11/600 UPPERCASE, tracking .18em, `--gold-300`. */
-export const ETIQUETA_SECCION = [
-  "font-ui text-etiqueta font-[var(--fw-ui-bold)] uppercase",
-  "tracking-etiqueta text-[var(--gold-300)]",
-].join(" ");
+export { ETIQUETA_SECCION } from "@/lib/ui/clases";
 
 /**
  * Aire por encima de un ancla al saltar a ella.

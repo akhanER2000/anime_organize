@@ -1,4 +1,5 @@
 import NextLink from "next/link";
+import { FOCO_DORADO, TRANSICION_RAPIDA } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
 import { esHrefSeguro, esInterno } from "@/lib/ui/href";
@@ -50,9 +51,9 @@ export type PropsEnlace = Omit<ComponentProps<typeof NextLink>, "href"> & {
 const BASE = cn(
   "rounded-boton font-ui text-[var(--gold-300)] underline underline-offset-4",
   "decoration-[var(--gold-borde)]",
-  "transition-colors duration-[var(--dur-rapida)] ease-base",
+  TRANSICION_RAPIDA,
   "hover:text-[var(--gold-200)] hover:decoration-[var(--gold-400)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
+  FOCO_DORADO,
 );
 
 export function Enlace({

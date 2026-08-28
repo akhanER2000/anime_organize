@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { FOCO_DORADO } from "@/lib/ui/clases";
 
 import { cn } from "@/lib/ui/cn";
 
@@ -101,7 +102,7 @@ export function Toast({ tipo, mensaje, accion, duracionMs = 6000, alCerrar, icon
             "shrink-0 font-mono text-mono underline underline-offset-2",
             "text-[var(--gold-300)] transition-colors duration-[var(--dur-base)] ease-base",
             "hover:text-[var(--gold-200)]",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
+            FOCO_DORADO,
           )}
         >
           {accion.etiqueta}

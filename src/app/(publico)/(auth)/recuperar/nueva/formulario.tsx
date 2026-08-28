@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { MensajeError } from "@/components/ui/mensaje-error";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
@@ -97,15 +98,7 @@ export function FormularioNuevaPassword({ token }: { token: string }) {
        * mensaje se anuncia con `role="alert"` porque aparece tras enviar. */}
       {(estado.estado === "ENLACE_INVALIDO" ||
         estado.estado === "LIMITE_EXCEDIDO" ||
-        estado.estado === "VALIDACION") && (
-        <p
-          role="alert"
-          className="flex items-start gap-[var(--e-05)] font-mono text-mono text-[var(--estado-abandonado-texto)]"
-        >
-          <span aria-hidden="true">⚠</span>
-          {estado.mensaje}
-        </p>
-      )}
+        estado.estado === "VALIDACION") && <MensajeError>{estado.mensaje}</MensajeError>}
 
       <Boton type="submit" variante="solido" ancho cargando={enviando}>
         Guardar y entrar

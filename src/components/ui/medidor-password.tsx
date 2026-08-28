@@ -1,4 +1,5 @@
 import { calcularFortaleza } from "@/lib/ui/fortaleza-password";
+import { TRANSICION } from "@/lib/ui/clases";
 import { cn } from "@/lib/ui/cn";
 
 /**
@@ -36,7 +37,7 @@ export function MedidorPassword({ password, id, className }: PropsMedidorPasswor
             className={cn(
               // 2 px exactos, radio de barra: DESIGN-SPEC §07.
               "h-[2px] flex-1 rounded-barra",
-              "transition-colors duration-[var(--dur-base)] ease-base",
+              TRANSICION,
               i < nivel ? "bg-[var(--gold-400)]" : "bg-[var(--slate-700)]",
             )}
           />

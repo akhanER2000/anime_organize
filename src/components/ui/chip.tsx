@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/ui/cn";
+import { FOCO_DORADO, TRANSICION } from "@/lib/ui/clases";
 
 import type { Estado } from "@/lib/domain/enums";
 
@@ -101,8 +102,8 @@ export function Chip({
         "before:absolute before:inset-x-0 before:top-1/2 before:h-[var(--tactil-min)]",
         "before:-translate-y-1/2 before:content-['']",
         "px-[var(--e-1-5)] font-ui text-ui-s",
-        "transition-colors duration-[var(--dur-base)] ease-base",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
+        TRANSICION,
+        FOCO_DORADO,
         "disabled:cursor-not-allowed disabled:opacity-50",
         activo
           ? cn(
@@ -174,7 +175,7 @@ export function ChipEspejo({ etiqueta, url, activo = false, roto = false }: Prop
         "before:absolute before:inset-x-0 before:top-1/2 before:h-[var(--tactil-min)]",
         "before:-translate-y-1/2 before:content-['']",
         "font-mono text-mono-s transition-colors duration-[var(--dur-base)] ease-base",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold-400)]",
+        FOCO_DORADO,
         roto
           ? "border-[var(--estado-abandonado-borde)] text-[var(--estado-abandonado-texto)] line-through"
           : activo

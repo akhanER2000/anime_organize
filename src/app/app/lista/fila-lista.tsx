@@ -1,6 +1,7 @@
 "use client";
 
 import { BadgeEstado } from "@/components/ui/badge";
+import { TRANSICION } from "@/lib/ui/clases";
 import { etiquetaDeProgreso } from "@/lib/domain/progreso";
 import { Boton } from "@/components/ui/boton";
 import { BarraProgreso } from "@/components/ui/card";
@@ -74,14 +75,7 @@ export function FilaLista({ fila, indice, seleccionada, alAlternar }: PropsFilaL
       : `/api/covers/${fila.id}?size=thumb&v=${fila.checksumPortada}`;
 
   return (
-    <tr
-      className={cn(
-        "group h-[74px]",
-        cebra,
-        "transition-colors duration-[var(--dur-base)] ease-base",
-        "hover:bg-[var(--slate-900)]",
-      )}
-    >
+    <tr className={cn("group h-[74px]", cebra, TRANSICION, "hover:bg-[var(--slate-900)]")}>
       {/* Sin `aria-selected` en el `<tr>`: ese atributo solo es válido sobre
        * `row` dentro de un `grid`/`treegrid`, y esto es una `table` estática.
        * Quien anuncia la selección es la casilla —un `<input type="checkbox">`
@@ -94,7 +88,7 @@ export function FilaLista({ fila, indice, seleccionada, alAlternar }: PropsFilaL
           // izquierdo de 1 px que pasa a dorado. Ni escala ni sombra: el
           // movimiento del sistema es de opacidad y de color de borde.
           "border-l border-l-transparent",
-          "transition-colors duration-[var(--dur-base)] ease-base",
+          TRANSICION,
           "group-hover:border-l-[var(--gold-400)]",
           seleccionada && "border-l-[var(--gold-400)]",
         )}

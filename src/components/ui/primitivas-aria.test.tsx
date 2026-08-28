@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { AreaTexto, Campo } from "./campo";
 import { Combobox } from "./combobox";
 import { Pestanas } from "./pestanas";
 import { ProgresoEditable } from "./progreso-editable";
@@ -260,5 +261,90 @@ describe("ProgresoEditable", () => {
     const barras = markup.match(/role="progressbar"/g) ?? [];
     expect(barras).toHaveLength(1);
     expect(markup).toContain('aria-hidden="true"');
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `className` NO PUEDE BORRAR EL ASPECTO DE UN CONTROL.
+ *
+ * ── EL FALLO, VISTO EN PRODUCCIÓN CON UN NAVEGADOR ───────────────────────
+ *
+ * `PropsCampo` extendía `InputHTMLAttributes`, así que `className` viajaba en
+ * `...resto` y el spread —que va DESPUÉS del `className` calculado— lo
+ * **sustituía entero**. Un `<Campo className="flex-1" />` dejaba el input sin
+ * fondo, sin borde y sin altura.
+ *
+ * Medido en el modal de añadir, en producción: el campo de portada salía de
+ * **26 px de alto y 198 de ancho** cuando los de al lado medían 44 y el ancho
+ * completo, y **no se podía escribir en él**.
+ *
+ * ── POR QUÉ NO LO VIO NADA MÁS ───────────────────────────────────────────
+ *
+ * Ni los 1070 tests ni los 84 recorridos le pasaban `className` a `Campo`.
+ * El caso no existía, así que no fallaba. Lo encontró mirar la pantalla.
+ *
+ * ── Y ERA ADEMÁS UNA DIVERGENCIA ENTRE HERMANAS ──────────────────────────
+ *
+ * `Selector` y `Combobox` ya ponían su `className` en el envoltorio. `Campo` lo
+ * mandaba al control. La misma prop, tres componentes del mismo módulo, dos
+ * comportamientos. Este bloque comprueba que los TRES coinciden.
+ *
+ * VERIFICADO POR MUTACIÓN (2026-08-28):
+ *   Devolviendo `className` a `...resto` de `Campo` → 2 rojos.
+ *   Restaurado → verde.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe("className va al envoltorio, nunca al control", () => {
+  /** Las clases del primer `<input>`, `<select>` o `<textarea>` del markup. */
+  const clasesDelControl = (markup: string): string => {
+    const patron = /<(?:input|select|textarea)[^>]*class="([^"]*)"/;
+    return patron.exec(markup)?.[1] ?? "";
+  };
+
+  it("Campo conserva su caja aunque le pasen className", () => {
+    const markup = html(<Campo etiqueta="Portada" className="flex-1" />);
+
+    // La caja del sistema sigue ahí: fondo, borde y altura táctil.
+    const clases = clasesDelControl(markup);
+    expect(clases, "el className del que llama borró la caja del control").toContain(
+      "bg-[var(--slate-800)]",
+    );
+    expect(clases).toContain("h-[var(--tactil-min)]");
+
+    // Y `flex-1` NO está en el control: es del envoltorio, porque quien lo
+    // escribe está COLOCANDO el campo en una fila, no cambiando el input.
+    expect(clases).not.toContain("flex-1");
+    expect(markup).toContain("flex-1");
+  });
+
+  it("AreaTexto hace lo mismo", () => {
+    const markup = html(<AreaTexto etiqueta="Notas" className="mt-4" />);
+
+    expect(clasesDelControl(markup)).toContain("bg-[var(--slate-800)]");
+    expect(clasesDelControl(markup)).not.toContain("mt-4");
+    expect(markup).toContain("mt-4");
+  });
+
+  it("Selector y Combobox ya lo hacían: los TRES coinciden", () => {
+    const selector = html(
+      <Selector etiqueta="Estado" opciones={[{ valor: "a", etiqueta: "A" }]} className="flex-1" />,
+    );
+    const combobox = html(
+      <Combobox
+        etiqueta="Serie"
+        opciones={[]}
+        valor=""
+        onCambiar={() => undefined}
+        onElegir={() => undefined}
+        className="flex-1"
+      />,
+    );
+
+    for (const markup of [selector, combobox]) {
+      expect(clasesDelControl(markup)).toContain("bg-[var(--slate-800)]");
+      expect(clasesDelControl(markup)).not.toContain("flex-1");
+      expect(markup).toContain("flex-1");
+    }
   });
 });

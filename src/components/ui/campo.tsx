@@ -34,13 +34,46 @@ type Comunes = {
   etiquetaOculta?: boolean;
 };
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `className` VA AL ENVOLTORIO, Y NUNCA AL CONTROL.
+ *
+ * ── EL FALLO QUE LO TRAJO, VISTO EN PRODUCCIÓN ────────────────────────────
+ *
+ * `PropsCampo` extendía `InputHTMLAttributes`, así que `className` entraba en
+ * `...resto` y el spread —que va DESPUÉS del `className` calculado— lo
+ * **sustituía entero**. Un `<Campo className="flex-1" />` perfectamente
+ * razonable dejaba el input sin fondo, sin borde y sin altura: medido en el
+ * modal de añadir, **26 px de alto y 198 de ancho** cuando los de al lado
+ * medían 44 y el ancho completo. Y no se podía escribir en él.
+ *
+ * No lo vio ningún test —1070 unidades y 84 recorridos— porque **ninguno le
+ * pasaba `className` a `Campo`**. Lo vio un navegador, mirando.
+ *
+ * ── Y ADEMÁS ERA UNA DIVERGENCIA ENTRE HERMANAS ──────────────────────────
+ *
+ * `Selector` y `Combobox` ya ponían su `className` en el envoltorio, que es lo
+ * que espera quien escribe `className="flex-1"`: está colocando el campo dentro
+ * de una fila, no cambiando el aspecto del input. `Campo` hacía lo contrario. La
+ * misma prop, tres componentes hermanos, dos comportamientos.
+ *
+ * Ahora los tres coinciden, y el `Omit` deja **imposible** volver al anterior:
+ * `className` ya no es un atributo del input que un spread pueda colar.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
 export type PropsCampo = Comunes &
-  Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & {
+  Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "className"> & {
     /** Adorno a la derecha: un botón de «mostrar contraseña», un atajo… */
     adorno?: ReactNode;
+    /** Se aplica al ENVOLTORIO, para colocarlo. Nunca al control. */
+    className?: string;
   };
 
-export type PropsAreaTexto = Comunes & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id">;
+export type PropsAreaTexto = Comunes &
+  Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id" | "className"> & {
+    /** Se aplica al ENVOLTORIO, para colocarlo. Nunca al control. */
+    className?: string;
+  };
 
 /**
  * ── UN HUECO DE LA SPEC, DICHO EN VOZ ALTA ─────────────────────────────────
@@ -140,6 +173,7 @@ export function Campo({
   error,
   etiquetaOculta = false,
   adorno,
+  className,
   ...resto
 }: PropsCampo) {
   const id = useId();
@@ -148,7 +182,7 @@ export function Campo({
   const hayError = error !== undefined;
 
   return (
-    <div className="flex flex-col gap-[var(--e-1)]">
+    <div className={cn("flex flex-col gap-[var(--e-1)]", className)}>
       <label htmlFor={id} className={cn(ETIQUETA, etiquetaOculta && "sr-only")}>
         {etiqueta}
       </label>
@@ -185,6 +219,7 @@ export function AreaTexto({
   error,
   etiquetaOculta = false,
   rows = 4,
+  className,
   ...resto
 }: PropsAreaTexto) {
   const id = useId();
@@ -193,7 +228,7 @@ export function AreaTexto({
   const hayError = error !== undefined;
 
   return (
-    <div className="flex flex-col gap-[var(--e-1)]">
+    <div className={cn("flex flex-col gap-[var(--e-1)]", className)}>
       <label htmlFor={id} className={cn(ETIQUETA, etiquetaOculta && "sr-only")}>
         {etiqueta}
       </label>

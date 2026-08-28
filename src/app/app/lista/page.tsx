@@ -61,7 +61,10 @@ import type { FilaVista } from "./tipos";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Todas las series · Anime Vault",
+  // El `· Anime Vault` lo pone la plantilla del layout raíz. Escribirlo aquí
+  // producía «Todas las series · Anime Vault · Anime Vault» en la pestaña, que
+  // es de esas cosas que solo se ven mirando el navegador.
+  title: "Todas las series",
 };
 
 const RUTA = "/app/lista";

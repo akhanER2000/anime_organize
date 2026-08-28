@@ -1,3 +1,5 @@
+import { vinoDelEntorno } from "./cargar-entorno";
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * DECIR EN VOZ ALTA CONTRA QUÉ BASE SE VA A ESCRIBIR.
@@ -51,14 +53,37 @@ export function anunciarDestino(
   cadena: string,
   opciones: { variable: string; pasadaEnLinea: boolean },
 ): void {
-  const procedencia = opciones.pasadaEnLinea
-    ? "pasada en la línea de comandos"
-    : "leída de un fichero .env";
-
   console.log(`\n${"═".repeat(70)}`);
   console.log(`  DESTINO: ${describirDestino(cadena)}`);
-  console.log(`  ${opciones.variable}, ${procedencia}`);
+  console.log(`  ${opciones.variable}, ${procedencia(opciones.pasadaEnLinea)}`);
+
+  // ── Y LA OTRA VARIABLE TAMBIÉN, SIEMPRE ─────────────────────────────────
+  //
+  // Anunciar solo la que este script usa es lo que dejó pasar el fallo número
+  // 6: la línea decía la verdad sobre `DATABASE_URL` mientras `db:verificar` y
+  // las transacciones leían `DATABASE_URL_UNPOOLED` de `.env.local`, que
+  // apuntaba a otra rama. El anuncio era correcto y el destino de media
+  // operación, no.
+  //
+  // `exigirMismaRama()` ya impide que apunten a ramas distintas. Esto es la
+  // otra mitad: **enseñar de dónde salió cada una**, para que quien mire la
+  // salida pueda comprobar con los ojos que las dos vinieron de la línea de
+  // comandos y ninguna de un fichero.
+  const otra = opciones.variable === "DATABASE_URL" ? "DATABASE_URL_UNPOOLED" : "DATABASE_URL";
+  const suValor = process.env[otra];
+
+  if (suValor === undefined || suValor === "") {
+    console.log(`  ${otra}, sin definir`);
+  } else {
+    console.log(`  ${otra}: ${describirDestino(suValor)}`);
+    console.log(`  ${otra}, ${procedencia(vinoDelEntorno(otra))}`);
+  }
+
   console.log(`${"═".repeat(70)}`);
+}
+
+function procedencia(pasadaEnLinea: boolean): string {
+  return pasadaEnLinea ? "pasada en la línea de comandos" : "leída de un fichero .env";
 }
 
 /**

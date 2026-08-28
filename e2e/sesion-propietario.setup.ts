@@ -22,11 +22,24 @@ const EMAIL = process.env.SEED_OWNER_EMAIL ?? "";
 const PASSWORD = process.env.SEED_OWNER_PASSWORD ?? "";
 
 preparar("entrar una vez como propietario y guardar la sesión", async ({ page }) => {
-  preparar.skip(
-    EMAIL === "" || PASSWORD === "",
-    "Falta SEED_OWNER_EMAIL / SEED_OWNER_PASSWORD en .env.local: los specs que " +
-      "necesitan el vault sembrado se saltan solos.",
-  );
+  // ── SIN CREDENCIALES, ESTO **FALLA**. NO SE SALTA. ─────────────────────
+  //
+  // Antes se saltaba, y el salto era invisible: los specs seguían adelante con
+  // unas cookies viejas del fichero de sesión y fallaban SIETE veces con «la
+  // sesión reutilizada del propietario no vale», que manda a mirar la
+  // autenticación cuando el problema era una variable que nunca llegó.
+  //
+  // `testing.md`: omitir un test NO es aprobarlo, y un salto silencioso en el
+  // arnés es peor que un rojo, porque el rojo al menos señala.
+  if (EMAIL === "" || PASSWORD === "") {
+    throw new Error(
+      "Faltan SEED_OWNER_EMAIL y/o SEED_OWNER_PASSWORD. " +
+        "Los carga `playwright.config.ts` desde `.env.local`. Si estás en CI, " +
+        "tienen que estar en los secretos del workflow. " +
+        "Sin ellos NINGÚN spec del vault puede entrar, y el fallo aparecería " +
+        "más adelante disfrazado de «la sesión no vale».",
+    );
+  }
 
   await page.goto("/login");
 

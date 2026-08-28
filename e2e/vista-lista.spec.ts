@@ -140,7 +140,17 @@ test.describe("la vista lista, usada como la usaría una persona", () => {
     await test.step("filtrar y VOLVER ATRÁS deja la pantalla usable", async () => {
       await page.getByRole("link", { name: /viendo/i }).click();
       await expect(page).toHaveURL(/estado=VIENDO/);
-      await expect(page.getByRole("heading", { name: "Sin resultados" })).toBeVisible();
+      // ── EL TITULAR CAMBIÓ, Y FUE UNA DECISIÓN ─────────────────────
+      //
+      // Decía «Sin resultados». La lista y la rejilla tenían cada una su
+      // componente de vacío y decían cosas distintas para lo mismo; peor: el
+      // de la lista **no ofrecía salida**, solo pedía «quita alguno de los
+      // chips de arriba». Con el conmutador de vista encima, la misma
+      // situación daba o no daba un botón según en qué vista estuvieras.
+      //
+      // Gana la versión de la rejilla en las tres diferencias. Ver
+      // `components/anime/vacio.tsx` y `code-style.md`.
+      await expect(page.getByRole("heading", { name: "Ninguna serie coincide" })).toBeVisible();
 
       await page.goBack();
 
@@ -261,7 +271,7 @@ test.describe("la vista lista, usada como la usaría una persona", () => {
       await expect(page).toHaveURL(/estado=ABANDONADO/);
       // El orden sobrevive al filtro: reordenar y filtrar no se pisan.
       await expect(page).toHaveURL(/orden=titulo/);
-      await expect(page.getByRole("heading", { name: "Sin resultados" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Ninguna serie coincide" })).toBeVisible();
       await expect(page.getByRole("table")).toHaveCount(0);
     });
 

@@ -26,4 +26,13 @@ export { ContextoUsuario, ErrorNoEncontrado, ErrorContextoFalsificado } from "./
 export type { ModoAcceso } from "./contexto";
 
 export { vaultDe, enTransaccion } from "./vault";
-export type { Vault, AnimeEnListado, DatosCrearAnime, DatosEditarAnime } from "./vault";
+export type {
+  Vault,
+  AnimeEnListado,
+  CeldaDeRecuento,
+  DatosCrearAnime,
+  DatosEditarAnime,
+  DatosEnlace,
+  DatosPortada,
+  DatosProgreso,
+} from "./vault";

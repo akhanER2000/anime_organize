@@ -76,6 +76,51 @@ export default async function prepararSuite(): Promise<void> {
   if (cuentas.length > 0) {
     console.info(`[e2e] cuentas de prueba anteriores borradas: ${String(cuentas.length)}`);
   }
+
+  await limpiarAnimesDePrueba();
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * LOS ANIMES QUE CREA LA SUITE EN EL VAULT DEL PROPIETARIO.
+ *
+ * ── POR QUÉ UN PREFIJO Y NO UN SUFIJO ALEATORIO ───────────────────────────
+ *
+ * La primera versión les ponía un sufijo único —`Portada rota 164f358b`— para
+ * no chocar con el `UNIQUE (user_id, title_normalized)`. Y funcionaba para eso.
+ *
+ * Lo que no evitaba era la **similitud**: `Portada rota 164f358b` y
+ * `Portada rota b0b7458c` se parecen muy por encima de 0.55, así que la segunda
+ * ejecución de la suite disparaba el aviso de parecidos y el test se quedaba
+ * mirando un modal abierto. El fallo se leía como «el alta no cierra el modal»
+ * y era «la ejecución anterior dejó basura».
+ *
+ * Un prefijo fijo lo arregla de raíz: se pueden borrar TODOS de una, con un
+ * patrón que **no puede casar con un anime de verdad**. Ningún título real
+ * empieza por `[e2e]`.
+ *
+ * ── SE BORRA AL EMPEZAR, NO SOLO AL TERMINAR ──────────────────────────────
+ *
+ * Un `afterAll` no corre si la suite se interrumpe con Ctrl+C, si un test se
+ * cuelga o si el proceso muere. Limpiar al EMPEZAR es lo que hace que la
+ * ejecución número once encuentre lo mismo que la primera.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export const PREFIJO_E2E = "[e2e]";
+
+export async function limpiarAnimesDePrueba(): Promise<number> {
+  const url = cadenaDeConexion();
+  if (url === null) return 0;
+
+  const sql = neon(url);
+  // El `ON DELETE CASCADE` se lleva portada, progreso, géneros y enlaces.
+  const borrados = await sql`
+    delete from anime where title like ${PREFIJO_E2E + "%"} returning title`;
+
+  if (borrados.length > 0) {
+    console.info(`[e2e] animes de prueba borrados: ${String(borrados.length)}`);
+  }
+  return borrados.length;
 }
 
 /**

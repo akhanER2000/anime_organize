@@ -1,9 +1,10 @@
 import { notFound, redirect } from "next/navigation";
+import { AccionesFicha } from "@/components/anime/acciones-ficha";
 import { cache } from "react";
 
 import { ErrorSesionInvalida, exigirSesionParaLeer } from "@/auth";
 import { BadgeEstado } from "@/components/ui/badge";
-import { BarraProgreso, Card } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Enlace } from "@/components/ui/enlace";
 import { vaultDe } from "@/lib/db";
 import { ESTADOS } from "@/lib/domain/enums";
@@ -413,15 +414,22 @@ export default async function PaginaFichaAnime({ params }: { params: Promise<{ i
             </div>
 
             <div className="mt-[var(--e-3)]">
-              {/* `grosor="acento"` son los 2 px que pide §05 para la ficha; el
-               * hairline de 1 px es el de la card de la biblioteca.
-               * En ABANDONADO el relleno es granate y SIN halo: el halo dorado
-               * es de progreso vivo. Lo resuelve la primitiva. */}
-              <BarraProgreso
+              {/* La barra dejó de ser de solo lectura: `AccionesFicha` la pinta
+               * con la MISMA primitiva —`grosor="acento"`, los 2 px de §05— y
+               * además la deja mover, con los tres botones rápidos de la skill
+               * §4 y el borrado con su cuenta atrás. */}
+              <AccionesFicha
+                animeId={anime.id}
+                titulo={anime.title}
+                // `estado` puede ser `undefined` si la base trajera un valor
+                // fuera del dominio. Las acciones necesitan uno concreto, y
+                // `PENDIENTE` es el que el resto de la pantalla ya usa como
+                // caída para ese caso imposible.
+                estado={estado ?? "PENDIENTE"}
+                esFavorito={anime.isFavorite}
+                notas={anime.notes}
                 porcentaje={relleno}
-                grosor="acento"
-                abandonado={estado === "ABANDONADO"}
-                etiqueta={textoDeProgreso}
+                etiquetaProgreso={textoDeProgreso}
               />
             </div>
           </Card>

@@ -1,4 +1,5 @@
-import { AccionAnadir, BarraSuperior } from "@/components/layout/barra-superior";
+import { AccionAnadirConModal } from "@/components/anime/accion-anadir-con-modal";
+import { BarraSuperior } from "@/components/layout/barra-superior";
 
 import type { ReactNode } from "react";
 
@@ -26,9 +27,10 @@ import type { ReactNode } from "react";
 export default function LayoutVault({ children }: { children: ReactNode }) {
   return (
     <div className="fondo-laja fondo-ruido min-h-screen">
-      {/* La acción va deshabilitada con su motivo hasta que exista el modal
-       * del artboard 06. Ver `AccionAnadir`. */}
-      <BarraSuperior accion={<AccionAnadir />} />
+      {/* El botón y su modal viven juntos en un componente de cliente: el
+       * estado «abierto» es lo único que necesita el navegador, y este layout
+       * tiene que seguir siendo de servidor. */}
+      <BarraSuperior accion={<AccionAnadirConModal />} />
       <main className="mx-auto max-w-[var(--contenedor-max)]">{children}</main>
     </div>
   );

@@ -219,4 +219,57 @@ describeSiHayBase("los enlaces para continuar, contra Postgres real", () => {
     expect(huerfano).toBeUndefined();
     expect(await vaultA.enlaces(temporal.id)).toHaveLength(0);
   });
+
+  describe("las dos lecturas que usan las Server Actions", () => {
+    it("`porTituloNormalizado` encuentra el propio y NO el de otro", async () => {
+      const normalizado = normalizarTitulo(`Vinland Saga de A ${marca}`);
+
+      const mio = await vaultA.porTituloNormalizado(normalizado);
+      expect(mio?.id).toBe(animeDeA);
+
+      // El de B tiene un título distinto, así que se busca EL DE B desde A:
+      // el control que importa es que el filtro de propiedad esté puesto.
+      const ajeno = await vaultA.porTituloNormalizado(
+        normalizarTitulo(`Vinland Saga de B ${marca}`),
+      );
+      expect(ajeno).toBeNull();
+      // Control positivo: B sí lo encuentra. Sin esto, una consulta que
+      // devolviera siempre `null` pasaría la aserción de arriba.
+      expect(
+        (await vaultB.porTituloNormalizado(normalizarTitulo(`Vinland Saga de B ${marca}`)))?.id,
+      ).toBe(animeDeB);
+    });
+
+    it("un normalizado vacío no devuelve el primer anime que haya", async () => {
+      // `""` casaría con cualquier cosa en una comparación mal escrita, y sería
+      // el peor caso posible: el alta creería que TODO está duplicado.
+      expect(await vaultA.porTituloNormalizado("")).toBeNull();
+      expect(await vaultA.porTituloNormalizado("   ")).toBeNull();
+    });
+
+    it("`progresoDe` lee el propio y NO el de otro", async () => {
+      await vaultA.guardarProgreso(animeDeA, {
+        kind: "EPISODIO",
+        label: "Temporada 2 · episodio 7",
+        temporada: 2,
+        episodio: 7,
+      });
+
+      const mio = await vaultA.progresoDe(animeDeA);
+      expect(mio).toMatchObject({ tipo: "EPISODIO", temporada: 2, episodio: 7 });
+
+      // Es lo que leen los botones rápidos antes de sumar. Si el filtro se
+      // cayera, «+1 episodio» de A partiría del progreso de B.
+      expect(await vaultA.progresoDe(animeDeB)).toBeNull();
+    });
+
+    it("un anime sin progreso devuelve null, no un objeto a medias", async () => {
+      const nuevo = await vaultA.crear({ titulo: `Sin progreso ${marca}`, estado: "PENDIENTE" });
+      if (nuevo === null) throw new Error("no se pudo crear");
+
+      // Es el caso de «+1 episodio» sobre un anime recién añadido, y el que
+      // decide que la temporada arranque en 1.
+      expect(await vaultA.progresoDe(nuevo.id)).toBeNull();
+    });
+  });
 });

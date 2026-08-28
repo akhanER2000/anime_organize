@@ -217,3 +217,123 @@ export type DatosAltaAnime = z.output<typeof EsquemaCrearAnime>;
  *     })
  */
 export type EntradaAltaAnime = z.input<typeof EsquemaCrearAnime>;
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * LO QUE FALTABA PARA EL MODAL Y PARA LA FICHA.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/** El uuid de un anime tal y como llega de un formulario o de la URL. */
+export const EsquemaIdAnime = z.uuid({ error: "Ese identificador no es válido" });
+
+/**
+ * `anilist_id` — entero positivo, opcional.
+ *
+ * Llega del autocompletado, así que llega **del cliente**, así que se valida:
+ * un `anilist_id` inventado no hace daño por sí solo, pero es la clave por la
+ * que se decide «es el mismo anime» y un valor basura convertiría esa
+ * comprobación en ruido.
+ */
+export const EsquemaAnilistId = z
+  .number({ error: "El identificador de AniList tiene que ser un número" })
+  .int("El identificador de AniList tiene que ser un número entero")
+  .positive("El identificador de AniList tiene que ser positivo")
+  .nullish()
+  .transform((valor) => valor ?? null);
+
+/**
+ * El porcentaje de progreso.
+ *
+ * Se acota **también** aquí, además de en `progresoLibre`: el deslizador es un
+ * `<input type="range">` que el navegador limita, y la Server Action recibe lo
+ * que le manden. Dos puertas para el mismo número no es redundancia — la de la
+ * interfaz es comodidad y la del servidor es la que cuenta.
+ */
+export const EsquemaPorcentaje = z
+  .number({ error: "El progreso tiene que ser un número" })
+  .min(0, "El progreso no puede ser negativo")
+  .max(100, "El progreso no puede pasar de 100")
+  .nullish()
+  .transform((valor) => valor ?? null);
+
+/**
+ * La URL de un enlace para continuar.
+ *
+ * ── NO ES EL MISMO ESQUEMA QUE `EsquemaUrlPortada`, Y NO SE COMPARTE ──────
+ *
+ * Se parecen —las dos exigen `http(s)` absoluto— y hacen cosas distintas con lo
+ * que validan: la de la portada la **descarga el servidor**, así que su peligro
+ * es el SSRF y su defensa está en el pipeline; ésta se pinta como `href` y se
+ * abre en el navegador **del usuario**, así que su peligro es el XSS por
+ * `javascript:` y su defensa es exactamente este parseo, más el `CHECK` de la
+ * columna (`ck_continue_link_url`).
+ *
+ * Unificarlas ahorraría diez líneas y borraría esa diferencia. El día que
+ * alguien relajara una para su caso, relajaría la otra sin saberlo.
+ */
+export const EsquemaUrlEnlace = z
+  .string({ error: "Pega la dirección del capítulo" })
+  .trim()
+  .min(1, "Pega la dirección del capítulo")
+  .max(2048, "Esa dirección es demasiado larga: máximo 2048 caracteres")
+  .refine(esUrlDescargable, "La dirección tiene que empezar por http:// o https://");
+
+/** «AnimeFLV V2 · Ep 7». Opcional: se puede pegar un enlace desnudo. */
+export const EsquemaEtiquetaEnlace = z
+  .string({ error: "La etiqueta tiene que ser texto" })
+  .trim()
+  .max(120, "Esa etiqueta es demasiado larga: máximo 120 caracteres")
+  .nullish()
+  .transform(aNuloSiVacio);
+
+/** Temporada y episodio de un enlace o de un progreso. */
+const EsquemaNumeroPequeno = (que: string) =>
+  z
+    .number({ error: `${que} tiene que ser un número` })
+    .int(`${que} tiene que ser un número entero`)
+    .min(0, `${que} no puede ser negativo`)
+    // 9999 no es un límite estético: `season` y `episode` son `integer` y este
+    // campo lo escribe una persona. Un número de seis cifras es una errata.
+    .max(9999, `${que} no puede pasar de 9999`)
+    .nullish()
+    .transform((valor) => valor ?? null);
+
+export const EsquemaTemporada = EsquemaNumeroPequeno("La temporada");
+export const EsquemaEpisodio = EsquemaNumeroPequeno("El episodio");
+
+/** Guardar o reemplazar el progreso de un anime, desde la ficha o el modal. */
+export const EsquemaGuardarProgreso = z.object({
+  animeId: EsquemaIdAnime,
+  etiqueta: EsquemaEtiquetaProgreso,
+  porcentaje: EsquemaPorcentaje,
+});
+
+/** Añadir un enlace para continuar. */
+export const EsquemaGuardarEnlace = z.object({
+  animeId: EsquemaIdAnime,
+  url: EsquemaUrlEnlace,
+  etiqueta: EsquemaEtiquetaEnlace,
+  temporada: EsquemaTemporada,
+  episodio: EsquemaEpisodio,
+});
+
+/**
+ * La edición de un anime.
+ *
+ * El título es OPCIONAL aquí y obligatorio en el alta, y esa asimetría es
+ * intencionada: editar «solo el estado» tiene que poder mandar únicamente el
+ * estado. Lo que no puede es mandar un título **vacío**, y de eso se encarga
+ * `EsquemaTitulo` cuando viene.
+ */
+export const EsquemaEditarAnime = z.object({
+  animeId: EsquemaIdAnime,
+  titulo: EsquemaTitulo.optional(),
+  estado: z.enum(ESTADOS, { error: "Elige uno de los estados de la lista" }).optional(),
+  esFavorito: z.boolean().optional(),
+  notas: EsquemaNotas,
+});
+
+export type DatosGuardarProgreso = z.output<typeof EsquemaGuardarProgreso>;
+export type DatosGuardarEnlace = z.output<typeof EsquemaGuardarEnlace>;
+export type DatosEditarAnimeValidados = z.output<typeof EsquemaEditarAnime>;

@@ -180,7 +180,18 @@ test.describe("la ficha de un anime, usada por una persona", () => {
 
     // La barra de progreso de la ficha (§05: 2 px). Existe siempre: cuando no
     // se conoce el avance se pinta la pista sola, que es lo que se sabe.
-    await expect(page.getByRole("progressbar")).toBeVisible();
+    // ── ERA UN `progressbar` Y AHORA ES UN `slider` ───────────────────
+    //
+    // No es un ajuste del test para que pase: es que el control cambió de
+    // naturaleza. La barra de la ficha ya no solo INFORMA del progreso, se
+    // puede MOVER, y `role="progressbar"` sobre algo que el usuario cambia
+    // sería mentirle al lector de pantalla —ese rol dice «esto avanza solo».
+    //
+    // El dato sigue anunciado, y mejor: el `aria-valuetext` lee la etiqueta
+    // entera («Temporada 2 · episodio 7») en vez del número suelto.
+    const deslizador = page.getByRole("slider", { name: /progreso/i });
+    await expect(deslizador).toBeVisible();
+    await expect(deslizador).toHaveAttribute("aria-valuetext", /.+/);
 
     // Las secciones del artboard, cada una con su estado —lleno o vacío—.
     await expect(page.getByRole("heading", { name: "Progreso" })).toBeVisible();
@@ -261,7 +272,18 @@ test.describe("la ficha de un anime, usada por una persona", () => {
     expect(page.url()).toBe(url);
     await expect(page.getByRole("heading", { level: 1, name: titulo })).toBeVisible();
     await expect(portada(page)).toBeVisible();
-    await expect(page.getByRole("progressbar")).toBeVisible();
+    // ── ERA UN `progressbar` Y AHORA ES UN `slider` ───────────────────
+    //
+    // No es un ajuste del test para que pase: es que el control cambió de
+    // naturaleza. La barra de la ficha ya no solo INFORMA del progreso, se
+    // puede MOVER, y `role="progressbar"` sobre algo que el usuario cambia
+    // sería mentirle al lector de pantalla —ese rol dice «esto avanza solo».
+    //
+    // El dato sigue anunciado, y mejor: el `aria-valuetext` lee la etiqueta
+    // entera («Temporada 2 · episodio 7») en vez del número suelto.
+    const deslizador = page.getByRole("slider", { name: /progreso/i });
+    await expect(deslizador).toBeVisible();
+    await expect(deslizador).toHaveAttribute("aria-valuetext", /.+/);
   });
 
   test("VOLVER ATRÁS deja la biblioteca usable", async () => {

@@ -1,4 +1,28 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config as cargarEnv } from "dotenv";
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `.env.local` SE CARGA AQUÍ, UNA VEZ, Y NO EN CADA SPEC.
+ *
+ * ── EL FALLO QUE LO TRAJO, Y ES DE LA FAMILIA DE SIEMPRE ──────────────────
+ *
+ * `sesion-propietario.setup.ts` lee `SEED_OWNER_EMAIL` y `SEED_OWNER_PASSWORD`,
+ * y **se salta solo** cuando faltan. Como la configuración no cargaba
+ * `.env.local`, faltaban siempre: el setup se saltaba en silencio, los specs
+ * reutilizaban unas cookies viejas del fichero de sesión, y los siete fallaban
+ * con «la sesión reutilizada del propietario no vale».
+ *
+ * Ese mensaje manda a mirar la autenticación —¿caducó el token?, ¿cambió el
+ * secreto?, ¿está mal el middleware?— cuando el problema era una variable de
+ * entorno que nunca llegó. Es «la operación tuvo éxito, ¿SOBRE QUÉ?» aplicado
+ * al arnés: el salto era correcto y actuaba sobre un entorno vacío.
+ *
+ * Cargarlo aquí lo arregla en un sitio. Los specs que lo hacían por su cuenta
+ * pueden dejar de hacerlo: era el mismo `dotenv` escrito cuatro veces.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+cargarEnv({ path: ".env.local", quiet: true });
 
 /**
  * Playwright para el flujo crítico (`.claude/rules/testing.md`).
@@ -19,6 +43,26 @@ export default defineConfig({
 
   testDir: "./e2e",
   fullyParallel: false,
+
+  /**
+   * ── UN SOLO WORKER, Y NO ES POR LENTITUD ────────────────────────────────
+   *
+   * `fullyParallel: false` serializa los tests DENTRO de un fichero. Los
+   * ficheros seguían corriendo en paralelo, y **todos comparten el mismo
+   * vault**: el del propietario, con sus 83 animes de verdad.
+   *
+   * Eso hace imposible cualquier aserción sobre un recuento. Medido: el spec de
+   * la biblioteca leyó `84` en el chip «Todos» y contó `83` tarjetas en la
+   * rejilla, porque el spec de alta estaba creando y borrando animes en otro
+   * worker entre las dos lecturas. El rojo decía «un filtro sin resultados
+   * pierde una serie», que no era ni de lejos el problema.
+   *
+   * Probar contra el vault real es a propósito: es lo que hace que estas
+   * pruebas valgan más que un fixture inventado. El precio es que **no se
+   * pueden paralelizar**, y declararlo aquí es más honesto que perseguir
+   * intermitencias.
+   */
+  workers: 1,
   forbidOnly: process.env.CI !== undefined,
   retries: 0,
   reporter: process.env.CI !== undefined ? "github" : "list",

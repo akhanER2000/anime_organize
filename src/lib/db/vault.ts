@@ -253,6 +253,31 @@ export interface Vault {
     }[]
   >;
   /** El anime propio con ese `anilist_id`, si lo hay. Bloquea el alta duplicada. */
+  /**
+   * El anime con ESE `title_normalized` exacto, si lo hay.
+   *
+   * Es la comprobación (a) de la skill §2, la que BLOQUEA. Existe como método
+   * propio y no como `similares(…, 1)` porque son preguntas distintas: ésta es
+   * igualdad y la otra es parecido, y el `UNIQUE (user_id, title_normalized)`
+   * responde a ésta.
+   */
+  porTituloNormalizado(tituloNormalizado: string): Promise<{ id: string; titulo: string } | null>;
+  /**
+   * El progreso guardado de un anime PROPIO, o `null`.
+   *
+   * `obtener()` devuelve la fila de `anime` y **no** su progreso: son dos
+   * tablas y `progress` no se necesita en la mayoría de las lecturas. Los
+   * botones rápidos sí lo necesitan, y lo leen del servidor en vez de recibirlo
+   * — «+1 episodio» sobre un número que mandó el cliente sería incrementar lo
+   * que el cliente diga.
+   */
+  progresoDe(animeId: string): Promise<{
+    tipo: TipoProgreso | null;
+    etiqueta: string | null;
+    temporada: number | null;
+    episodio: number | null;
+    porcentaje: number | null;
+  } | null>;
   porAnilistId(anilistId: number): Promise<{ id: string; titulo: string } | null>;
 
   // Escritura
@@ -502,6 +527,39 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
         )
         .orderBy(sql`similarity(${anime.titleNormalized}, ${tituloNormalizado}) desc`)
         .limit(limite);
+    },
+
+    /** Igualdad exacta de `title_normalized`: la comprobación que BLOQUEA. */
+    async porTituloNormalizado(tituloNormalizado: string) {
+      if (tituloNormalizado.trim() === "") return null;
+
+      const [fila] = await cliente
+        .select({ id: anime.id, titulo: anime.title })
+        .from(anime)
+        .where(and(mias(), eq(anime.titleNormalized, tituloNormalizado)))
+        .limit(1);
+
+      return fila ?? null;
+    },
+
+    /** El progreso de un anime propio. `null` si no hay o no es suyo. */
+    async progresoDe(animeId: string) {
+      const [fila] = await cliente
+        .select({
+          // `kind` es `text` + CHECK, así que Drizzle lo infiere `string`. Se
+          // marca el tipo aquí igual que en `listar()`, que hace lo mismo.
+          tipo: sql<TipoProgreso | null>`${progress.kind}`,
+          etiqueta: progress.label,
+          temporada: progress.season,
+          episodio: progress.episode,
+          porcentaje: progress.percent,
+        })
+        .from(progress)
+        .innerJoin(anime, eq(anime.id, progress.animeId))
+        .where(and(eq(progress.animeId, animeId), mias()))
+        .limit(1);
+
+      return fila ?? null;
     },
 
     /**

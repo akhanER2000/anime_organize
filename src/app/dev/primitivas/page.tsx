@@ -8,6 +8,15 @@ import { Skeleton, SkeletonRejilla } from "@/components/ui/skeleton";
 import { ESTADOS } from "@/lib/domain/enums";
 
 import {
+  MuestraCombobox,
+  MuestraDialogoConfirmacion,
+  MuestraPestanas,
+  MuestraProgresoEditable,
+  MuestraSelector,
+  MuestraTooltip,
+  MuestraZonaArrastre,
+} from "./muestras-formulario";
+import {
   MuestraCargando,
   MuestraCasillas,
   MuestraMedidorPassword,
@@ -586,6 +595,43 @@ export default function GaleriaPrimitivas() {
               </div>
             </div>
           </div>
+        </Seccion>
+
+        <Seccion
+          titulo="Selector y combobox"
+          nota="Los dos eligen de una lista y NO son intercambiables. El selector es un `<select>` nativo —lista corta y cerrada, y en el móvil la hoja del sistema—; el combobox se escribe encima para filtrar, y hace falta cuando la lista es larga o crece. Todo lo que el `<select>` regala, el combobox lo reimplementa a mano: por eso no se usa por costumbre."
+        >
+          <MuestraSelector />
+          <MuestraCombobox />
+        </Seccion>
+
+        <Seccion
+          titulo="Pestañas"
+          nota="Tabula hasta la primera y muévete con ← →. El grupo entero es UNA parada de tabulador: eso es lo que hace que quien navega con teclado llegue al contenido sin recorrer las cuatro. La de Peligro va en granate, y es la única excepción del sistema."
+        >
+          <MuestraPestanas />
+        </Seccion>
+
+        <Seccion
+          titulo="Progreso editable"
+          nota="La rejilla PINTA el progreso; aquí se CAMBIA. Los botones rápidos son el camino principal —nadie arrastra hasta el 63 % para decir «episodio 7 de 11»— y por eso van antes en el orden de tabulación. El deslizador es un `input[type=range]` de verdad: responde a las flechas, a Home/End y a PageUp/PageDown."
+        >
+          <MuestraProgresoEditable />
+        </Seccion>
+
+        <Seccion
+          titulo="Zona de arrastre"
+          nota="El control real es un `input` de tipo fichero con su etiqueta: arrastrar no existe en móvil ni con teclado, así que es un atajo que se AÑADE, nunca la única vía. La validación de verdad está en el servidor y por magic bytes; el `accept` solo ahorra el viaje."
+        >
+          <MuestraZonaArrastre />
+        </Seccion>
+
+        <Seccion
+          titulo="Diálogo de confirmación y tooltip"
+          nota="La fricción es proporcional al daño: lo irreversible pide escribir el texto exacto, y hasta que no coincide el botón no se habilita. El tooltip es siempre redundante — si el dato solo está ahí, no existe en una pantalla táctil."
+        >
+          <MuestraDialogoConfirmacion />
+          <MuestraTooltip />
         </Seccion>
 
         <footer className="pb-[var(--e-10)]">

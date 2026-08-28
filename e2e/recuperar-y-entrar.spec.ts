@@ -132,7 +132,10 @@ test("EL CICLO ENTERO: registrarse, olvidarla, restablecer y VOLVER A ENTRAR", a
   const token = await emitirTokenDeReset(email);
 
   await page.goto(`/recuperar/nueva?token=${token}`);
-  await page.getByLabel(/contraseña/i).first().fill(NUEVA);
+  await page
+    .getByLabel(/contraseña/i)
+    .first()
+    .fill(NUEVA);
   const repetir = page.getByLabel(/repite|confirma/i);
   if ((await repetir.count()) > 0) await repetir.fill(NUEVA);
   await page.getByRole("button", { name: /cambiar|guardar|establecer/i }).click();
@@ -184,7 +187,10 @@ test("BLOQUEARSE Y RESTABLECER: el reseteo devuelve el acceso, no lo deja bloque
   // ── 2. Restablecer es lo único razonable que queda ──────────────────────
   const token = await emitirTokenDeReset(email);
   await page.goto(`/recuperar/nueva?token=${token}`);
-  await page.getByLabel(/contraseña/i).first().fill(NUEVA);
+  await page
+    .getByLabel(/contraseña/i)
+    .first()
+    .fill(NUEVA);
   const repetir = page.getByLabel(/repite|confirma/i);
   if ((await repetir.count()) > 0) await repetir.fill(NUEVA);
   await page.getByRole("button", { name: /cambiar|guardar|establecer/i }).click();

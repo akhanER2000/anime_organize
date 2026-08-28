@@ -157,8 +157,7 @@ test.describe("la landing, usada por una persona", () => {
     //
     // Lo cazó un `curl` que no distinguía entre texto visible y metadatos.
     const visible = (await page.locator("body").innerText()).replace(/\s+/g, " ");
-    const meta =
-      (await page.locator('meta[name="description"]').getAttribute("content")) ?? "";
+    const meta = (await page.locator('meta[name="description"]').getAttribute("content")) ?? "";
     const titulo = await page.title();
     const texto = `${visible} ${meta} ${titulo}`;
 

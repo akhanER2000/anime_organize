@@ -245,7 +245,10 @@ describe("urlSinFacetas", () => {
   it("acepta el objeto del servidor igual que el URLSearchParams del cliente", () => {
     // Los dos controles viven a lados distintos de la frontera y tienen que
     // producir EXACTAMENTE la misma URL, o vuelve la divergencia.
-    const delCliente = urlSinFacetas("/app/lista", new URLSearchParams("estado=VISTO&orden=titulo"));
+    const delCliente = urlSinFacetas(
+      "/app/lista",
+      new URLSearchParams("estado=VISTO&orden=titulo"),
+    );
     const delServidor = urlSinFacetas("/app/lista", { estado: "VISTO", orden: "titulo" });
 
     expect(delServidor).toBe(delCliente);
@@ -306,4 +309,3 @@ describe("contarCoincidentes", () => {
     expect(contarCoincidentes([], parsearFiltros({ estado: "VISTO" }))).toBe(0);
   });
 });
-

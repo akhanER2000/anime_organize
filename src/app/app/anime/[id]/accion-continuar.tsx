@@ -2,8 +2,6 @@ import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/ui/cn";
 import { esHrefSeguro } from "@/lib/ui/href";
 
-
-
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * LA ACCIÓN PRIMARIA DE LA FICHA — el enlace de continuación más reciente.

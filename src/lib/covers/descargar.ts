@@ -107,7 +107,9 @@ const TIPOS_ACEPTADOS = new Set(["image/jpeg", "image/png", "image/webp", "image
 async function validarDestino(
   bruta: string,
   permitirLoopback: boolean,
-): Promise<{ ok: true; url: URL; ip: string; familia: number } | { ok: false; motivo: FalloDescarga }> {
+): Promise<
+  { ok: true; url: URL; ip: string; familia: number } | { ok: false; motivo: FalloDescarga }
+> {
   let url: URL;
   try {
     url = new URL(bruta);
@@ -218,12 +220,16 @@ export async function descargarImagen(
 
     if (respuesta.excedido) return { ok: false, motivo: "DEMASIADO_GRANDE" };
 
-    return { ok: true, bytes: respuesta.cuerpo, contentType: tipo, urlFinal: destino.url.toString() };
+    return {
+      ok: true,
+      bytes: respuesta.cuerpo,
+      contentType: tipo,
+      urlFinal: destino.url.toString(),
+    };
   }
 
   return { ok: false, motivo: "DEMASIADAS_REDIRECCIONES" };
 }
-
 
 /**
  * `node:http` y `node:https` exponen el mismo `request` para lo que aquí se

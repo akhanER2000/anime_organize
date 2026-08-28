@@ -19,7 +19,6 @@ Referencias: `design/screens/04-vista-lista.png`, `design/DESIGN-SPEC.md` §04 �
 >
 > Tenías razón en el diagnóstico: hasta hoy se llegaba aquí escribiendo la URL.
 
-
 `BarraFiltros` (`src/components/anime/barra-filtros.tsx`) es compartida y la pinta el
 artboard 03. **Hoy no hay ningún camino en la interfaz que lleve a `/app/lista`**: se llega
 escribiendo la URL. Como es un componente compartido y el encargo lo prohíbe explícitamente,
@@ -76,7 +75,6 @@ dos rutas distintas para la misma ficha sería peor. El recorrido e2e **no** sig
 >
 > Al unificar ganó el orden canónico, y `contarPorEstado` devuelve el `Record` completo
 > en vez del `Partial`: es el que deja de compilar si se añade un sexto estado.
-
 
 `api-conventions.md` dice que los esquemas viven en `src/lib/validation/*.ts` y se comparten.
 Los de `orden.ts` y `filtros.ts` están en mi carpeta porque **no puedo escribir fuera de

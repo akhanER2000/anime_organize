@@ -40,7 +40,7 @@ export function BarraSuperior({
       )}
     >
       {/* La veta decorativa de la esquina derecha. `aria-hidden` porque no
-        * comunica nada: es el kintsugi de la losa. */}
+       * comunica nada: es el kintsugi de la losa. */}
       <svg
         aria-hidden="true"
         className="pointer-events-none absolute right-0 top-0 h-full w-[380px] opacity-70"

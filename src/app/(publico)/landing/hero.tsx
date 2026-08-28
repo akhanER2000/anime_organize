@@ -2,15 +2,9 @@ import { Enlace } from "@/components/ui/enlace";
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/ui/cn";
 
-
 import { CTA_NAV, CTA_PRINCIPAL, CTA_SECUNDARIO, ENLACES_NAV } from "./enlaces";
 import { Marca } from "./marca";
-import {
-  CONTENEDOR,
-  ETIQUETA_SECCION,
-  MARCO_DORADO,
-  PADDING_LATERAL,
-} from "./medidas";
+import { CONTENEDOR, ETIQUETA_SECCION, MARCO_DORADO, PADDING_LATERAL } from "./medidas";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -207,7 +201,6 @@ export function Hero() {
                 {CTA_SECUNDARIO.etiqueta}
               </Boton>
             </div>
-
           </div>
 
           {/* Panel de arte: 404 × 560 con marco de 1 px `--gold-700` y 10 px de

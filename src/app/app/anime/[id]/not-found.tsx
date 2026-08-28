@@ -1,7 +1,6 @@
 import { Boton } from "@/components/ui/boton";
 import { cn } from "@/lib/ui/cn";
 
-
 import { PADDING_LATERAL } from "./medidas";
 
 /**

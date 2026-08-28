@@ -143,3 +143,106 @@
   opacity: var(--textura-ruido-opacidad);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='r'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23r)'/%3E%3C/svg%3E");
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PUNTA DEL SELECTOR — la flecha del `<select>`, sin un hex suelto.
+ *
+ * `appearance-none` quita la del sistema. Ponerla como `background-image` con
+ * un SVG en `data:` obliga a escribir el `stroke` como hex dentro de la URL, y
+ * eso es un color literal fuera de `globals.css`: lo que `lint:tokens` prohíbe,
+ * y con razón, porque cambiar el token no cambiaría la flecha.
+ *
+ * Con `mask-image` la máscara aporta solo la FORMA y el color lo pone
+ * `background-color`, que sí es un token. El día que el oro cambie, la punta
+ * cambia con él.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.punta-selector {
+  --punta: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 3.75 5 6.75 8 3.75'/%3E%3C/svg%3E");
+
+  -webkit-mask-image: var(--punta);
+  mask-image: var(--punta);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+/* El `<select>` es hermano de la punta, así que puede encenderla al enfocar. */
+select:focus-visible ~ .punta-selector,
+select:hover ~ .punta-selector {
+  background-color: var(--gold-400);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * DESLIZADOR DE PROGRESO — `input[type=range]`, pintado con los tokens.
+ *
+ * El pulgar y la pista de un `range` viven en pseudo-elementos con prefijo de
+ * navegador (`::-webkit-slider-thumb`, `::-moz-range-thumb`) y **Tailwind no
+ * puede alcanzarlos**: no hay variante para un pseudo-elemento propietario. O
+ * se escribe aquí, o el control sale con el azul del sistema encima de la losa.
+ *
+ * Los dos bloques van SEPARADOS a propósito. Un selector que junte la regla de
+ * WebKit y la de Firefox con una coma es **inválido para los dos**: si un
+ * navegador no reconoce uno de los selectores de la lista, descarta la regla
+ * entera. Es el fallo clásico de estilar un `range`, y deja el control con el
+ * aspecto del sistema en ambos.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.deslizador-progreso {
+  width: 100%;
+  height: var(--tactil-min); /* el área táctil, no el grosor visible */
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.deslizador-progreso:disabled {
+  cursor: not-allowed;
+}
+
+.deslizador-progreso:focus-visible {
+  outline: 2px solid var(--gold-400);
+  outline-offset: 2px;
+  border-radius: var(--radio-boton);
+}
+
+/* La pista se pinta con la <BarraProgreso> de debajo, que es la primitiva
+ * compartida. La del propio range se deja invisible para no tener dos. */
+.deslizador-progreso::-webkit-slider-runnable-track {
+  height: 2px;
+  background: transparent;
+}
+
+.deslizador-progreso::-moz-range-track {
+  height: 2px;
+  background: transparent;
+}
+
+.deslizador-progreso::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold-400);
+  box-shadow: var(--halo-punto);
+  border: none;
+  margin-top: -5px; /* centra el pulgar sobre la pista de 2 px */
+}
+
+.deslizador-progreso::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold-400);
+  box-shadow: var(--halo-punto);
+  border: none;
+}
+
+.deslizador-progreso:disabled::-webkit-slider-thumb {
+  background: var(--slate-600);
+  box-shadow: none;
+}
+
+.deslizador-progreso:disabled::-moz-range-thumb {
+  background: var(--slate-600);
+  box-shadow: none;
+}

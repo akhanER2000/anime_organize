@@ -228,7 +228,13 @@ export interface Vault {
     tituloNormalizado: string,
     limite?: number,
   ): Promise<
-    { id: string; titulo: string; tituloNormalizado: string; anilistId: number | null; similitud: number }[]
+    {
+      id: string;
+      titulo: string;
+      tituloNormalizado: string;
+      anilistId: number | null;
+      similitud: number;
+    }[]
   >;
   /** El anime propio con ese `anilist_id`, si lo hay. Bloquea el alta duplicada. */
   porAnilistId(anilistId: number): Promise<{ id: string; titulo: string } | null>;

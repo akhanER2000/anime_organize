@@ -73,10 +73,10 @@ export function Pie() {
               {ENLACES.map((enlace) => (
                 <li key={enlace.href}>
                   {/* La primitiva, no una copia de sus clases. La versión que
-                    * había aquí subrayaba con `--gold-700` —el dorado apagado del
-                    * marco de sección— mientras el resto de la aplicación usa
-                    * `--gold-borde`, así que los enlaces del pie se veían más
-                    * muertos que cualquier otro enlace del sistema. */}
+                   * había aquí subrayaba con `--gold-700` —el dorado apagado del
+                   * marco de sección— mientras el resto de la aplicación usa
+                   * `--gold-borde`, así que los enlaces del pie se veían más
+                   * muertos que cualquier otro enlace del sistema. */}
                   <Enlace href={enlace.href} className="text-ui-s">
                     {enlace.etiqueta}
                   </Enlace>

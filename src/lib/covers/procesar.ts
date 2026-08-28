@@ -58,8 +58,7 @@ export type PortadaProcesada = {
 export type FalloProceso = "NO_ES_IMAGEN";
 
 export type ResultadoProceso =
-  | { ok: true; portada: PortadaProcesada }
-  | { ok: false; motivo: FalloProceso };
+  { ok: true; portada: PortadaProcesada } | { ok: false; motivo: FalloProceso };
 
 /**
  * sha256 del binario **original**, no del procesado.

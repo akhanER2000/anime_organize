@@ -11,16 +11,16 @@
 
 ## Antes de nada: qué está listo y qué no
 
-| | Estado |
-|---|---|
-| La aplicación compila **sin ninguna variable de entorno** | ✅ medido, `exit 0` |
-| Migraciones (4, incluidas las extensiones) | ✅ en el repositorio, con journal |
-| Seed de los 83 animes **con sus portadas** | ✅ probado: 83 portadas, 3,0 MB, descargadas de Drive desde esta máquina |
-| CSP con nonce por petición | ✅ ya en `src/middleware.ts`, funciona en producción |
-| Rutas dinámicas | ✅ todas `ƒ`, no hay nada prerenderizado que necesite datos |
-| `/dev/*` | ✅ responde **404 en producción** por diseño |
-| Añadir un anime | ❌ **no existe todavía**. El botón se pinta deshabilitado y dice «próximamente» |
-| Correo (Resend) | ➖ opcional. Sin clave, el enlace se imprime en el log |
+|                                                           | Estado                                                                          |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| La aplicación compila **sin ninguna variable de entorno** | ✅ medido, `exit 0`                                                             |
+| Migraciones (4, incluidas las extensiones)                | ✅ en el repositorio, con journal                                               |
+| Seed de los 83 animes **con sus portadas**                | ✅ probado: 83 portadas, 3,0 MB, descargadas de Drive desde esta máquina        |
+| CSP con nonce por petición                                | ✅ ya en `src/middleware.ts`, funciona en producción                            |
+| Rutas dinámicas                                           | ✅ todas `ƒ`, no hay nada prerenderizado que necesite datos                     |
+| `/dev/*`                                                  | ✅ responde **404 en producción** por diseño                                    |
+| Añadir un anime                                           | ❌ **no existe todavía**. El botón se pinta deshabilitado y dice «próximamente» |
+| Correo (Resend)                                           | ➖ opcional. Sin clave, el enlace se imprime en el log                          |
 
 **Lo que vas a poder hacer el primer día:** entrar, ver tu biblioteca en rejilla y en lista,
 filtrar, ordenar, abrir la ficha de cada anime y usar el enlace de «continuar viendo».
@@ -98,7 +98,7 @@ Hoy esa rama está vacía. Necesitas sus **dos** cadenas de conexión:
    dice `production` y **no** `development`.
 3. Copia las dos:
    - **Pooled** — el host lleva `-pooler`. Es la que usa la aplicación.
-   - **Direct** (o *unpooled*) — el mismo host **sin** `-pooler`. Es la que usan las
+   - **Direct** (o _unpooled_) — el mismo host **sin** `-pooler`. Es la que usan las
      migraciones, porque el DDL largo no pasa por el pooler.
 
 > Tu rama `development` está en **us-east-2**. La de producción estará en la misma región,
@@ -145,6 +145,7 @@ $env:DATABASE_URL_UNPOOLED = 'PEGA-AQUI-LA-DIRECTA-DE-PRODUCTION'
 npm run db:migrate
 Remove-Item Env:\DATABASE_URL_UNPOOLED
 ```
+
 </details>
 
 ---
@@ -218,8 +219,8 @@ Si el que propongo también lo estuviera, elige otro y **usa el que salga** en e
 siguiente, que es lo único que importa.)
 
 1. **Add New → Project** → importa el repositorio de GitHub.
-2. Framework: Next.js (lo detecta solo). **No toques** *Build Command* ni *Output Directory*.
-3. **Antes de pulsar Deploy**, despliega *Environment Variables* y pega las de la tabla de
+2. Framework: Next.js (lo detecta solo). **No toques** _Build Command_ ni _Output Directory_.
+3. **Antes de pulsar Deploy**, despliega _Environment Variables_ y pega las de la tabla de
    abajo. Si prefieres desplegar primero y añadirlas después, también vale: el build
    funciona sin ellas, pero la aplicación no servirá hasta que las pongas y **redespliegues**.
 
@@ -227,24 +228,24 @@ siguiente, que es lo único que importa.)
 
 Todas en el entorno **Production**.
 
-| Variable | Valor | De dónde sale |
-|---|---|---|
-| `DATABASE_URL` | la cadena **pooled** de `production` | Neon → Branches → `production` → Connection Details → *Pooled connection* |
-| `AUTH_SECRET` | uno **nuevo**, distinto del de desarrollo | ejecuta `npx auth secret` y copia lo que imprime |
-| `AUTH_URL` | `https://anime-vault-kintsugi.vercel.app` | la URL real que te dé Vercel, sin barra final |
-| `AUTH_REQUIRE_EMAIL_VERIFICATION` | `false` | fijo. Eres el único usuario y no hay correo configurado |
+| Variable                          | Valor                                     | De dónde sale                                                             |
+| --------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------- |
+| `DATABASE_URL`                    | la cadena **pooled** de `production`      | Neon → Branches → `production` → Connection Details → _Pooled connection_ |
+| `AUTH_SECRET`                     | uno **nuevo**, distinto del de desarrollo | ejecuta `npx auth secret` y copia lo que imprime                          |
+| `AUTH_URL`                        | `https://anime-vault-kintsugi.vercel.app` | la URL real que te dé Vercel, sin barra final                             |
+| `AUTH_REQUIRE_EMAIL_VERIFICATION` | `false`                                   | fijo. Eres el único usuario y no hay correo configurado                   |
 
 **Y ya está. Cuatro.** Todo lo demás es opcional y hoy no hace falta:
 
-| No la pongas | Por qué |
-|---|---|
-| `DATABASE_URL_UNPOOLED` | **nada en runtime la usa.** Solo migraciones y scripts, que corren desde tu máquina |
-| `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD` | son del comando `seed`, que no corre en Vercel |
-| `RESEND_API_KEY` / `EMAIL_FROM` | sin ellas el enlace se imprime en el log, que es lo que decidiste |
-| `ANTHROPIC_API_KEY` | fase 4, el enriquecimiento no está construido |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | el proveedor no está cableado |
-| `GOOGLE_DRIVE_*` | el espejo es opcional y la base es la fuente de verdad |
-| `RATE_LIMIT_ENABLED` | **déjala sin poner.** Sin valor viene ENCENDIDA, que es como tiene que ir |
+| No la pongas                                     | Por qué                                                                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL_UNPOOLED`                          | **nada en runtime la usa.** Solo migraciones y scripts, que corren desde tu máquina                      |
+| `SEED_OWNER_EMAIL` / `SEED_OWNER_PASSWORD`       | son del comando `seed`, que no corre en Vercel                                                           |
+| `RESEND_API_KEY` / `EMAIL_FROM`                  | sin ellas el enlace se imprime en el log, que es lo que decidiste                                        |
+| `ANTHROPIC_API_KEY`                              | fase 4, el enriquecimiento no está construido                                                            |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`          | el proveedor no está cableado                                                                            |
+| `GOOGLE_DRIVE_*`                                 | el espejo es opcional y la base es la fuente de verdad                                                   |
+| `RATE_LIMIT_ENABLED`                             | **déjala sin poner.** Sin valor viene ENCENDIDA, que es como tiene que ir                                |
 | `AUTH_VENTANA_CHEQUEO_SEGUNDOS`, `AUTH_SESION_*` | escotillas de test. Sin valor usan los de producción: 60 s de caché de lectura, 12 h / 30 días de sesión |
 
 > **`AUTH_SECRET` distinto del de desarrollo, en serio.** Compartirlo significa que un token
@@ -265,15 +266,15 @@ Todas en el entorno **Production**.
 
 ## Si algo no sale
 
-| Síntoma | Qué mirar |
-|---|---|
-| La biblioteca sale **vacía** | El seed fue a la rama equivocada. Vuelve al paso 4 y lee la cabecera `DESTINO:` |
-| **500** al entrar | Falta `DATABASE_URL` o apunta a una rama sin migrar. Vercel → Logs |
-| El login **no avanza** y vuelve a `/login` | `AUTH_SECRET` sin poner, o `AUTH_URL` que no coincide con el host desde el que entras |
+| Síntoma                                        | Qué mirar                                                                                                                                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| La biblioteca sale **vacía**                   | El seed fue a la rama equivocada. Vuelve al paso 4 y lee la cabecera `DESTINO:`                                                                                |
+| **500** al entrar                              | Falta `DATABASE_URL` o apunta a una rama sin migrar. Vercel → Logs                                                                                             |
+| El login **no avanza** y vuelve a `/login`     | `AUTH_SECRET` sin poner, o `AUTH_URL` que no coincide con el host desde el que entras                                                                          |
 | «Correo o contraseña incorrectos» con la buena | El seed creó la cuenta con **otra** contraseña. Vuelve a correrlo con la que quieras: si la cuenta ya existe **no** la cambia, así que bórrala en Neon primero |
-| La página se ve **en blanco** | Sería la CSP. Mira la consola del navegador y mándame lo que diga: eso ya pasó una vez y tiene test |
-| Las portadas salen como **laja negra** | Esos animes se quedaron sin portada. Vuelve a correr el seed: solo baja las que faltan |
-| Vercel rechaza `vercel.json` | Borra el fichero y redespliega. Solo fija la región |
+| La página se ve **en blanco**                  | Sería la CSP. Mira la consola del navegador y mándame lo que diga: eso ya pasó una vez y tiene test                                                            |
+| Las portadas salen como **laja negra**         | Esos animes se quedaron sin portada. Vuelve a correr el seed: solo baja las que faltan                                                                         |
+| Vercel rechaza `vercel.json`                   | Borra el fichero y redespliega. Solo fija la región                                                                                                            |
 
 ---
 

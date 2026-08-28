@@ -195,6 +195,8 @@ importas de ahí. Si necesitas que cambie, cambias ese fichero.
 | Componer las clases con los tokens | `src/lib/ui/cn.ts` |
 | Decidir si un `href` es seguro | `src/lib/ui/href.ts` |
 | Botón, enlace, chip, badge, input, skeleton | `src/components/ui/` |
+| Selector, combobox, pestañas, tooltip, zona de arrastre, diálogo de confirmación, progreso editable | `src/components/ui/` |
+| Recorrer una lista con las flechas, circular | `src/lib/ui/navegacion-circular.ts` |
 | La card de un anime | `src/components/anime/anime-card.tsx` |
 | La barra de filtros y el conmutador de vista | `src/components/anime/barra-filtros.tsx` |
 

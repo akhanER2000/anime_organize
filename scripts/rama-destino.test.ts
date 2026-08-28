@@ -19,7 +19,8 @@ import { describirDestino, exigirMismaRama } from "./rama-destino";
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-const PROD_POOL = "postgresql://u:p@ep-broad-water-aym5x71z-pooler.c-5.us-east-2.aws.neon.tech/neondb";
+const PROD_POOL =
+  "postgresql://u:p@ep-broad-water-aym5x71z-pooler.c-5.us-east-2.aws.neon.tech/neondb";
 const PROD_DIR = "postgresql://u:p@ep-broad-water-aym5x71z.c-5.us-east-2.aws.neon.tech/neondb";
 const DEV_DIR = "postgresql://u:p@ep-green-recipe-ay3kbq97.c-5.us-east-2.aws.neon.tech/neondb";
 

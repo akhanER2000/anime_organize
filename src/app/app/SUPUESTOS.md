@@ -61,17 +61,17 @@ lo sepa. A partir de ahí formateé fichero a fichero.
 
 ## Contradicciones PNG ↔ regla · gana la regla
 
-| Lo que dibuja el artboard 03                                                       | Lo que hace la pantalla                | Por qué                                                                                                                                                                                                                                           |
-| ---------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contador «10 de 10 series»                                                         | «83 de 83 series» (lo que haya)        | El artboard fija la FORMA, no la cifra. Sus diez animes son de ejemplo; el contador es real.                                                                                                                                                      |
-| Títulos Frieren, Vinland Saga, Mushishi…                                           | Los 83 títulos reales del vault        | «No se inventan datos de los animes del usuario.»                                                                                                                                                                                                 |
-| Badges variados (Viendo, Visto, En espera, Abandonado)                             | Los 83 salen `VISTO`                   | Es el estado real del seed. La pantalla pinta lo que hay.                                                                                                                                                                                         |
-| Barras de progreso rellenas al 50 %, 79 %, 100 %                                   | Pista sola, sin relleno                | Ver PARADA 2.                                                                                                                                                                                                                                     |
-| Selects «Género · Año · Formato» en la barra de filtros | No están                               | Son de `BarraFiltros` (`src/components/anime/`), que **no me toca editar** y hoy solo trae los chips de estado y favoritos.                                                                                                                       |
-| «Añadir anime» (relleno dorado) y buscador en la barra superior                    | No están                               | Los pone `layout.tsx`, que **no es mío**, y hoy los renderiza vacíos. Consecuencia: esta pantalla no tiene ningún botón de relleno dorado, lo cual **cumple** la regla del oro nº 3 (máximo uno).                                                 |
-| «Ordenar por · última actualización» con una flecha de desplegable                 | Texto mono, sin flecha, no interactivo | `listar()` ordena siempre por `updated_at DESC` y no acepta otro criterio. Un desplegable que no despliega promete algo que no existe; el texto describe el orden que de verdad se aplica.                                                        |
-| Padding vertical del contenido 36 px                                               | 32 px (`--e-4`)                        | 36 px no está en la rejilla de 8 ni en `tokens.css`, y `design-tokens.md` prohíbe escribir un valor que no sea un token. `--e-4` es el que cae al lado. Si el diseño lo quiere exacto, se añade `--e-4-5` a `tokens.css` y lo cambio.             |
-| «H2 40 px» para «Tu biblioteca»                                                    | `<h1>` con `text-display-xs` (40 px)   | «H2 40 px» es el ROL tipográfico de DESIGN-SPEC §2, no el nivel del documento. Es el único titular de la pantalla: si fuera `<h2>`, la página se quedaría sin encabezado principal (§7, accesibilidad). El tamaño y el peso son los del artboard. |
+| Lo que dibuja el artboard 03                                       | Lo que hace la pantalla                | Por qué                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contador «10 de 10 series»                                         | «83 de 83 series» (lo que haya)        | El artboard fija la FORMA, no la cifra. Sus diez animes son de ejemplo; el contador es real.                                                                                                                                                      |
+| Títulos Frieren, Vinland Saga, Mushishi…                           | Los 83 títulos reales del vault        | «No se inventan datos de los animes del usuario.»                                                                                                                                                                                                 |
+| Badges variados (Viendo, Visto, En espera, Abandonado)             | Los 83 salen `VISTO`                   | Es el estado real del seed. La pantalla pinta lo que hay.                                                                                                                                                                                         |
+| Barras de progreso rellenas al 50 %, 79 %, 100 %                   | Pista sola, sin relleno                | Ver PARADA 2.                                                                                                                                                                                                                                     |
+| Selects «Género · Año · Formato» en la barra de filtros            | No están                               | Son de `BarraFiltros` (`src/components/anime/`), que **no me toca editar** y hoy solo trae los chips de estado y favoritos.                                                                                                                       |
+| «Añadir anime» (relleno dorado) y buscador en la barra superior    | No están                               | Los pone `layout.tsx`, que **no es mío**, y hoy los renderiza vacíos. Consecuencia: esta pantalla no tiene ningún botón de relleno dorado, lo cual **cumple** la regla del oro nº 3 (máximo uno).                                                 |
+| «Ordenar por · última actualización» con una flecha de desplegable | Texto mono, sin flecha, no interactivo | `listar()` ordena siempre por `updated_at DESC` y no acepta otro criterio. Un desplegable que no despliega promete algo que no existe; el texto describe el orden que de verdad se aplica.                                                        |
+| Padding vertical del contenido 36 px                               | 32 px (`--e-4`)                        | 36 px no está en la rejilla de 8 ni en `tokens.css`, y `design-tokens.md` prohíbe escribir un valor que no sea un token. `--e-4` es el que cae al lado. Si el diseño lo quiere exacto, se añade `--e-4-5` a `tokens.css` y lo cambio.             |
+| «H2 40 px» para «Tu biblioteca»                                    | `<h1>` con `text-display-xs` (40 px)   | «H2 40 px» es el ROL tipográfico de DESIGN-SPEC §2, no el nivel del documento. Es el único titular de la pantalla: si fuera `<h2>`, la página se quedaría sin encabezado principal (§7, accesibilidad). El tamaño y el peso son los del artboard. |
 
 ---
 
@@ -214,7 +214,6 @@ una clase ni que Next renderice un `<div>` (§Nivel 3): para eso está el e2e.
 - No pinta el overlay de acciones al pasar por encima de la portada
   (`▶ ✎ ★`, DESIGN-SPEC §5). Está dentro de `AnimeCard`, que no me toca.
 
-
 ---
 
 ## Nota de integración — por qué la biblioteca vive en `(biblioteca)`
@@ -239,7 +238,6 @@ Dentro del grupo, el esqueleto de esta pantalla se conserva —que es donde de
 verdad hace falta: la consulta trae 83 filas— y ya no alcanza a la ficha.
 `src/app/app/anime/[id]/sin-loading.test.ts` lo fija, con el mensaje que explica
 la causa por si alguien vuelve a añadir un `loading.tsx` ahí arriba.
-
 
 ## Cerrado en la integración — 2026-08-24
 

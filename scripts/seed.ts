@@ -44,7 +44,6 @@ import { normalizarTitulo } from "../src/lib/domain/normalizar";
 
 import { cargarEntorno, vinoDelEntorno } from "./cargar-entorno";
 
-
 cargarEntorno();
 
 // ── CONTRA QUÉ BASE SE VA A SEMBRAR ─────────────────────────────────────────
@@ -316,7 +315,9 @@ async function cargarPortadas(
       }),
     );
 
-    process.stdout.write(`\r    ${String(Math.min(i + A_LA_VEZ, conPortada.length))}/${String(conPortada.length)}`);
+    process.stdout.write(
+      `\r    ${String(Math.min(i + A_LA_VEZ, conPortada.length))}/${String(conPortada.length)}`,
+    );
   }
 
   console.log(`\n  portadas: ${String(hechas)} descargadas · ${String(saltadas)} ya estaban`);
@@ -336,7 +337,6 @@ principal().catch((error: unknown) => {
   console.error(`\n  ${error instanceof Error ? error.message : String(error)}\n`);
   process.exit(1);
 });
-
 
 /** Escribe el progreso de los animes que ya estaban y no lo tenían. */
 async function rellenarProgresoQueFalte(

@@ -210,7 +210,6 @@ export default async function PaginaBiblioteca({
  * filtros salga antes.
  */
 function Contador({ coincidentes, total }: { coincidentes: number; total: number }) {
-
   // El contador es REAL. El «10 de 10» del artboard son sus diez animes de
   // ejemplo; el artboard fija la forma, no la cifra.
   return (
@@ -240,9 +239,7 @@ async function ContenidoRejilla({
   // «tu vault está vacío» a quien acaba de ver el contador diciendo 83 es
   // mentirle. `hayFiltro` es lo que los distingue.
   if (hayFiltro(filtros) && descripcion !== null) {
-    return (
-      <Vacio variante="filtro" descripcion={descripcion} hrefSinFiltros={hrefSinFiltros} />
-    );
+    return <Vacio variante="filtro" descripcion={descripcion} hrefSinFiltros={hrefSinFiltros} />;
   }
 
   return <Vacio variante="vault" />;

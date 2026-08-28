@@ -8,13 +8,13 @@
 **`production` tiene tu cuenta y no tiene ni un anime.** No es una hipótesis:
 sale de tres hechos medidos y de una restricción del esquema.
 
-| Hecho | Cómo se midió |
-|---|---|
-| En `production` hay **exactamente un** `users` | tu consulta 1 en la consola de Neon |
-| `anime.user_id` tiene `FOREIGN KEY … REFERENCES users(id)` | `drizzle/0001_esquema_inicial.sql:214` |
+| Hecho                                                         | Cómo se midió                                                   |
+| ------------------------------------------------------------- | --------------------------------------------------------------- |
+| En `production` hay **exactamente un** `users`                | tu consulta 1 en la consola de Neon                             |
+| `anime.user_id` tiene `FOREIGN KEY … REFERENCES users(id)`    | `drizzle/0001_esquema_inicial.sql:214`                          |
 | → luego **todo** anime de `production` es de esa única cuenta | por la restricción: no cabe un `user_id` que no esté en `users` |
-| `/app`, con esa cuenta iniciada, dice «0 de 0» | lo viste tú en el navegador |
-| → **`production` tiene 0 filas en `anime`** | se sigue de los tres anteriores |
+| `/app`, con esa cuenta iniciada, dice «0 de 0»                | lo viste tú en el navegador                                     |
+| → **`production` tiene 0 filas en `anime`**                   | se sigue de los tres anteriores                                 |
 
 El `GROUP BY user_id` que faltaba ya no hace falta: con una sola cuenta y la
 clave foránea puesta, «cuántos ve esa cuenta» y «cuántos hay» son el mismo

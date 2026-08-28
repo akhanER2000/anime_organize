@@ -67,7 +67,9 @@ describe("leerFiltros", () => {
 
 describe("filtrar", () => {
   it("sin filtros devuelve todo", () => {
-    expect(titulos(filtrarFilas(VAULT, { estados: [], soloFavoritos: false }))).toEqual(titulos(VAULT));
+    expect(titulos(filtrarFilas(VAULT, { estados: [], soloFavoritos: false }))).toEqual(
+      titulos(VAULT),
+    );
   });
 
   it("por un estado deja solo ese estado", () => {

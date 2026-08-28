@@ -153,7 +153,6 @@ export function cabecerasRateLimit(nombre: NombreLimite, v: Veredicto): Record<s
   return cabeceras;
 }
 
-
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * CONSULTAR SIN GASTAR — para poder DECIR que estás bloqueado sin bloquearte más
@@ -256,5 +255,7 @@ export async function consultarIntento(
  * ═══════════════════════════════════════════════════════════════════════════
  */
 export async function olvidarIntentos(clave: string): Promise<void> {
-  await dbInterna().delete(rateLimitBucket).where(sql`${rateLimitBucket.clave} = ${clave}`);
+  await dbInterna()
+    .delete(rateLimitBucket)
+    .where(sql`${rateLimitBucket.clave} = ${clave}`);
 }

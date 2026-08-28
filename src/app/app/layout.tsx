@@ -27,7 +27,7 @@ export default function LayoutVault({ children }: { children: ReactNode }) {
   return (
     <div className="fondo-laja fondo-ruido min-h-screen">
       {/* La acción va deshabilitada con su motivo hasta que exista el modal
-        * del artboard 06. Ver `AccionAnadir`. */}
+       * del artboard 06. Ver `AccionAnadir`. */}
       <BarraSuperior accion={<AccionAnadir />} />
       <main className="mx-auto max-w-[var(--contenedor-max)]">{children}</main>
     </div>

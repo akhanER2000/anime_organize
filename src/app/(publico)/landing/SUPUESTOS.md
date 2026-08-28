@@ -211,7 +211,6 @@ de `/`. La pantalla se exporta como componente (`landing.tsx`) y `/` la monta.
 >
 > Lo que sigue debajo es el informe original, que explica por qué hizo falta.
 
-
 Los tres CTA de la landing **navegan**: «Entrar al Vault» y «Entrar» a `/login`, «Crear cuenta»
 a `/registro`. Lo que navega es un `<a>`: solo un ancla se abre con el clic central, se copia
 con «copiar dirección», se prefetchea y funciona con JavaScript caído. `<button>` dentro de

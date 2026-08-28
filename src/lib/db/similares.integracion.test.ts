@@ -277,10 +277,7 @@ describeSiHayBase("vault.similares() contra pg_trgm real", () => {
   it("porAnilistId encuentra el propio y NUNCA el ajeno", async () => {
     const anilistId = 900000 + Math.floor(Number.parseInt(marca.slice(0, 4), 16) % 1000);
 
-    await db
-      .update(anime)
-      .set({ anilistId })
-      .where(eq(anime.userId, idB));
+    await db.update(anime).set({ anilistId }).where(eq(anime.userId, idB));
 
     // B sí lo tiene.
     expect(await vaultB.porAnilistId(anilistId)).not.toBeNull();

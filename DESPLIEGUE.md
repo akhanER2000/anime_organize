@@ -264,6 +264,62 @@ Todas en el entorno **Production**.
 
 ---
 
+## Paso 7 · Encender el correo de verdad
+
+Hasta aquí el correo **no sale**: se imprime en el log. Eso fue una decisión, no un
+olvido — la app entera funciona sin credenciales. Este paso lo cambia.
+
+> **La clave no pasa por el chat ni por tu disco.** Va en Vercel → Settings →
+> Environment Variables → **Production**, y en ningún otro sitio. Ni `.env.local`, ni
+> `.env.production`, ni «pegada un momento para probar». Misma regla que la cadena de
+> Neon.
+
+### 7.1 · Saca la clave
+
+En [resend.com/api-keys](https://resend.com/api-keys), crear cuenta y generar una clave.
+Empieza por `re_`. Permiso de **envío** basta; no hace falta acceso total.
+
+### 7.2 · Elige remitente — y aquí está la decisión
+
+`EMAIL_FROM` tiene dos caminos, y **no cuestan lo mismo**:
+
+|                             | `onboarding@resend.dev`                              | Dominio propio verificado                      |
+| --------------------------- | ---------------------------------------------------- | ---------------------------------------------- |
+| **Qué hay que hacer**       | nada, existe ya                                      | verificar el dominio en Resend (registros DNS) |
+| **A quién puedes escribir** | **solo a la dirección dueña de la cuenta de Resend** | a cualquiera                                   |
+| **Te sirve para**           | **tus propios cambios de contraseña**                | abrir el registro a terceros                   |
+| **Tiempo**                  | cinco minutos                                        | lo que tarde tu DNS                            |
+
+Si lo que quieres es que **a ti** te lleguen los enlaces de recuperación, el primero
+basta y se hace hoy. El segundo solo hace falta el día que
+`AUTH_REQUIRE_EMAIL_VERIFICATION=true` y entre gente que no eres tú.
+
+### 7.3 · Ponlas y **redespliega**
+
+Las dos variables, en Production:
+
+    RESEND_API_KEY=re_...
+    EMAIL_FROM=onboarding@resend.dev
+
+Y después **Deployments → ⋯ → Redeploy**. Guardar la variable no basta: un build ya
+hecho no las ve (esto ya está dicho en el Paso 6, y es el motivo número uno de «lo puse
+y sigue sin funcionar»).
+
+### 7.4 · Comprueba que salió, sin adivinar
+
+Pide un enlace en `/recuperar` y mira **Vercel → Logs**:
+
+- si sigue apareciendo `CORREO NO ENVIADO — driver de consola` → las variables no
+  llegaron al build. Redespliega.
+- si aparece `[email] Resend respondió` con un **4xx** (403 es el habitual) → la clave
+  es válida pero el envío no: dominio sin verificar, o estás escribiendo a una dirección
+  que no es la dueña de la cuenta. Reintentar no lo arregla — el módulo solo reintenta
+  lo temporal, y esto no lo es.
+- **si no aparece ninguna de las dos líneas** → salió. El log solo habla cuando algo
+  va mal o cuando el driver es el de consola.
+
+---
+
 ## Si algo no sale
 
 | Síntoma                                        | Qué mirar                                                                                                                                                      |

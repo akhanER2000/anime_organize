@@ -46,6 +46,37 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      # ── EL PROXY HTTP DE NEON ───────────────────────────────────────────
+      #
+      # La APLICACIÓN habla con la base por el driver HTTP de Neon
+      # (`src/lib/db/interno.ts`), que hace POST a `https://<host>/sql`. Un
+      # Postgres normal no tiene ese endpoint, así que TODO test que ejercite
+      # código real de la app contra la base fallaba aquí: los de integración
+      # con diez errores `NeonHttpPreparedQuery`, y el del camino real de la
+      # peor forma posible —su worker moría y el informe decía «57 passes ·
+      # 57 total» cuando los ficheros eran 58—.
+      #
+      # Este proxy traduce: protocolo HTTP de Neon por delante, Postgres por
+      # detrás. Se eligió frente a la alternativa —que `dbInterna()` cambiara
+      # a `pg` cuando el destino no es Neon— porque así CI ejecuta EL MISMO
+      # driver que producción. Cambiar de driver habría dejado los tests
+      # verificando una variante, y `batch()` no tiene equivalente fiel en
+      # `pg`: las consultas de drizzle vienen atadas a su cliente, meterlas en
+      # un `transaction()` no las reata, y se perdería la atomicidad justo en
+      # la capa donde importa.
+      #
+      # FIJADO POR DIGEST, no por `:main`. Es una imagen de terceros dentro de
+      # un repositorio público: con etiqueta móvil, quien controle ese registro
+      # decide qué corre aquí. Con digest, actualizarla es un commit visible.
+      # Solo vive dentro del runner, no toca producción ni el artefacto que se
+      # despliega.
+      neon-proxy:
+        image: ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a
+        env:
+          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/anime_vault_ci
+        ports:
+          - 4444:4444
+
     env:
       # Sin credencial real: el contenedor es local al runner y muere con él.
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/anime_vault_ci
@@ -54,6 +85,10 @@ jobs:
       AUTH_SECRET: secreto-solo-para-ci-no-firma-nada-real
       # Los tests de rate limiting necesitan el limitador ENCENDIDO.
       RATE_LIMIT_ENABLED: "true"
+      # Manda el driver HTTP de Neon al proxy de aquí arriba en vez de a
+      # `https://<host>/sql`. En producción esta variable NO existe, y sin ella
+      # `src/lib/db/motor.ts` deja el endpoint de siempre.
+      NEON_HTTP_PROXY: http://localhost:4444/sql
 
     steps:
       - uses: actions/checkout@v5

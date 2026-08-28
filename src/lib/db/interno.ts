@@ -7,6 +7,8 @@ import ws from "ws";
 
 import { textoObligatorio, textoOpcional } from "@/lib/config/entorno";
 
+import { proxyHttpDeNeon } from "./motor";
+
 import * as schema from "./schema";
 
 import type { NeonHttpDatabase } from "drizzle-orm/neon-http";
@@ -84,7 +86,22 @@ let http: ClienteHttp | null = null;
  * @internal Restringido por ESLint fuera de `src/lib/db/**`.
  */
 export function dbInterna(): ClienteHttp {
-  http ??= drizzleHttp(neon(urlApp()), { schema, casing: "snake_case" });
+  if (http === null) {
+    // CI corre un proxy que habla el protocolo HTTP de Neon delante de un
+    // Postgres normal. Redirigir el endpoint es lo ÚNICO que hace falta: el
+    // driver, las consultas y `batch` siguen siendo exactamente los de
+    // producción. La alternativa —cambiar de driver cuando el destino no es
+    // Neon— habría dejado los tests corriendo contra una variante, y `batch`
+    // no tiene equivalente fiel en `pg`: las consultas de drizzle ya vienen
+    // atadas a su cliente, así que meterlas en un `transaction()` no las
+    // reata, y se perdería la atomicidad justo donde importa.
+    //
+    // En producción `NEON_HTTP_PROXY` no existe y esto no se ejecuta.
+    const proxy = proxyHttpDeNeon();
+    if (proxy !== undefined) neonConfig.fetchEndpoint = proxy;
+
+    http = drizzleHttp(neon(urlApp()), { schema, casing: "snake_case" });
+  }
   return http;
 }
 

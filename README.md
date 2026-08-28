@@ -306,11 +306,27 @@ usarla**, con el mismo aviso de siempre: _«omitirlo NO es aprobarlo»_. La preg
 un solo dueño, `src/lib/db/motor.ts`, que además retiró las **cuatro copias** de
 `esNeon` que andaban sueltas.
 
-**Si quieres que ese test corra TAMBIÉN en CI**, hace falta un proxy HTTP de Neon delante
-del contenedor (un servicio más en el workflow). No lo he añadido: mete una imagen de
-terceros en el CI de un repositorio público, que es el criterio con el que este proyecto
-descartó Upstash. Hoy corre en local contra tu rama de Neon, que es donde siempre ha
-corrido.
+**Causa 3 — la misma, un piso más arriba.** Con el camino real ya declarado, el paso
+siguiente falló con **diez** errores `NeonHttpPreparedQuery`: los tests de integración
+ejercitan código real de la app —`src/lib/db/cuentas.ts`— y ese código va por el mismo
+driver HTTP. No era un test mal escrito: **la capa de datos de la aplicación estaba
+clavada a Neon**, y cualquier test que ejercite código real contra una base lo notaba.
+
+**Resuelto poniendo un traductor, no cambiando de driver.** CI levanta ahora un segundo
+servicio, un proxy que habla el protocolo HTTP de Neon por delante y Postgres por detrás.
+`NEON_HTTP_PROXY` manda el driver hacia él; en producción esa variable no existe y no se
+ejecuta ni una línea nueva.
+
+Se eligió frente a la alternativa —que `dbInterna()` cambiara a `pg` contra un Postgres
+normal— por una razón concreta: así CI ejecuta **el mismo driver que producción**, en vez
+de verificar una variante. Y porque `batch()` no tiene equivalente fiel en `pg`: las
+consultas de drizzle vienen atadas a su cliente, meterlas en un `transaction()` no las
+reata, y se perdería la atomicidad justo en la capa donde importa. Habría sido, otra vez,
+un verde que no cubre lo que parece cubrir.
+
+La imagen va **fijada por digest** y no por etiqueta: es de terceros y esto es un
+repositorio público, así que con etiqueta móvil quien controle ese registro decidiría qué
+corre aquí. Con digest, actualizarla es un commit visible. Solo vive dentro del runner.
 
 ### 5 · Envío de correo (recuperación y verificación)
 

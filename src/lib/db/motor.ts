@@ -38,5 +38,22 @@ export function esNeon(cadena: string): boolean {
  * preguntarlo ANTES, en vez de descubrirlo a mitad de un test.
  */
 export function laAppPuedeUsar(cadena: string): boolean {
-  return esNeon(cadena);
+  return esNeon(cadena) || proxyHttpDeNeon() !== undefined;
+}
+
+/**
+ * Endpoint HTTP alternativo para el driver de Neon, si lo hay.
+ *
+ * Existe por CI: delante del contenedor `postgres:18` corre un proxy que
+ * habla el protocolo HTTP de Neon por un lado y Postgres por el otro. Con
+ * esto, la APLICACIÓN arranca contra un Postgres normal **sin cambiar de
+ * driver** — que es justo lo que hace que los tests sigan verificando lo
+ * mismo que corre en producción, en vez de una variante.
+ *
+ * En producción esta variable NO existe, y entonces todo esto es un `if` que
+ * no se cumple: el driver usa su endpoint de siempre, `https://<host>/sql`.
+ */
+export function proxyHttpDeNeon(): string | undefined {
+  const valor = process.env.NEON_HTTP_PROXY;
+  return valor !== undefined && valor.trim().length > 0 ? valor.trim() : undefined;
 }

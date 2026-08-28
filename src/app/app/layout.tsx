@@ -1,5 +1,6 @@
 import { AccionAnadirConModal } from "@/components/anime/accion-anadir-con-modal";
 import { exigirSesionParaLeer } from "@/auth";
+import { Buscador } from "@/components/anime/buscador";
 import { AvatarDeCuenta, BarraSuperior } from "@/components/layout/barra-superior";
 
 import type { ReactNode } from "react";
@@ -39,6 +40,7 @@ export default async function LayoutVault({ children }: { children: ReactNode })
        * estado «abierto» es lo único que necesita el navegador, y este layout
        * tiene que seguir siendo de servidor. */}
       <BarraSuperior
+        buscador={<Buscador />}
         accion={
           <>
             <AccionAnadirConModal />

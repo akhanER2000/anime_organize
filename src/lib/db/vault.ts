@@ -1,10 +1,10 @@
 import "server-only";
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 
 import { ESTADOS } from "@/lib/domain/enums";
 import type { Estado, Formato, TipoProgreso } from "@/lib/domain/enums";
-import { normalizarTitulo } from "@/lib/domain/normalizar";
+import { normalizarParaBusqueda, normalizarTitulo } from "@/lib/domain/normalizar";
 
 import { ContextoUsuario, ErrorContextoFalsificado } from "./contexto";
 import { conTransaccion, dbInterna, type ClienteInterno } from "./interno";
@@ -20,6 +20,51 @@ import { anime, animeCover, continueLink, progress } from "./schema";
  * las dos constantes coinciden — si divergen, la política pura y la consulta
  * dejarían de hablar del mismo umbral y nadie se enteraría.
  */
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * LAS COLUMNAS DE UN LISTADO — **una sola vez**.
+ *
+ * `listar()` y `buscar()` tienen que devolver EXACTAMENTE la misma forma: la
+ * rejilla y la tabla las pintan sin saber de cuál vienen. Escribirlas dos veces
+ * es garantizar que un día una traiga `totalEpisodios` y la otra no, y que la
+ * barra de progreso salga vacía solo cuando se busca — un fallo que aparece en
+ * la mitad de los casos, que es la peor forma de aparecer.
+ *
+ * Y `anime_cover.bytes` NO está aquí, en ninguna de las dos: son megabytes por
+ * fila. Solo viaja el `checksum`, que es lo que necesita la URL versionada de
+ * `/api/covers`.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+const COLUMNAS_DEL_LISTADO = {
+  id: anime.id,
+  titulo: anime.title,
+  // La columna es `text` + `CHECK` (ver db-conventions.md): Drizzle la infiere
+  // como `string`, así que se estrecha aquí, en el ÚNICO sitio que lee esa
+  // columna para un listado. El `CHECK` garantiza que el valor está en la
+  // lista; el tipo lo declara.
+  estado: sql<Estado>`${anime.status}`,
+  esFavorito: anime.isFavorite,
+  anio: anime.year,
+  actualizadoEn: anime.updatedAt,
+  checksumPortada: animeCover.checksum,
+  progresoEtiqueta: progress.label,
+  progresoTipo: sql<TipoProgreso | null>`${progress.kind}`,
+  progresoTemporada: progress.season,
+  progresoEpisodio: progress.episode,
+  progresoPorcentaje: progress.percent,
+  totalEpisodios: anime.totalEpisodes,
+  totalTemporadas: anime.totalSeasons,
+} as const;
+
+/**
+ * El tope de un listado.
+ *
+ * **Ningún recuento sale de aquí**: los agregados van por `GROUP BY` en
+ * `recuentos()`. Contar el resultado de una consulta acotada devuelve el tope
+ * disfrazado de cuenta, y con 83 filas eso no se nota — con 600 sí.
+ */
+const LIMITE_LISTADO = 500;
+
 const UMBRAL_SIMILITUD = 0.55;
 
 /** Hasta tres candidatos en el aviso de duplicado (skill §2c). */
@@ -261,6 +306,20 @@ export interface Vault {
    * igualdad y la otra es parecido, y el `UNIQUE (user_id, title_normalized)`
    * responde a ésta.
    */
+  /**
+   * Buscador global — artboard 07.
+   *
+   * Devuelve las MISMAS filas que `listar()`, para que la rejilla y la tabla las
+   * pinten sin saber si vienen de un listado o de una búsqueda.
+   */
+  buscar(consulta: string, opciones?: { limite?: number }): Promise<AnimeEnListado[]>;
+  /**
+   * Cuántos casan con la búsqueda, **sin tope**.
+   *
+   * Contar el resultado de `buscar()` devolvería el tope disfrazado de cuenta,
+   * que es el fallo que ya se arregló en los contadores de las dos pantallas.
+   */
+  contarBusqueda(consulta: string): Promise<number>;
   porTituloNormalizado(tituloNormalizado: string): Promise<{ id: string; titulo: string } | null>;
   /**
    * El progreso guardado de un anime PROPIO, o `null`.
@@ -353,6 +412,70 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
    */
   const mias = () => eq(anime.userId, ctx.userId);
 
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   * EL `WHERE` DE LA BÚSQUEDA — escrito UNA vez.
+   *
+   * Lo usan `buscar()` y `contarBusqueda()`. Escribirlo dos veces sería
+   * garantizar que un día se cuente una cosa y se enseñe otra, y que nadie lo
+   * note hasta que los dos números se miren juntos.
+   *
+   * Devuelve `null` para una consulta vacía: con `LIKE %%` casaría todo, y el
+   * buscador enseñaría el vault entero al enfocar el campo — que se lee como
+   * «he buscado y esto es lo que hay» en vez de «no has buscado nada».
+   *
+   * ── DOS CAMINOS, Y NINGUNO SOBRA ────────────────────────────────────────
+   *
+   * 1. **`title_normalized LIKE …`** con el término pasado por
+   *    `normalizarParaBusqueda`: insensible a puntuación, así que `fate zero`
+   *    encuentra `Fate/Zero`. Y es el que podrá usar `idx_anime_title_norm_trgm`
+   *    el día que haya filas suficientes.
+   * 2. **`unaccent(…) ILIKE`** sobre `title`, los alternativos, los sinónimos y
+   *    las notas. Cubre lo que el primero no puede: `normalizarParaBusqueda`
+   *    descarta lo que no sea `[0-9a-z]`, así que un término en japonés se le
+   *    queda en vacío. Está fijado con un test que solo esa rama resuelve.
+   *
+   * ── SIN ÍNDICE PROPIO, Y ES UNA DECISIÓN ───────────────────────────────
+   *
+   * `db-conventions.md` prevé `idx_anime_search_trgm` sobre `unaccent(title)`.
+   * No se crea todavía, por dos motivos comprobables: el vault tiene 83 filas
+   * —y la misma regla dice «ni antes, que cuesta escrituras, ni después de que
+   * duela»—, y `unaccent()` es `STABLE`, no `IMMUTABLE`, así que **Postgres
+   * rechaza indexarla**. Haría falta una función envoltorio marcada
+   * `IMMUTABLE`, y marcarlo mal corrompe el índice en silencio.
+   *
+   * Escrito aquí para que dentro de un año no se tome por olvido.
+   * ═══════════════════════════════════════════════════════════════════════
+   */
+  const condicionDeBusqueda = (consulta: string) => {
+    const crudo = consulta.trim();
+    if (crudo === "") return null;
+
+    const normalizada = normalizarParaBusqueda(crudo);
+    // Los patrones viajan como PARÁMETRO, nunca interpolados: `sql.raw` con un
+    // dato del usuario está prohibido (`security.md` §9), y esto lo es.
+    const patron = `%${crudo}%`;
+    const patronNormalizado = `%${normalizada}%`;
+
+    return {
+      normalizada,
+      condicion: and(
+        mias(),
+        or(
+          normalizada === "" ? undefined : sql`${anime.titleNormalized} like ${patronNormalizado}`,
+          sql`unaccent(${anime.title}) ilike unaccent(${patron})`,
+          sql`unaccent(coalesce(${anime.titleEnglish}, '')) ilike unaccent(${patron})`,
+          // El nativo va en japonés: `unaccent` no aporta nada y el `ilike` ya
+          // es insensible a mayúsculas donde eso significa algo.
+          sql`coalesce(${anime.titleNative}, '') ilike ${patron}`,
+          // Los sinónimos son `text[]`: se aplanan para poder buscarlos.
+          sql`unaccent(array_to_string(coalesce(${anime.synonyms}, '{}'), ' ')) ilike unaccent(${patron})`,
+          sql`unaccent(coalesce(${anime.notes}, '')) ilike unaccent(${patron})`,
+        ),
+      ),
+    };
+  };
+
   /** Un anime concreto, pero solo si es suyo. Las DOS condiciones, siempre. */
   const mio = (animeId: string) => and(eq(anime.id, animeId), mias());
 
@@ -370,26 +493,7 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
     async listar(opciones: { limite?: number } = {}): Promise<AnimeEnListado[]> {
       return (
         cliente
-          .select({
-            id: anime.id,
-            titulo: anime.title,
-            // La columna es `text` + `CHECK` (ver db-conventions.md): Drizzle la
-            // infiere como `string`, así que se estrecha aquí, en el ÚNICO sitio
-            // que lee esa columna para un listado. El `CHECK` garantiza que el
-            // valor está en la lista; el tipo lo declara.
-            estado: sql<Estado>`${anime.status}`,
-            esFavorito: anime.isFavorite,
-            anio: anime.year,
-            actualizadoEn: anime.updatedAt,
-            checksumPortada: animeCover.checksum,
-            progresoEtiqueta: progress.label,
-            progresoTipo: sql<TipoProgreso | null>`${progress.kind}`,
-            progresoTemporada: progress.season,
-            progresoEpisodio: progress.episode,
-            progresoPorcentaje: progress.percent,
-            totalEpisodios: anime.totalEpisodes,
-            totalTemporadas: anime.totalSeasons,
-          })
+          .select(COLUMNAS_DEL_LISTADO)
           .from(anime)
           // Las tablas hijas se alcanzan por JOIN contra `anime` YA filtrado,
           // nunca con un `WHERE anime_id = ?` suelto.
@@ -397,8 +501,96 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
           .leftJoin(progress, eq(progress.animeId, anime.id))
           .where(mias())
           .orderBy(desc(anime.updatedAt))
-          .limit(opciones.limite ?? 500)
+          .limit(opciones.limite ?? LIMITE_LISTADO)
       );
+    },
+
+    /**
+     * ═════════════════════════════════════════════════════════════════════
+     * BUSCADOR GLOBAL — artboard 07.
+     *
+     * ── DOS CAMINOS, Y NINGUNO SOBRA ─────────────────────────────────────
+     *
+     * 1. **`title_normalized LIKE …`** con el término pasado por
+     *    `normalizarParaBusqueda`. Es el camino insensible a puntuación:
+     *    escribir `fate zero` encuentra `Fate/Zero`. Y es el que podrá usar
+     *    `idx_anime_title_norm_trgm` el día que haya filas suficientes.
+     *
+     * 2. **`unaccent(…) ILIKE`** sobre `title`, `title_english`,
+     *    `title_native`, los sinónimos y las notas. Cubre lo que el primero no
+     *    puede: `normalizarParaBusqueda` descarta todo lo que no sea
+     *    `[0-9a-z]`, así que un término en japonés se le queda en vacío.
+     *    Buscar `君の名は` solo funciona por aquí.
+     *
+     * ── SIN ÍNDICE PROPIO, Y ES UNA DECISIÓN ─────────────────────────────
+     *
+     * `db-conventions.md` prevé `idx_anime_search_trgm` sobre `unaccent(title)`.
+     * **No se crea todavía**, por dos motivos comprobables:
+     *
+     *   · el vault tiene 83 filas, y la misma regla dice «se crea cuando hay un
+     *     `WHERE` que lo usa; ni antes, que cuesta escrituras, ni después de que
+     *     duela». A 83 filas el recorrido secuencial es instantáneo;
+     *   · `unaccent()` es `STABLE`, no `IMMUTABLE`, así que **Postgres rechaza
+     *     indexarla**. Haría falta una función envoltorio marcada `IMMUTABLE`,
+     *     que es una migración con su propia decisión detrás — y de las que se
+     *     hacen mal fácil, porque marcar `IMMUTABLE` algo que no lo es corrompe
+     *     el índice en silencio.
+     *
+     * Escribirlo aquí es lo que impide que dentro de un año se tome por olvido.
+     *
+     * ── LA CONSULTA VACÍA DEVUELVE VACÍO ─────────────────────────────────
+     *
+     * Con `LIKE '%%'` casaría todo, y el buscador enseñaría los 83 al enfocar el
+     * campo — que se lee como «he buscado y esto es lo que hay» en vez de «no
+     * has buscado nada».
+     * ═════════════════════════════════════════════════════════════════════
+     */
+    async buscar(consulta: string, opciones: { limite?: number } = {}) {
+      const donde = condicionDeBusqueda(consulta);
+      if (donde === null) return [];
+
+      return (
+        cliente
+          .select(COLUMNAS_DEL_LISTADO)
+          .from(anime)
+          .leftJoin(animeCover, eq(animeCover.animeId, anime.id))
+          .leftJoin(progress, eq(progress.animeId, anime.id))
+          .where(donde.condicion)
+          // El más parecido primero, y a igualdad el más reciente. Sin un orden
+          // explícito lo decide Postgres, que es decir «cualquiera» — y con la
+          // misma consulta dos veces podría no ser el mismo.
+          .orderBy(
+            sql`similarity(${anime.titleNormalized}, ${donde.normalizada}) desc`,
+            desc(anime.updatedAt),
+          )
+          .limit(opciones.limite ?? LIMITE_LISTADO)
+      );
+    },
+
+    /**
+     * Cuántos casan con la búsqueda. **Sin tope.**
+     *
+     * ── POR QUÉ NO SE CUENTA EL RESULTADO DE `buscar()` ──────────────────
+     *
+     * Porque `buscar()` tiene tope, y contar el resultado de una consulta
+     * acotada devuelve el tope disfrazado de cuenta. Es exactamente el fallo
+     * que ya se arregló en los contadores de las dos pantallas: con 83 filas no
+     * se nota, y con 600 el contador diría «500 de 600» sobre una búsqueda que
+     * encontró 540.
+     *
+     * El `WHERE` es **el mismo objeto** que usa `buscar`, no una copia: dos
+     * condiciones escritas aparte acabarían contando una cosa y enseñando otra.
+     */
+    async contarBusqueda(consulta: string) {
+      const donde = condicionDeBusqueda(consulta);
+      if (donde === null) return 0;
+
+      const [fila] = await cliente
+        .select({ n: sql<number>`count(*)::int` })
+        .from(anime)
+        .where(donde.condicion);
+
+      return fila?.n ?? 0;
     },
 
     /** Un anime por id. `null` si no existe **o no es suyo** (indistinguible). */

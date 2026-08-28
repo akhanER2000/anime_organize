@@ -1,4 +1,7 @@
 import { Suspense } from "react";
+import { Boton } from "@/components/ui/boton";
+import { TITULAR_PANTALLA } from "@/lib/ui/clases";
+import { leerConsulta } from "@/lib/validation/busqueda";
 
 import { redirect } from "next/navigation";
 
@@ -99,13 +102,29 @@ export default async function PaginaBiblioteca({
   //
   // `recuentos()` cuenta con un `GROUP BY` sobre el vault entero, sin traerse
   // ninguna fila. Es la consulta barata de las dos.
-  const promesaRecuentos = vault.recuentos();
-  const promesaLista = vault.listar({ limite: LIMITE_LISTADO });
-
   const crudos = await searchParams;
   const filtros = parsearFiltros(crudos);
+  const consulta = leerConsulta(crudos);
+
+  const promesaRecuentos = vault.recuentos();
+  // ── BUSCAR SUSTITUYE AL LISTADO, NO LO FILTRA EN MEMORIA ────────────────
+  //
+  // Podría traerse el listado y filtrarlo aquí con un `includes`, y con 83
+  // filas funcionaría. Pero `listar()` tiene tope: a partir de 500 el buscador
+  // solo miraría dentro de las 500 primeras y **no encontraría lo que hay más
+  // allá**, sin decirlo. Es la misma clase de fallo que los contadores.
+  //
+  // Y además el `includes` no sabe de acentos, de puntuación ni de sinónimos,
+  // que es la mitad de lo que el buscador tiene que resolver.
+  const promesaLista =
+    consulta === null ? vault.listar({ limite: LIMITE_LISTADO }) : vault.buscar(consulta);
+
+  // Buscando, el contador no puede decir «N del filtro de M del vault»: diría
+  // dos cifras que no se refieren a lo mismo. Se cuenta la búsqueda, sin tope.
+  const promesaTotalBuscado = consulta === null ? null : vault.contarBusqueda(consulta);
 
   const recuentos = await promesaRecuentos;
+  const totalBuscado = promesaTotalBuscado === null ? null : await promesaTotalBuscado;
 
   return (
     <>
@@ -141,9 +160,13 @@ export default async function PaginaBiblioteca({
 
             {/* El contador es REAL. El «10 de 10» del artboard son sus diez
              * animes de ejemplo; el artboard fija la forma, no la cifra. */}
+            {/* Buscando, las dos cifras son de la búsqueda: «3 de 3». Decir
+             * «3 de 83» mezclaría el resultado con el tamaño del vault, y a
+             * quien mira le sobraría el 83. Sin buscar, el contador es el de
+             * siempre: los que pasan el filtro sobre el total. */}
             <Contador
-              coincidentes={contarCoincidentes(recuentos.matriz, filtros)}
-              total={recuentos.total}
+              coincidentes={totalBuscado ?? contarCoincidentes(recuentos.matriz, filtros)}
+              total={totalBuscado ?? recuentos.total}
             />
           </div>
 
@@ -196,6 +219,7 @@ export default async function PaginaBiblioteca({
           promesa={promesaLista}
           filtros={filtros}
           hrefSinFiltros={urlSinFacetas("/app", crudos)}
+          consulta={consulta}
         />
       </div>
     </>
@@ -224,16 +248,26 @@ async function ContenidoRejilla({
   promesa,
   filtros,
   hrefSinFiltros,
+  consulta,
 }: {
   promesa: Promise<AnimeDelListado[]>;
   filtros: FiltrosBiblioteca;
   hrefSinFiltros: string;
+  /** El término buscado, o `null` si no se está buscando. */
+  consulta: string | null;
 }) {
   const mios = await promesa;
   const visibles = filtrarFilas(mios, filtros);
   const descripcion = describirFiltros(filtros);
 
   if (visibles.length > 0) return <Rejilla animes={visibles} />;
+
+  // ── EL VACÍO DE UNA BÚSQUEDA NO ES EL DE UN FILTRO ────────────────────
+  //
+  // «Ninguna serie coincide con el filtro Visto» sobre una búsqueda de
+  // «berserk» sería mentir sobre por qué no hay nada. Y la salida es otra:
+  // del filtro se sale quitando chips; de la búsqueda, borrando el término.
+  if (consulta !== null) return <VacioDeBusqueda consulta={consulta} />;
 
   // Los dos vacíos NO son el mismo, y confundirlos es el fallo clásico: decir
   // «tu vault está vacío» a quien acaba de ver el contador diciendo 83 es
@@ -243,4 +277,32 @@ async function ContenidoRejilla({
   }
 
   return <Vacio variante="vault" />;
+}
+
+/**
+ * Cuando la búsqueda no devuelve nada.
+ *
+ * Dice **qué** se buscó: «no hay resultados» sin repetir el término deja a
+ * quien mira sin saber si el buscador recibió lo que escribió —y con un typo
+ * largo, eso es exactamente la duda que tiene.
+ */
+function VacioDeBusqueda({ consulta }: { consulta: string }) {
+  return (
+    <div
+      className="flex flex-col items-center gap-[var(--e-2)] py-[var(--e-12)] text-center"
+      role="status"
+    >
+      <h2 className={TITULAR_PANTALLA}>Nada coincide con la búsqueda</h2>
+
+      <p className="max-w-[380px] font-ui text-cuerpo-s leading-cuerpo text-[var(--porcelain-200)]">
+        No hay ninguna serie que case con{" "}
+        <strong className="font-[var(--fw-ui-medium)]">«{consulta}»</strong>. Se busca en el título,
+        en los alternativos, en los sinónimos y en tus notas.
+      </p>
+
+      <Boton href="/app" variante="primario">
+        Ver todo el vault
+      </Boton>
+    </div>
+  );
 }

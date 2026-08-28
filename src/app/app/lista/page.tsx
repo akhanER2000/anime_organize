@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { NOTA_SECUNDARIA } from "@/lib/ui/clases";
+import { leerConsulta } from "@/lib/validation/busqueda";
 import { Suspense } from "react";
 
 import { ErrorSesionInvalida, exigirSesionParaLeer } from "@/auth";
@@ -101,10 +103,15 @@ export default async function PaginaVistaLista({
   // del primero y nunca del segundo: contar el resultado de una consulta
   // acotada devuelve el tope disfrazado de cuenta.
   const vault = vaultDe(sesion.ctx);
-  const promesaRecuentos = vault.recuentos();
-  const promesaLista = vault.listar({ limite: LIMITE_LISTADO });
-
   const filtros = parsearFiltros(parametros);
+  const consulta = leerConsulta(parametros);
+
+  const promesaRecuentos = vault.recuentos();
+  // Buscar SUSTITUYE al listado, no lo filtra en memoria: `listar()` tiene tope
+  // y un filtro en JavaScript solo miraría dentro de las 500 primeras. Ver el
+  // comentario largo en la rejilla.
+  const promesaLista =
+    consulta === null ? vault.listar({ limite: LIMITE_LISTADO }) : vault.buscar(consulta);
   const orden = leerOrden(parametros);
 
   const recuentos = await promesaRecuentos;
@@ -142,7 +149,14 @@ export default async function PaginaVistaLista({
   // filtro y «12 de 83 series» con él, mientras la rejilla decía siempre
   // «N de M» — el mismo hueco visual diciendo dos cosas al cambiar de vista con
   // el conmutador. Ahora las dos usan `textoContador`.
-  const recuento = textoContador(contarCoincidentes(recuentos.matriz, filtros), recuentos.total);
+  // Buscando, las dos cifras son de la búsqueda. Ver el comentario de la
+  // rejilla: mezclar el resultado con el tamaño del vault deja un número que
+  // no significa nada donde estaba.
+  const totalBuscado = consulta === null ? null : await vault.contarBusqueda(consulta);
+  const recuento = textoContador(
+    totalBuscado ?? contarCoincidentes(recuentos.matriz, filtros),
+    totalBuscado ?? recuentos.total,
+  );
 
   return (
     <>
@@ -179,7 +193,7 @@ export default async function PaginaVistaLista({
 
         <div className="mt-[var(--e-3)]">
           {filas.length === 0 ? (
-            <VacioDeLaLista filtros={filtros} parametros={parametros} />
+            <VacioDeLaLista filtros={filtros} parametros={parametros} consulta={consulta} />
           ) : (
             <>
               <TablaLista filas={filas} orden={orden} enlacesDeOrden={enlacesDeOrden} />
@@ -213,10 +227,30 @@ export default async function PaginaVistaLista({
 function VacioDeLaLista({
   filtros,
   parametros,
+  consulta,
 }: {
   filtros: FiltrosBiblioteca;
   parametros: ParametrosCrudos;
+  consulta: string | null;
 }) {
+  // Buscar y filtrar producen vacíos distintos, y la salida de cada uno es
+  // otra: del filtro se sale quitando chips, de la búsqueda borrando el
+  // término. Decir «ninguna serie coincide con el filtro Visto» sobre una
+  // búsqueda de «berserk» sería mentir sobre el motivo.
+  if (consulta !== null) {
+    return (
+      <p
+        role="status"
+        className="px-[var(--e-3)] py-[var(--e-12)] text-center font-ui text-cuerpo-s text-[var(--porcelain-200)]"
+      >
+        Nada coincide con <strong className="font-[var(--fw-ui-medium)]">«{consulta}»</strong>.
+        <span className={NOTA_SECUNDARIA}>
+          Se busca en el título, en los alternativos, en los sinónimos y en tus notas.
+        </span>
+      </p>
+    );
+  }
+
   const descripcion = describirFiltros(filtros);
 
   if (descripcion === null) return <Vacio variante="vault" conIcono={false} />;

@@ -93,8 +93,36 @@ export function normalizarTitulo(titulo: string): string {
 }
 
 /**
- * Variante para el buscador: como `normalizarTitulo` pero SIN recortar sufijos
- * de temporada. Buscar "season 2" debe poder encontrar algo.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * NORMALIZAR PARA **BUSCAR**. No es lo mismo que normalizar para deduplicar.
+ *
+ * ── LA DIFERENCIA, Y POR QUÉ IMPORTA TANTO ────────────────────────────────
+ *
+ * `normalizarTitulo` **recorta los sufijos de temporada** a propósito: es lo que
+ * hace que `Attack on Titan Season 2` y `Attack on Titan S2` colapsen al mismo
+ * `title_normalized` y la deduplicación funcione.
+ *
+ * Para buscar es lo contrario de lo que hace falta. Si el buscador aplicara esa
+ * función, **escribir «Attack on Titan Season 2» devolvería también la
+ * temporada 1**, y no habría forma de encontrar SOLO la segunda: el término
+ * perdería el «2» antes de llegar a la consulta. Quien tiene las dos guardadas
+ * no podría distinguirlas.
+ *
+ * Es la trampa que el encargo señala con nombre y apellidos.
+ *
+ * ── LO QUE SÍ HACE, Y SU LÍMITE ───────────────────────────────────────────
+ *
+ * Todo lo demás de `normalizarTitulo`: `NFKC`, minúsculas, quitar acentos y
+ * **convertir la puntuación en espacios**. Eso último tiene una consecuencia que
+ * conviene saber: produce texto comparable con la columna `title_normalized`, y
+ * por eso sirve para buscar CONTRA ESA COLUMNA —que además tiene su índice
+ * trigram—, no contra `title` en crudo.
+ *
+ * Y descarta lo que no sea `[0-9a-z]`, así que **un término escrito en japonés
+ * se queda en vacío**. Buscar por `title_native` necesita la otra vía, la de
+ * `unaccent(…) ILIKE`, que `vault.buscar` usa en paralelo. Ninguna de las dos
+ * sobra.
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 export function normalizarParaBusqueda(texto: string): string {
   return texto

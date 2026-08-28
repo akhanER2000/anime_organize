@@ -202,3 +202,56 @@ describe("normalizarTitulo · regresión contra el vault real", () => {
     expect(vacios).toEqual([]);
   });
 });
+
+describe("normalizarParaBusqueda", () => {
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   * LA REGLA: **NO recorta sufijos de temporada.**
+   *
+   * `normalizarTitulo` sí los recorta, y es lo que hace funcionar la
+   * deduplicación. Aplicar esa misma función al buscador haría que escribir
+   * «Attack on Titan Season 2» devolviera también la temporada 1, **y que no
+   * hubiera forma de encontrar solo la segunda**: el término perdería el «2»
+   * antes de llegar a la consulta.
+   *
+   * VERIFICADO POR MUTACIÓN (2026-08-27):
+   *   Haciendo que `normalizarParaBusqueda` delegue en `normalizarTitulo`
+   *   → 3 rojos, los tres de sufijos. Restaurado → verde.
+   * ═════════════════════════════════════════════════════════════════════════
+   */
+  it("CONSERVA el sufijo de temporada, al revés que normalizarTitulo", () => {
+    expect(normalizarParaBusqueda("Attack on Titan Season 2")).toBe("attack on titan season 2");
+    // El contraste, en el mismo test: la otra función SÍ lo recorta.
+    expect(normalizarTitulo("Attack on Titan Season 2")).toBe("attack on titan");
+  });
+
+  it("conserva «temporada 2» y «S2»", () => {
+    expect(normalizarParaBusqueda("Attack on Titan temporada 2")).toBe(
+      "attack on titan temporada 2",
+    );
+    expect(normalizarParaBusqueda("Attack on Titan S2")).toBe("attack on titan s2");
+  });
+
+  it("quita acentos y baja a minúsculas", () => {
+    expect(normalizarParaBusqueda("Kimi nó Ná wa")).toBe("kimi no na wa");
+  });
+
+  it("colapsa el ancho completo japonés", () => {
+    expect(normalizarParaBusqueda("ＫＩＭＩ　ＮＯ　ＮＡ　ＷＡ")).toBe("kimi no na wa");
+  });
+
+  it("convierte la puntuación en espacios, igual que la otra", () => {
+    // Es lo que la hace comparable con la columna `title_normalized`, que es
+    // contra la que busca —y que tiene el índice trigram—.
+    expect(normalizarParaBusqueda("Fate/Zero")).toBe("fate zero");
+    expect(normalizarParaBusqueda("Chi.: Chikyuu")).toBe("chi chikyuu");
+  });
+
+  it("UN TÉRMINO EN JAPONÉS SE QUEDA EN VACÍO, y eso es un límite conocido", () => {
+    // Descarta todo lo que no sea `[0-9a-z]`. Buscar por `title_native`
+    // necesita la otra vía —`unaccent(…) ILIKE`— que `vault.buscar` usa en
+    // paralelo. Se fija aquí para que nadie lo descubra creyendo que es un bug.
+    expect(normalizarParaBusqueda("白い")).toBe("");
+    expect(normalizarParaBusqueda("  白い   album  ")).toBe("album");
+  });
+});

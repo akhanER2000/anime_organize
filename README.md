@@ -225,7 +225,7 @@ build, escaneo de secretos, extensiones y migraciones) antes de subir nada.
 
 ## Lo que falta, y qué hace falta para cada cosa
 
-> **Nada de esto está simulado.** El código de las cuatro cosas está escrito, tipado y con
+> **Nada de esto está simulado.** El código está escrito, tipado y con
 > tests de todo lo que se puede probar sin credenciales; lo que no está es **ejecutado**,
 > porque depende de algo que tiene que aportar el dueño. Se listan aquí y no en un fichero
 > de bloqueo aparte: un documento que sólo describe pendientes envejece solo y acaba
@@ -262,7 +262,36 @@ build, escaneo de secretos, extensiones y migraciones) antes de subir nada.
 | **Coste aproximado**            | Una llamada por anime, con la sinopsis dentro: del orden de 1.500 tokens de entrada y 300 de salida. Para los 83, una vez.                                                                                                                                                                                                                                                 |
 | **Cómo comprobar que funciona** | `npm run enrich -- --limite 3` debe imprimir `paso 2 (IA): claude-sonnet-5` en lugar de `OMITIDO`, y la ficha debe enseñar chips con el prefijo `✦` y borde punteado. En `ai_job`, filas con `provider = 'ANTHROPIC'`, `status = 'OK'` y sus contadores de tokens.                                                                                                         |
 
-### 4 · Envío de correo (recuperación y verificación)
+### 4 · Que CI llegue hasta el final
+
+|                                  |                                                                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Qué funciona hoy**             | El workflow llega hasta **«Verificar el esquema aplicado»**: instala, pasa las siete puertas de calidad, aplica las migraciones contra un contenedor `postgres:18` y comprueba el esquema. Todo eso es nuevo — antes fallaba en el primer paso que tocaba la base.                                                                                                                    |
+| **Qué falla**                    | El paso siguiente, **«Tests unitarios»**. Dentro va `src/lib/auth/revocacion.camino-real.test.ts`, que **arranca la aplicación de verdad** y hace login contra la base. Y la aplicación no puede hablar con un Postgres normal: `src/lib/db/interno.ts` usa el **driver HTTP de Neon**, que envía el SQL a un endpoint `https://<host>/sql` que un contenedor `postgres:18` no tiene. |
+| **Por qué no lo he decidido yo** | Las tres salidas tienen un coste que te toca elegir a ti, y ninguna es obviamente la buena:                                                                                                                                                                                                                                                                                           |
+
+1. **Un proxy de Neon como servicio del workflow** (por ejemplo
+   `ghcr.io/timowilhelm/local-neon-http-proxy`). Mantiene el contenedor, no hace falta
+   ningún secreto y la aplicación funciona tal cual. **Coste:** una imagen de terceros
+   dentro del CI de un repositorio público — superficie de cadena de suministro, que es
+   exactamente el criterio con el que este proyecto descartó Upstash para el limitador
+   (`security.md` §5).
+2. **Una rama de Neon para CI**, con su cadena en un secreto de Actions. **Coste:** un
+   secreto más que rotar, y CI se pone rojo cuando Neon tiene una incidencia — las dos
+   cosas que el comentario del propio workflow dice haber querido evitar al elegir el
+   contenedor.
+3. **Sacar ese test de CI** y correrlo solo en local antes de desplegar. **Coste:** es el
+   test del CAMINO REAL, el que destapó que el Route Handler de Auth.js no estaba montado
+   y el desfase de relojes entre Neon y la aplicación. Dejaría de guardar `main`.
+
+> **Contexto que importa para elegir:** el workflow **no ha pasado nunca**, ni una vez
+> desde que se creó el 23 de agosto, y el badge de arriba lleva rojo desde entonces. Y
+> `.githooks/pre-commit` justifica lo que NO comprueba diciendo «lo cubre
+> `.github/workflows/verificar.yml`, que corre en cada push y no se puede saltar». Hasta
+> que esto se cierre, esa frase no es cierta: lo que de verdad guarda `main` hoy es el
+> hook local, que sí se puede saltar con `--no-verify`.
+
+### 5 · Envío de correo (recuperación y verificación)
 
 |                                                    |                                                                                                                                                                                                                                                                      |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { marcaDeRevocacion } from "@/lib/auth/sesion";
 import { normalizarTitulo } from "@/lib/domain/normalizar";
+import { contarCoincidentes } from "@/lib/validation/biblioteca";
 
 import { crearClientePrueba, urlDePruebas, type ClientePrueba } from "./cliente-test";
 import { contextoDePrueba } from "./contexto-fuera-de-sesion";
@@ -187,9 +188,51 @@ describeSiHayBase("vault.recuentos() contra Postgres real", () => {
       porEstado: { VISTO: 0, VIENDO: 0, EN_ESPERA: 0, ABANDONADO: 0, PENDIENTE: 0 },
       total: 0,
       favoritos: 0,
+      // Sin filas no hay celdas que cruzar. `contarCoincidentes` sobre una
+      // matriz vacía da 0 para cualquier filtro, que es lo correcto.
+      matriz: [],
     });
 
     await db.delete(users).where(eq(users.id, c.id));
+  });
+
+  it("EL TOPE DE `listar()` NO AFECTA A LOS RECUENTOS", async () => {
+    // ── EL FALLO QUE ESTE TEST FIJA ─────────────────────────────────────
+    //
+    // Las dos pantallas escribían el contador con `.length` sobre el resultado
+    // de `listar()`, que trae como mucho `LIMITE_LISTADO` filas. Con 83 animes
+    // sale bien; con 600 la pantalla diría «500 de 500» y el 500 no sería una
+    // cuenta, sería el tope.
+    //
+    // Reproducirlo con 600 filas costaría minutos. Se reproduce igual pidiendo
+    // un tope PEQUEÑO: si los recuentos salieran del listado, con `limite: 2`
+    // dirían 2. Es el mismo bug, medido en un segundo.
+    const listadoCorto = await vaultA.listar({ limite: 2 });
+    const { total, porEstado, matriz } = await vaultA.recuentos();
+
+    expect(listadoCorto).toHaveLength(2);
+    expect(total, "el total se calculó sobre el listado con tope").toBe(REPARTO.length);
+    expect(porEstado.VISTO, "los chips se calcularon sobre el listado con tope").toBe(3);
+    expect(
+      contarCoincidentes(matriz, { estados: ["VISTO"], soloFavoritos: false }),
+      "el contador del filtro se calculó sobre el listado con tope",
+    ).toBe(3);
+  });
+
+  it("la matriz cruza estado × favorito, y de ahí sale cualquier filtro", async () => {
+    const { matriz } = await vaultA.recuentos();
+
+    // Sin filtro: todos.
+    expect(contarCoincidentes(matriz, { estados: [], soloFavoritos: false })).toBe(REPARTO.length);
+    // Solo favoritos: 3 de 7.
+    expect(contarCoincidentes(matriz, { estados: [], soloFavoritos: true })).toBe(3);
+    // VISTO y favorito a la vez —la parte que un `porEstado` plano no sabe
+    // responder, y por la que la matriz existe—: 2 de los 3 VISTO.
+    expect(contarCoincidentes(matriz, { estados: ["VISTO"], soloFavoritos: true })).toBe(2);
+    // Dos estados acumulan.
+    expect(contarCoincidentes(matriz, { estados: ["VISTO", "VIENDO"], soloFavoritos: false })).toBe(
+      4,
+    );
   });
 
   it("dice lo mismo que contar las filas a mano: no hay dos verdades", async () => {

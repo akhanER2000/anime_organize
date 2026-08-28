@@ -4,16 +4,21 @@ import { redirect } from "next/navigation";
 
 import { ErrorSesionInvalida, exigirSesionParaLeer } from "@/auth";
 import { BarraFiltros } from "@/components/anime/barra-filtros";
+import { Vacio } from "@/components/anime/vacio";
 
 import { vaultDe } from "@/lib/db";
 
-import { textoContador } from "@/lib/ui/texto";
-import { filtrarFilas, hayFiltro, parsearFiltros } from "@/lib/validation/biblioteca";
+import { describirFiltros, textoContador } from "@/lib/ui/texto";
+import {
+  contarCoincidentes,
+  filtrarFilas,
+  hayFiltro,
+  parsearFiltros,
+  urlSinFacetas,
+} from "@/lib/validation/biblioteca";
 
-import { describirFiltros } from "./filtros";
 import { PADDING_LATERAL, PADDING_VERTICAL } from "./medidas";
 import { Rejilla } from "./rejilla";
-import { Vacio } from "./vacio";
 
 import type { AnimeEnListado as AnimeDelListado } from "@/lib/db";
 import type { FiltrosBiblioteca, ParametrosCrudos } from "@/lib/validation/biblioteca";
@@ -97,7 +102,8 @@ export default async function PaginaBiblioteca({
   const promesaRecuentos = vault.recuentos();
   const promesaLista = vault.listar({ limite: LIMITE_LISTADO });
 
-  const filtros = parsearFiltros(await searchParams);
+  const crudos = await searchParams;
+  const filtros = parsearFiltros(crudos);
 
   const recuentos = await promesaRecuentos;
 
@@ -135,7 +141,10 @@ export default async function PaginaBiblioteca({
 
             {/* El contador es REAL. El «10 de 10» del artboard son sus diez
              * animes de ejemplo; el artboard fija la forma, no la cifra. */}
-            <Contador promesa={promesaLista} filtros={filtros} total={recuentos.total} />
+            <Contador
+              coincidentes={contarCoincidentes(recuentos.matriz, filtros)}
+              total={recuentos.total}
+            />
           </div>
 
           {/* No es un control: es la descripción del orden que aplica
@@ -183,7 +192,11 @@ export default async function PaginaBiblioteca({
          * poner un Suspense aquí: es un esqueleto de COMPONENTE —el que ya
          * describe `DESIGN-SPEC` §262, dentro de la card y de la fila— o una
          * transición optimista en cliente. Los dos caminos están sin explorar. */}
-        <ContenidoRejilla promesa={promesaLista} filtros={filtros} />
+        <ContenidoRejilla
+          promesa={promesaLista}
+          filtros={filtros}
+          hrefSinFiltros={urlSinFacetas("/app", crudos)}
+        />
       </div>
     </>
   );
@@ -196,22 +209,13 @@ export default async function PaginaBiblioteca({
  * esperarla para poder devolver su JSX, que es lo que permite que la barra de
  * filtros salga antes.
  */
-async function Contador({
-  promesa,
-  filtros,
-  total,
-}: {
-  promesa: Promise<AnimeDelListado[]>;
-  filtros: FiltrosBiblioteca;
-  total: number;
-}) {
-  const visibles = filtrarFilas(await promesa, filtros);
+function Contador({ coincidentes, total }: { coincidentes: number; total: number }) {
 
   // El contador es REAL. El «10 de 10» del artboard son sus diez animes de
   // ejemplo; el artboard fija la forma, no la cifra.
   return (
     <p className="font-mono text-mono text-[var(--ash-400)]">
-      {textoContador(visibles.length, total)}
+      {textoContador(coincidentes, total)}
     </p>
   );
 }
@@ -220,9 +224,11 @@ async function Contador({
 async function ContenidoRejilla({
   promesa,
   filtros,
+  hrefSinFiltros,
 }: {
   promesa: Promise<AnimeDelListado[]>;
   filtros: FiltrosBiblioteca;
+  hrefSinFiltros: string;
 }) {
   const mios = await promesa;
   const visibles = filtrarFilas(mios, filtros);
@@ -234,7 +240,9 @@ async function ContenidoRejilla({
   // «tu vault está vacío» a quien acaba de ver el contador diciendo 83 es
   // mentirle. `hayFiltro` es lo que los distingue.
   if (hayFiltro(filtros) && descripcion !== null) {
-    return <Vacio variante="filtro" descripcion={descripcion} />;
+    return (
+      <Vacio variante="filtro" descripcion={descripcion} hrefSinFiltros={hrefSinFiltros} />
+    );
   }
 
   return <Vacio variante="vault" />;

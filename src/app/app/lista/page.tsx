@@ -3,25 +3,24 @@ import { Suspense } from "react";
 
 import { ErrorSesionInvalida, exigirSesionParaLeer } from "@/auth";
 import { rellenoDeFila } from "@/lib/domain/progreso";
-import { textoContador } from "@/lib/ui/texto";
+import { describirFiltros, textoContador } from "@/lib/ui/texto";
 import { fechaCorta, fechaIso } from "@/lib/ui/fecha";
 import { AnimeCard } from "@/components/anime/anime-card";
 import { BarraFiltros } from "@/components/anime/barra-filtros";
+import { Vacio } from "@/components/anime/vacio";
 import { vaultDe } from "@/lib/db";
 import { cn } from "@/lib/ui/cn";
 
 import {
-  contarFavoritos,
-  contarPorEstado,
+  contarCoincidentes,
   filtrarFilas,
-  hayFiltro,
   parsearFiltros,
+  urlSinFacetas,
 } from "@/lib/validation/biblioteca";
 import { enlaceDeOrden, leerOrden, ordenar, siguienteOrden } from "@/lib/validation/orden-lista";
 import { TablaLista } from "./tabla-lista";
-import { Vacio } from "./vacio";
 
-import type { ParametrosCrudos } from "@/lib/validation/biblioteca";
+import type { FiltrosBiblioteca, ParametrosCrudos } from "@/lib/validation/biblioteca";
 import type { CampoOrden } from "@/lib/validation/orden-lista";
 import type { FilaVista } from "./tipos";
 
@@ -65,6 +64,9 @@ export const metadata = {
 
 const RUTA = "/app/lista";
 
+/** El mismo tope que la rejilla. Los CONTADORES no dependen de él. */
+const LIMITE_LISTADO = 500;
+
 /**
  * «12 mar 2026». Se formatea EN EL SERVIDOR, una sola vez por render.
  *
@@ -92,10 +94,21 @@ export default async function PaginaVistaLista({
 
   const parametros = await searchParams;
 
-  const todos = await vaultDe(sesion.ctx).listar({ limite: 500 });
+  // ── LAS DOS CONSULTAS SALEN A LA VEZ ────────────────────────────────────
+  //
+  // `recuentos()` cuenta sobre el vault ENTERO con un `GROUP BY`; `listar()`
+  // trae las filas que se pintan, con tope. Los números de la pantalla salen
+  // del primero y nunca del segundo: contar el resultado de una consulta
+  // acotada devuelve el tope disfrazado de cuenta.
+  const vault = vaultDe(sesion.ctx);
+  const promesaRecuentos = vault.recuentos();
+  const promesaLista = vault.listar({ limite: LIMITE_LISTADO });
 
   const filtros = parsearFiltros(parametros);
   const orden = leerOrden(parametros);
+
+  const recuentos = await promesaRecuentos;
+  const todos = await promesaLista;
 
   const filas: FilaVista[] = ordenar(filtrarFilas(todos, filtros), orden).map((anime) => ({
     id: anime.id,
@@ -120,10 +133,16 @@ export default async function PaginaVistaLista({
     actualizado: enlaceDeOrden(RUTA, parametros, siguienteOrden(orden, "actualizado")),
   };
 
-  const recuento =
-    filas.length === todos.length
-      ? textoContador(todos.length, todos.length)
-      : textoContador(filas.length, todos.length);
+  // ── EL CONTADOR SALE DE LA BASE, NO DEL ARRAY ───────────────────────────
+  //
+  // Decía `textoContador(filas.length, todos.length)`, y las dos cifras venían
+  // de un listado con tope: con 600 animes habría dicho «500 de 500».
+  //
+  // Y de paso deja de tener dos formas. La lista escribía «83 series» sin
+  // filtro y «12 de 83 series» con él, mientras la rejilla decía siempre
+  // «N de M» — el mismo hueco visual diciendo dos cosas al cambiar de vista con
+  // el conmutador. Ahora las dos usan `textoContador`.
+  const recuento = textoContador(contarCoincidentes(recuentos.matriz, filtros), recuentos.total);
 
   return (
     <>
@@ -133,9 +152,9 @@ export default async function PaginaVistaLista({
        * estrategia rompa el build. */}
       <Suspense fallback={null}>
         <BarraFiltros
-          recuentos={contarPorEstado(todos)}
-          total={todos.length}
-          favoritos={contarFavoritos(todos)}
+          recuentos={recuentos.porEstado}
+          total={recuentos.total}
+          favoritos={recuentos.favoritos}
         />
       </Suspense>
 
@@ -160,7 +179,7 @@ export default async function PaginaVistaLista({
 
         <div className="mt-[var(--e-3)]">
           {filas.length === 0 ? (
-            <Vacio conFiltros={hayFiltro(filtros)} />
+            <VacioDeLaLista filtros={filtros} parametros={parametros} />
           ) : (
             <>
               <TablaLista filas={filas} orden={orden} enlacesDeOrden={enlacesDeOrden} />
@@ -178,5 +197,36 @@ export default async function PaginaVistaLista({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * El vacío de la lista, con el mismo componente que la rejilla.
+ *
+ * La descripción y la salida se calculan aquí porque `Vacio` no conoce ni los
+ * filtros ni la ruta: recibe texto y destino ya resueltos, que es lo que le
+ * permite servir a las dos pantallas sin saber en cuál está.
+ *
+ * `conIcono={false}`: DESIGN-SPEC §6 pide para el vacío de una tabla solo el
+ * texto centrado; la laja de 72 px es de §08, la biblioteca.
+ */
+function VacioDeLaLista({
+  filtros,
+  parametros,
+}: {
+  filtros: FiltrosBiblioteca;
+  parametros: ParametrosCrudos;
+}) {
+  const descripcion = describirFiltros(filtros);
+
+  if (descripcion === null) return <Vacio variante="vault" conIcono={false} />;
+
+  return (
+    <Vacio
+      variante="filtro"
+      conIcono={false}
+      descripcion={descripcion}
+      hrefSinFiltros={urlSinFacetas(RUTA, parametros)}
+    />
   );
 }

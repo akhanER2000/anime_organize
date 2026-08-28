@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  contarCoincidentes,
   contarFavoritos,
   contarPorEstado,
   filtrarFilas,
   hayFiltro,
   parsearFiltros,
+  urlSinFacetas,
 } from "@/lib/validation/biblioteca";
 
-import { textoContador } from "@/lib/ui/texto";
-
-import { describirFiltros } from "./filtros";
+import { describirFiltros, textoContador } from "@/lib/ui/texto";
 
 import type { FilaFiltrable as AnimeFiltrable } from "@/lib/validation/biblioteca";
 
@@ -20,6 +20,11 @@ import type { FilaFiltrable as AnimeFiltrable } from "@/lib/validation/bibliotec
  *
  * La rejilla, las clases de Tailwind y el render no se testean (§Nivel 3): para
  * eso está `e2e/biblioteca.spec.ts`, que la usa con un navegador de verdad.
+ *
+ * Este fichero vivía en `app/app/(biblioteca)/filtros.test.ts`, junto a una
+ * pantalla. Lo que prueba lo usan DOS, así que se mudó con su código: un test
+ * guardado en la carpeta de una pantalla es una invitación a que la otra
+ * escriba el suyo.
  */
 
 const vault: AnimeFiltrable[] = [
@@ -205,3 +210,100 @@ describe("describirFiltros", () => {
     expect(describirFiltros(parsearFiltros({ favorito: "1" }))).toBe("Favoritos");
   });
 });
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `urlSinFacetas` — LAS DOS FORMAS DE QUITAR EL FILTRO, AHORA UNA.
+ *
+ * El chip «Todos» borraba las dos facetas y conservaba el resto; la salida del
+ * vacío era un `/app` a pelo que tiraba la query entera. Los dos casos que lo
+ * distinguen son «conserva el orden» y «acepta las dos formas del parámetro»:
+ * si alguien volviera a escribir el `href` a mano, el primero se pone rojo.
+ *
+ * VERIFICADO POR MUTACIÓN (2026-08-27):
+ *   Devolviendo `ruta` a secas (el comportamiento viejo del vacío) → 4 rojos.
+ *   Borrando también `orden` → 3 rojos. Restaurado → verde.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe("urlSinFacetas", () => {
+  it("sin ningún parámetro devuelve la ruta limpia, sin «?» colgando", () => {
+    expect(urlSinFacetas("/app", new URLSearchParams())).toBe("/app");
+    expect(urlSinFacetas("/app/lista", {})).toBe("/app/lista");
+  });
+
+  it("quita las dos facetas y NADA más", () => {
+    const params = new URLSearchParams("estado=VISTO&favorito=1&orden=titulo&dir=asc");
+
+    // El orden sobrevive: es otra preferencia y no se cae con el filtro.
+    expect(urlSinFacetas("/app/lista", params)).toBe("/app/lista?orden=titulo&dir=asc");
+  });
+
+  it("quitar el ÚNICO parámetro deja la ruta limpia", () => {
+    expect(urlSinFacetas("/app", new URLSearchParams("estado=VISTO"))).toBe("/app");
+  });
+
+  it("acepta el objeto del servidor igual que el URLSearchParams del cliente", () => {
+    // Los dos controles viven a lados distintos de la frontera y tienen que
+    // producir EXACTAMENTE la misma URL, o vuelve la divergencia.
+    const delCliente = urlSinFacetas("/app/lista", new URLSearchParams("estado=VISTO&orden=titulo"));
+    const delServidor = urlSinFacetas("/app/lista", { estado: "VISTO", orden: "titulo" });
+
+    expect(delServidor).toBe(delCliente);
+    expect(delServidor).toBe("/app/lista?orden=titulo");
+  });
+
+  it("una faceta repetida en el objeto se conserva repetida", () => {
+    // `?utm=a&utm=b` no es lo mismo que `?utm=a,b`. Colapsarlo cambiaría lo que
+    // la URL significa para quien la lea después.
+    expect(urlSinFacetas("/app", { utm: ["a", "b"], estado: ["VISTO", "VIENDO"] })).toBe(
+      "/app?utm=a&utm=b",
+    );
+  });
+
+  it("no arrastra un parámetro con valor ausente", () => {
+    expect(urlSinFacetas("/app", { orden: "titulo", dir: undefined })).toBe("/app?orden=titulo");
+  });
+});
+
+/**
+ * `contarCoincidentes` — el contador «N de M», sumado sobre agregados.
+ *
+ * Lo que prueba el test de integración es que la MATRIZ sale bien de Postgres
+ * (`recuentos.integracion.test.ts`). Lo que se prueba aquí es la suma: qué
+ * celdas entran con cada combinación de facetas.
+ */
+describe("contarCoincidentes", () => {
+  const matriz = [
+    { estado: "VISTO", favorito: true, n: 2 },
+    { estado: "VISTO", favorito: false, n: 1 },
+    { estado: "VIENDO", favorito: true, n: 1 },
+    { estado: "EN_ESPERA", favorito: false, n: 2 },
+  ] as const;
+
+  it("sin filtro suma todas las celdas", () => {
+    expect(contarCoincidentes(matriz, parsearFiltros({}))).toBe(6);
+  });
+
+  it("un estado suma sus dos celdas, favorita y no favorita", () => {
+    expect(contarCoincidentes(matriz, parsearFiltros({ estado: "VISTO" }))).toBe(3);
+  });
+
+  it("los favoritos cruzan con el estado, no lo sustituyen", () => {
+    // Éste es el caso que un `porEstado` plano no sabe responder, y por el que
+    // la matriz existe: VISTO **y** favorito son 2, no 3 ni 4.
+    expect(contarCoincidentes(matriz, parsearFiltros({ estado: "VISTO", favorito: "1" }))).toBe(2);
+  });
+
+  it("varios estados acumulan", () => {
+    expect(contarCoincidentes(matriz, parsearFiltros({ estado: ["VISTO", "VIENDO"] }))).toBe(4);
+  });
+
+  it("un estado sin ninguna celda cuenta 0, no falla", () => {
+    expect(contarCoincidentes(matriz, parsearFiltros({ estado: "PENDIENTE" }))).toBe(0);
+  });
+
+  it("una matriz vacía cuenta 0 para cualquier filtro", () => {
+    expect(contarCoincidentes([], parsearFiltros({ estado: "VISTO" }))).toBe(0);
+  });
+});
+

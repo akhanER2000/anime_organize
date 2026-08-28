@@ -184,3 +184,103 @@ export function parsearFiltrosDeUrl(parametros: URLSearchParams): FiltrosBibliot
 
   return parsearFiltros(crudos);
 }
+
+/** Lo mínimo que necesita una celda del cruce para poder sumarse. */
+export type CeldaContable = {
+  readonly estado: Estado;
+  readonly favorito: boolean;
+  readonly n: number;
+};
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CUÁNTOS COINCIDEN CON EL FILTRO, CONTADO EN LA BASE.
+ *
+ * ── EL AGREGADO QUE ERA EL TOPE DISFRAZADO ────────────────────────────────
+ *
+ * Las dos pantallas escribían el contador con `visibles.length` y
+ * `todos.length` sobre el resultado de `listar()`, que trae como mucho
+ * `LIMITE_LISTADO` filas. Con 83 animes sale bien. Con 600, la rejilla diría
+ * «500 de 600» y la lista «500 series»: el 500 no es una cuenta, es el tope.
+ *
+ * Y es invisible hasta el día que deja de serlo, porque no falla — miente con
+ * un número plausible.
+ *
+ * ── POR QUÉ SE SUMA AQUÍ Y NO SE PIDE OTRA CONSULTA ───────────────────────
+ *
+ * Porque la suma es sobre **agregados que ya calculó Postgres**: diez celdas
+ * como mucho, ninguna afectada por ningún tope. Sumar diez números en
+ * JavaScript no reintroduce el problema; sumar 500 filas de una consulta
+ * acotada sí. La diferencia no es dónde se suma: es **sobre qué**.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export function contarCoincidentes(
+  matriz: readonly CeldaContable[],
+  filtros: FiltrosBiblioteca,
+): number {
+  const permitidos = new Set<Estado>(filtros.estados);
+
+  return matriz.reduce((suma, celda) => {
+    if (permitidos.size > 0 && !permitidos.has(celda.estado)) return suma;
+    if (filtros.soloFavoritos && !celda.favorito) return suma;
+    return suma + celda.n;
+  }, 0);
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * LA URL SIN FACETAS — «quitar el filtro», en un solo sitio.
+ *
+ * ── HABÍA DOS FORMAS DE QUITAR EL FILTRO Y HACÍAN COSAS DISTINTAS ─────────
+ *
+ * El chip «Todos» borraba `estado` y `favorito` y **conservaba el resto** de la
+ * query. La salida del vacío sin resultados era un `href="/app"` a pelo, que
+ * **tiraba la query entera**.
+ *
+ * Desde `/app/lista?estado=ABANDONADO&orden=titulo&dir=asc`, pulsar el chip
+ * dejaba el orden puesto y pulsar el botón del vacío lo perdía. Dos controles
+ * que dicen lo mismo, en la misma pantalla, haciendo cosas distintas — y el que
+ * más se usa cuando NO hay resultados es justo el que se llevaba por delante lo
+ * que el usuario había elegido.
+ *
+ * ── QUÉ GANA, Y POR QUÉ ───────────────────────────────────────────────────
+ *
+ * Se conserva todo lo que no sean las dos facetas. «Quitar el filtro» quiere
+ * decir quitar EL FILTRO, no reiniciar la pantalla: el orden es una preferencia
+ * distinta y no tiene por qué caerse con él.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export function urlSinFacetas(
+  ruta: string,
+  parametros: URLSearchParams | ParametrosCrudos,
+): string {
+  // Acepta las dos formas porque los dos controles viven a lados distintos de
+  // la frontera: el chip es cliente y recibe un `URLSearchParams`; el vacío se
+  // pinta en el servidor, donde `searchParams` es un objeto plano. Convertir
+  // aquí es lo que permite que la ruta de decisión sea UNA.
+  const siguiente =
+    parametros instanceof URLSearchParams
+      ? new URLSearchParams(parametros.toString())
+      : paramsDeCrudos(parametros);
+
+  siguiente.delete("estado");
+  siguiente.delete("favorito");
+
+  const cadena = siguiente.toString();
+  return cadena === "" ? ruta : `${ruta}?${cadena}`;
+}
+
+/** El inverso de lo que hace `parsearFiltrosDeUrl` al entrar. */
+function paramsDeCrudos(crudos: ParametrosCrudos): URLSearchParams {
+  const salida = new URLSearchParams();
+
+  for (const [clave, valor] of Object.entries(crudos)) {
+    if (valor === undefined) continue;
+    // Un array es una faceta repetida (`?estado=A&estado=B`): se repite igual,
+    // porque colapsarlo a una cadena cambiaría lo que la URL significa.
+    if (Array.isArray(valor)) for (const uno of valor) salida.append(clave, uno);
+    else salida.append(clave, valor);
+  }
+
+  return salida;
+}

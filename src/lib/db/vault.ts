@@ -101,6 +101,13 @@ export type DatosPortada = {
 };
 
 /** Lo que devuelve un listado. **Nunca incluye los bytes de la portada.** */
+/** Una celda del cruce estado × favorito que devuelve `recuentos()`. */
+export type CeldaDeRecuento = {
+  readonly estado: Estado;
+  readonly favorito: boolean;
+  readonly n: number;
+};
+
 export type AnimeEnListado = {
   id: string;
   titulo: string;
@@ -179,6 +186,15 @@ export interface Vault {
     porEstado: Record<Estado, number>;
     total: number;
     favoritos: number;
+    /**
+     * El cruce estado × favorito, diez celdas como mucho.
+     *
+     * Con esto se responde cuántos coinciden con CUALQUIER combinación de las
+     * dos facetas sin traerse una sola fila de anime — que es lo que hacía
+     * falta para que el contador «N de M» deje de contar sobre un listado con
+     * tope. Ver `contarCoincidentes` en `validation/biblioteca.ts`.
+     */
+    matriz: CeldaDeRecuento[];
   }>;
   portada(
     animeId: string,
@@ -339,15 +355,27 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
      * devuelve un `Partial`.
      */
     async recuentos() {
+      // ── SE AGRUPA POR ESTADO **Y** POR FAVORITO ──────────────────────────
+      //
+      // Diez filas como mucho, y con ellas se puede responder CUALQUIER
+      // recuento de la pantalla sin traerse ni una fila de anime: el total, los
+      // favoritos, el recuento de cada chip, y —lo que faltaba— **cuántos
+      // coinciden con el filtro puesto**.
+      //
+      // Ese último era el que se calculaba en JavaScript con `visibles.length`
+      // sobre el resultado de `listar()`, que trae como mucho `LIMITE_LISTADO`
+      // filas. Con 83 animes es correcto; con 600 la pantalla diría «500 de
+      // 600» y el 500 sería el tope, no una cuenta. Un agregado sobre una
+      // consulta acotada no es un agregado: es el tope disfrazado.
       const filas = await cliente
         .select({
           estado: anime.status,
+          favorito: anime.isFavorite,
           n: sql<number>`count(*)::int`,
-          favoritos: sql<number>`count(*) filter (where ${anime.isFavorite})::int`,
         })
         .from(anime)
         .where(mias())
-        .groupBy(anime.status);
+        .groupBy(anime.status, anime.isFavorite);
 
       const porEstado: Record<Estado, number> = {
         VISTO: 0,
@@ -359,18 +387,22 @@ export function vaultDe(ctx: ContextoUsuario, cliente: ClienteInterno = dbIntern
 
       let total = 0;
       let favoritos = 0;
+      const matriz: CeldaDeRecuento[] = [];
 
       for (const fila of filas) {
         // `status` es `text` + CHECK en la base, así que Drizzle lo infiere como
         // `string`. Se estrecha contra la lista canónica en vez de castear: un
         // valor fuera del dominio se ignora en el recuento en lugar de reventar
         // al indexar el `Record`.
-        if (esEstado(fila.estado)) porEstado[fila.estado] = fila.n;
+        if (esEstado(fila.estado)) {
+          porEstado[fila.estado] += fila.n;
+          matriz.push({ estado: fila.estado, favorito: fila.favorito, n: fila.n });
+        }
         total += fila.n;
-        favoritos += fila.favoritos;
+        if (fila.favorito) favoritos += fila.n;
       }
 
-      return { porEstado, total, favoritos };
+      return { porEstado, total, favoritos, matriz };
     },
 
     /**

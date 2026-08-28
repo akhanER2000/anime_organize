@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { Chip } from "@/components/ui/chip";
 import { ESTADOS, ETIQUETA_ESTADO } from "@/lib/domain/enums";
-import { parsearFiltrosDeUrl } from "@/lib/validation/biblioteca";
+import { parsearFiltrosDeUrl, urlSinFacetas } from "@/lib/validation/biblioteca";
 import { cn } from "@/lib/ui/cn";
 
 import type { Estado } from "@/lib/domain/enums";
@@ -114,13 +114,9 @@ export function BarraFiltros({
     return cadena === "" ? ruta : `${ruta}?${cadena}`;
   };
 
-  const urlSinFiltros = (): string => {
-    const siguiente = new URLSearchParams(parametros.toString());
-    siguiente.delete("estado");
-    siguiente.delete("favorito");
-    const cadena = siguiente.toString();
-    return cadena === "" ? ruta : `${ruta}?${cadena}`;
-  };
+  // Vive en `validation/biblioteca.ts` porque la comparte con la salida del
+  // vacío sin resultados, que hacía otra cosa. Ver el comentario de allí.
+  const urlSinFiltros = (): string => urlSinFacetas(ruta, parametros);
 
   const urlFavoritos = (): string => {
     const siguiente = new URLSearchParams(parametros.toString());

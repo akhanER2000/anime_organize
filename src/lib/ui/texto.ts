@@ -1,3 +1,8 @@
+import { ETIQUETA_ESTADO } from "@/lib/domain/enums";
+import { hayFiltro } from "@/lib/validation/biblioteca";
+
+import type { FiltrosBiblioteca } from "@/lib/validation/biblioteca";
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * TEXTOS QUE APARECEN EN MÁS DE UNA PANTALLA.
@@ -23,4 +28,30 @@
 /** «83 de 83 series» · «1 de 83 series» · «0 de 1 serie». */
 export function textoContador(mostrados: number, total: number): string {
   return `${String(mostrados)} de ${String(total)} ${total === 1 ? "serie" : "series"}`;
+}
+
+/**
+ * ── EL FILTRO PUESTO, EN PALABRAS ─────────────────────────────────────────
+ *
+ * Vivía en `app/app/(biblioteca)/filtros.ts` como «lo que es de esta pantalla y
+ * de ninguna otra». Dejó de serlo en cuanto la vista lista tuvo que decir lo
+ * mismo: su vacío decía «Ninguna serie de tu vault cumple estos filtros» sin
+ * nombrar **cuáles**, que es justo el dato que hace falta para saber qué quitar.
+ *
+ * `null` cuando no hay filtro: ese caso no es «sin resultados», es un vault
+ * vacío, y son dos pantallas distintas.
+ */
+export function describirFiltros(filtros: FiltrosBiblioteca): string | null {
+  if (!hayFiltro(filtros)) return null;
+
+  const partes: string[] = [];
+
+  if (filtros.estados.length > 0) {
+    partes.push(filtros.estados.map((estado) => ETIQUETA_ESTADO[estado]).join(" o "));
+  }
+  if (filtros.soloFavoritos) {
+    partes.push("Favoritos");
+  }
+
+  return partes.join(" · ");
 }

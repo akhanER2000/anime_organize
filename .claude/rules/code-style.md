@@ -184,6 +184,11 @@ importas de ahí. Si necesitas que cambie, cambias ese fichero.
 | Mapear el progreso del seed | `src/lib/domain/progreso.ts` |
 | Parsear `?estado=` y `?favorito=` | `src/lib/validation/biblioteca.ts` |
 | Filtrar y contar filas por estado | `src/lib/validation/biblioteca.ts` |
+| Contar coincidentes sobre agregados de la base | `src/lib/validation/biblioteca.ts` |
+| **Construir la URL de «quitar el filtro»** | `src/lib/validation/biblioteca.ts` (`urlSinFacetas`) |
+| Describir el filtro puesto en palabras | `src/lib/ui/texto.ts` |
+| El texto del contador «N de M» | `src/lib/ui/texto.ts` |
+| **Los dos estados vacíos del vault** | `src/components/anime/vacio.tsx` |
 | Parsear y construir `?orden=` y `?dir=` | `src/lib/validation/orden-lista.ts` |
 | Validar el alta de un anime | `src/lib/validation/anime.ts` |
 | Formatear una fecha para pantalla | `src/lib/ui/fecha.ts` |
@@ -192,6 +197,29 @@ importas de ahí. Si necesitas que cambie, cambias ese fichero.
 | Botón, enlace, chip, badge, input, skeleton | `src/components/ui/` |
 | La card de un anime | `src/components/anime/anime-card.tsx` |
 | La barra de filtros y el conmutador de vista | `src/components/anime/barra-filtros.tsx` |
+
+### Los dos que eran COMPORTAMIENTO, no estética
+
+De los 34 encontrados, dos no se podían dejar para el barrido general porque no
+divergían en cómo se ven sino en **qué hacen**:
+
+1. **«Quitar el filtro» tenía dos destinos.** El chip «Todos» borraba las dos
+   facetas y conservaba el resto de la query; la salida del vacío sin resultados
+   era un `href="/app"` a pelo que la tiraba entera. Desde
+   `/app/lista?estado=ABANDONADO&orden=titulo`, el chip dejaba el orden puesto y
+   el botón lo perdía. Ganó conservar: quitar el filtro es quitar EL FILTRO, no
+   reiniciar la pantalla.
+
+2. **El vacío de la lista no tenía salida.** La rejilla ofrecía un botón
+   «Quitar los filtros» y nombraba el filtro puesto; la lista decía «Sin
+   resultados» y le pedía al usuario que quitara un chip él mismo. Con el
+   conmutador de vista encima, la misma situación daba o no daba un botón según
+   en qué vista estuvieras. Ganó la rejilla en las tres diferencias, porque en
+   las tres dice más.
+
+La regla que sale de los dos: **cuando dos copias divergen en lo que HACEN, no
+esperan al barrido.** Un duplicado idéntico es deuda; uno que se comporta
+distinto es un bug que el usuario encuentra el primer día.
 
 ### Qué hacer cuando encuentres un duplicado
 

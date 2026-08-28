@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { clavePorEmail, clavePorIp, clavePorUsuario } from "./claves";
-import { registrarIntento } from "./index";
+import { claveBienFormada, registrarIntento } from "./index";
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -25,14 +25,20 @@ describe("la forma de la clave", () => {
     ).rejects.toThrow(/debe tener la forma/);
   });
 
-  it("acepta un CUBO PROPIO con la política de otro, que es un uso legítimo", async () => {
+  it("acepta un CUBO PROPIO con la política de otro, que es un uso legítimo", () => {
     // `/recuperar/nueva` aplica la política `recuperar:ip` a su propio cubo,
     // `recuperar-nueva:ip:<ip>`, para no compartir contador con «pedir el
     // enlace». La primera versión de la guarda lo rompía con un 500 y lo cazó
     // el recorrido en navegador del restablecimiento.
-    await expect(
-      registrarIntento("recuperar:ip", clavePorIp("recuperar-nueva", "1.2.3.4")),
-    ).resolves.toBeDefined();
+    //
+    // Se comprueba contra `claveBienFormada` y NO contra `registrarIntento`:
+    // este es el caso que la guarda ACEPTA, y aceptar significa seguir hasta
+    // el insert. La versión anterior de este test llamaba a `registrarIntento`
+    // y por eso pasaba en local —donde `DATABASE_URL` es un Neon real— y
+    // reventaba en CI contra el contenedor. Era un test unitario con una
+    // dependencia de base escondida; el rechazo de abajo sí puede seguir
+    // yendo por `registrarIntento`, porque lanza antes de tocar nada.
+    expect(claveBienFormada(clavePorIp("recuperar-nueva", "1.2.3.4"))).toBe(true);
   });
 
   it("acepta la que componen los constructores de `claves.ts`", () => {

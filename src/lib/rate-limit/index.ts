@@ -37,6 +37,24 @@ export { LIMITES, type NombreLimite, type Veredicto } from "./politica";
 const PROBABILIDAD_LIMPIEZA = 5;
 
 /**
+ * ¿Tiene la clave la forma `<accion>:<email|ip|user>:<valor>`?
+ *
+ * Está SEPARADA de `registrarIntento` a propósito. La comprobación es pura,
+ * pero `registrarIntento` sigue hasta la base en cuanto acepta — así que un
+ * test del caso ACEPTADO acababa siendo un test con base de datos escondida.
+ * Pasó de verdad: `limitador.test.ts` verde en local (donde hay un Neon real)
+ * y rojo en CI (donde hay un `postgres:18` con el que el driver HTTP de Neon
+ * no habla). Un test unitario que necesita base no es un test unitario.
+ *
+ * El caso RECHAZADO sí se puede seguir probando contra `registrarIntento`:
+ * lanza antes de tocar nada, y así queda cubierto que la guarda está de
+ * verdad cableada y no solo exportada.
+ */
+export function claveBienFormada(clave: string): boolean {
+  return /^[a-z0-9-]+:(email|ip|user):/.test(clave);
+}
+
+/**
  * Registra un intento y decide si se permite.
  *
  * El incremento es un `INSERT … ON CONFLICT DO UPDATE … RETURNING` **atómico**:
@@ -80,7 +98,7 @@ export async function registrarIntento(
    * Lanza en vez de avisar: es un error de programación, no una entrada del
    * usuario, y falla en la primera llamada — nunca en silencio.
    */
-  if (!/^[a-z0-9-]+:(email|ip|user):/.test(clave)) {
+  if (!claveBienFormada(clave)) {
     throw new Error(
       `La clave del limitador debe tener la forma "<accion>:<email|ip|user>:<valor>" ` +
         `y era "${clave}". Compónla con clavePorUsuario/clavePorEmail/clavePorIp ` +

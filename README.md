@@ -264,34 +264,41 @@ build, escaneo de secretos, extensiones y migraciones) antes de subir nada.
 
 ### 4 · Que CI llegue hasta el final
 
-|                                  |                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Qué funciona hoy**             | El workflow llega hasta **«Verificar el esquema aplicado»**: instala, pasa las siete puertas de calidad, aplica las migraciones contra un contenedor `postgres:18` y comprueba el esquema. Todo eso es nuevo — antes fallaba en el primer paso que tocaba la base.                                                                                                                                                                                                        |
-| **Qué falla**                    | El paso siguiente, **«Tests unitarios»** — y por **un solo fichero**: `src/lib/auth/revocacion.camino-real.test.ts` es el único test de ese paso que toca la base (los otros siete que la tocan son `.integracion.test.ts`, y ese paso los excluye). Ese test hace `next build` y `next start`: arranca la aplicación **de verdad**.                                                                                                                                      |
-| **La causa, comprobada**         | La aplicación no puede hablar con un Postgres normal. `src/lib/db/interno.ts` usa el **driver HTTP de Neon**, que manda el SQL a `https://<host>/sql` — un endpoint que un contenedor `postgres:18` no tiene. Y lo hace de la peor manera posible: `neon("postgres://…@localhost:5432/…")` **construye el cliente sin quejarse** y solo revienta en la primera consulta, con un `fetch failed` que no menciona ni a Neon ni a HTTP. Comprobado ejecutándolo, no razonado. |
-| **Lo que NO he comprobado**      | El log del fallo en Actions: leer los registros exige credenciales de GitHub y no las tengo. Así que lo confirmado es que la aplicación **no puede** funcionar ahí y que ese test es el único candidato del paso — no que sea el único error del log.                                                                                                                                                                                                                     |
-| **Por qué no lo he decidido yo** | Las tres salidas tienen un coste que te toca elegir a ti, y ninguna es obviamente la buena:                                                                                                                                                                                                                                                                                                                                                                               |
+**Corregido — pendiente solo de que una ejecución verde lo confirme.**
 
-1. **Un proxy de Neon como servicio del workflow** (por ejemplo
-   `ghcr.io/timowilhelm/local-neon-http-proxy`). Mantiene el contenedor, no hace falta
-   ningún secreto y la aplicación funciona tal cual. **Coste:** una imagen de terceros
-   dentro del CI de un repositorio público — superficie de cadena de suministro, que es
-   exactamente el criterio con el que este proyecto descartó Upstash para el limitador
-   (`security.md` §5).
-2. **Una rama de Neon para CI**, con su cadena en un secreto de Actions. **Coste:** un
-   secreto más que rotar, y CI se pone rojo cuando Neon tiene una incidencia — las dos
-   cosas que el comentario del propio workflow dice haber querido evitar al elegir el
-   contenedor.
-3. **Sacar ese test de CI** y correrlo solo en local antes de desplegar. **Coste:** es el
-   test del CAMINO REAL, el que destapó que el Route Handler de Auth.js no estaba montado
-   y el desfase de relojes entre Neon y la aplicación. Dejaría de guardar `main`.
+> **Lo que decía aquí antes era falso, y lo escribí yo.** Afirmaba que el bloqueo era
+> `revocacion.camino-real.test.ts` contra el driver HTTP de Neon, y que había que elegir
+> entre tres opciones de infraestructura. **No había ninguna decisión que tomar.** El
+> `camino-real` pasa en CI sin problema: va por `cliente-test.ts`, que ya elegía `pg`
+> contra un Postgres normal. Lo dejo escrito en vez de borrarlo porque el error de método
+> vale más que la conclusión.
 
-> **Contexto que importa para elegir:** el workflow **no ha pasado nunca**, ni una vez
-> desde que se creó el 23 de agosto, y el badge de arriba lleva rojo desde entonces. Y
-> `.githooks/pre-commit` justifica lo que NO comprueba diciendo «lo cubre
-> `.github/workflows/verificar.yml`, que corre en cada push y no se puede saltar». Hasta
-> que esto se cierre, esa frase no es cierta: lo que de verdad guarda `main` hoy es el
-> hook local, que sí se puede saltar con `--no-verify`.
+**Qué pasaba de verdad.** Un único test, `src/lib/rate-limit/limitador.test.ts`, con una
+**dependencia de base escondida**. Comprobaba que la guarda de forma de clave ACEPTA
+`recuperar-nueva:ip:<ip>`, y lo hacía llamando a `registrarIntento` — que en cuanto
+acepta sigue hasta el `insert`. Verde en local (donde `DATABASE_URL` es un Neon real),
+rojo en CI (donde es un `postgres:18` con el que el driver HTTP de Neon no habla).
+
+**El arreglo.** La comprobación se extrajo a `claveBienFormada()`, pura y exportada. El
+caso aceptado se prueba contra ella; el rechazado sigue yendo por `registrarIntento`,
+que lanza antes de tocar nada, y así queda cubierto que la guarda está cableada de verdad
+y no solo exportada.
+
+**Cómo se encontró, que es la parte que importa.** No razonándolo: reproduciendo el
+entorno de CI en local.
+
+    DATABASE_URL=postgresql://…@localhost:5432/anime_vault_ci RATE_LIMIT_ENABLED=true npm run test:unit
+
+Con eso, el test viejo falla con el mismo `AssertionError` y el mismo
+`insert into rate_limit_bucket` que la anotación de Actions, y el nuevo pasa. **Los dos
+diagnósticos anteriores fueron inferidos sin leer el error real, y los dos fueron
+falsos** — el primero culpó al orden de los pasos, el segundo al driver de la aplicación.
+La captura de una anotación de GitHub valió más que las dos.
+
+> **Lo que sigue sin ser cierto hasta que haya una ejecución verde:** la frase de
+> `.githooks/pre-commit` que dice «lo cubre `.github/workflows/verificar.yml`, que corre
+> en cada push y no se puede saltar». El workflow no ha pasado nunca. Quien de verdad
+> guarda `main` hoy es el hook local, y ese sí se salta con `--no-verify`.
 
 ### 5 · Envío de correo (recuperación y verificación)
 

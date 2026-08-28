@@ -1,4 +1,7 @@
 import { notFound, redirect } from "next/navigation";
+import { GestorEnlaces } from "@/components/anime/gestor-enlaces";
+
+import type { EnlaceGuardado } from "@/components/anime/gestor-enlaces";
 import { AccionesFicha } from "@/components/anime/acciones-ficha";
 import { cache } from "react";
 
@@ -70,6 +73,14 @@ type AnimeDeLaFicha = NonNullable<Awaited<ReturnType<Vault["obtener"]>>>;
 
 type Ficha = {
   anime: AnimeDeLaFicha;
+  /**
+   * TODOS los enlaces, ya serializados y en su orden.
+   *
+   * `enlace` sigue siendo el primero de esta lista y no otra consulta: tener
+   * dos lecturas para «el más reciente» y «todos» era pedir que un día dijeran
+   * cosas distintas.
+   */
+  enlaces: readonly EnlaceGuardado[];
   /** Para la URL versionada de la portada. Los BYTES no viajan por aquí. */
   checksumPortada: string | null;
   /** La etiqueta que escribió el usuario. Nunca una reescrita por nosotros. */
@@ -118,7 +129,10 @@ const cargarFicha = cache(async (animeId: string): Promise<Ficha | null> => {
    * verdad es un método `ficha(animeId)` en el vault**, que no me toca
    * escribir. Anotado en `SUPUESTOS.md` como parada.
    */
-  const [listado, enlace] = await Promise.all([vault.listar(), vault.enlaceMasReciente(animeId)]);
+  // Los enlaces COMPLETOS, no solo el más reciente: la ficha ya no solo los
+  // enseña, deja añadirlos, abrirlos y quitarlos.
+  const [listado, enlaces] = await Promise.all([vault.listar(), vault.enlaces(animeId)]);
+  const enlace = enlaces[0] ?? null;
   const enElListado = listado.find((fila) => fila.id === animeId) ?? null;
 
   return {
@@ -127,6 +141,14 @@ const cargarFicha = cache(async (animeId: string): Promise<Ficha | null> => {
     progresoEtiqueta: enElListado?.progresoEtiqueta ?? null,
     relleno: enElListado === null ? null : rellenoDeFila(enElListado),
     enlace,
+    // Se serializa AQUÍ, en el servidor: un `Date` no cruza la frontera
+    // servidor→cliente sin convertir (`code-style.md` § Server/Client).
+    enlaces: enlaces.map((uno) => ({
+      id: uno.id,
+      url: uno.url,
+      etiqueta: uno.etiqueta,
+      ultimoUso: uno.ultimoUso?.toISOString() ?? null,
+    })),
   };
 });
 
@@ -214,7 +236,7 @@ export default async function PaginaFichaAnime({ params }: { params: Promise<{ i
   // que comprobara el HTML podía verlo: el HTML era el correcto.
   if (ficha === null) notFound();
 
-  const { anime, checksumPortada, progresoEtiqueta, relleno, enlace } = ficha;
+  const { anime, checksumPortada, progresoEtiqueta, relleno, enlace, enlaces } = ficha;
 
   /**
    * `anime.status` es `text` + `CHECK` en la base, así que Drizzle lo infiere
@@ -293,6 +315,10 @@ export default async function PaginaFichaAnime({ params }: { params: Promise<{ i
 
           <div className={cn("order-3 laptop:order-none", COLUMNA_PORTADA)}>
             <AccionContinuar enlace={enlace} />
+
+            <div className="mt-[var(--e-2)]">
+              <GestorEnlaces animeId={anime.id} enlaces={enlaces} />
+            </div>
           </div>
 
           <section className={cn("order-7 laptop:order-none", COLUMNA_PORTADA)}>
